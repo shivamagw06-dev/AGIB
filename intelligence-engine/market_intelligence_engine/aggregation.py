@@ -149,17 +149,27 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
         sector_bench = None
         if covered > 0:
             sector_bench = _median([m.get(sector_key) for m in members if m.get(sector_key) is not None])
-        # Prefer HVIE historical median for premium when available; else Upstox bench.
+        # Premium vs Upstox sector benchmark (table column) and vs HVIE history (audit).
         hist_median_level = hist_pack.get("historical_median")
-        premium = None
-        premium_basis = None
+        benchmark_premium = None
+        historical_premium = None
+        if current is not None and sector_bench:
+            benchmark_premium = round(100.0 * (current - sector_bench) / sector_bench, 1)
         if current is not None and hist_median_level:
-            premium = round(100.0 * (current - hist_median_level) / abs(hist_median_level), 1)
-            premium_basis = "hvie_sector_history"
-        elif current is not None and sector_bench:
-            premium = round(100.0 * (current - sector_bench) / sector_bench, 1)
-            premium_basis = "upstox_sector_benchmark"
+            historical_premium = round(
+                100.0 * (current - hist_median_level) / abs(hist_median_level), 1
+            )
+        # UI "Sector" column shows Upstox benchmark — premium must match that denominator.
+        premium = benchmark_premium if sector_bench is not None else historical_premium
+        premium_basis = (
+            "upstox_sector_benchmark"
+            if sector_bench is not None
+            else "hvie_sector_history"
+            if hist_median_level
+            else None
+        )
         opportunity = _opportunity_label(hist_pct)
+        range_status = _historical_range_status(hist_pct)
         out.append({
             "sector": sector,
             "companies": len(members),
@@ -183,8 +193,11 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
                 round(peer_pct_median, 1) if peer_pct_median is not None else None
             ),
             "premium_pct": premium,
+            "benchmark_premium_pct": benchmark_premium,
+            "historical_premium_pct": historical_premium,
             "premium_basis": premium_basis,
             "opportunity": opportunity,
+            "historical_range_status": range_status,
             "median_pe": _median([m.get("pe") for m in members]),
             "median_pb": _median([m.get("pb") for m in members]),
             "median_ev_ebitda": _median([m.get("ev_ebitda") for m in members]),
@@ -228,14 +241,20 @@ def _sector_own_history_percentile(
         }
 
 
-def _opportunity_label(hist_pct: Optional[float]) -> str:
+def _historical_range_status(hist_pct: Optional[float]) -> str:
+    """Institutional range label — not buy/sell opportunity language."""
     if hist_pct is None:
-        return "Unknown"
-    if hist_pct <= 30:
-        return "Attractive"
-    if hist_pct >= 70:
-        return "Premium"
-    return "Fair"
+        return "Insufficient History"
+    if hist_pct <= 25:
+        return "Below Historical Range"
+    if hist_pct >= 75:
+        return "Above Historical Range"
+    return "Within Historical Range"
+
+
+def _opportunity_label(hist_pct: Optional[float]) -> str:
+    """Legacy alias — maps to range status for backward compatibility."""
+    return _historical_range_status(hist_pct)
 
 
 def industry_table(universe: dict[str, Any], *, limit: int = 80) -> list[dict[str, Any]]:

@@ -83,14 +83,43 @@ class UnifiedValuationEngineProvider:
             + ". Policy-gated multiples from warehouse / Upstox; no price target."
         )
         why = []
+        hist_pct = None
+        sector_prem = None
         for key in ("pe", "pb", "ev_ebitda", "roe"):
             block = (pack.get("metrics") or {}).get(key) or pack.get(key)
             if isinstance(block, dict) and block.get("value") is not None:
                 why.append(f"{key.upper()}={block.get('value')} ({block.get('status') or 'observed'})")
+                if key == str(primary).lower() or (key == "pe" and hist_pct is None):
+                    if block.get("historical_percentile") is not None:
+                        hist_pct = block.get("historical_percentile")
+                    if block.get("sector_premium") is not None:
+                        sector_prem = block.get("sector_premium")
             elif block is not None and not isinstance(block, dict):
                 why.append(f"{key.upper()}={block}")
         if pack.get("policy_status"):
             why.append(f"VPAE status: {pack.get('policy_status')}")
+        # Explicit expensive/cheap framing for relative-valuation questions.
+        if any(k in qlow for k in ("expensive", "cheap", "overvalued", "undervalued", "relative to")):
+            stance = "fairly valued versus available history"
+            if isinstance(hist_pct, (int, float)):
+                if hist_pct >= 70:
+                    stance = f"expensive versus its own history (≈{hist_pct:.0f}th percentile)"
+                elif hist_pct <= 30:
+                    stance = f"cheap versus its own history (≈{hist_pct:.0f}th percentile)"
+                else:
+                    stance = f"near mid-cycle versus its own history (≈{hist_pct:.0f}th percentile)"
+            elif isinstance(sector_prem, (int, float)):
+                if sector_prem >= 10:
+                    stance = f"at a premium to sector (≈{sector_prem:.0f}%)"
+                elif sector_prem <= -10:
+                    stance = f"at a discount to sector (≈{sector_prem:.0f}%)"
+            else:
+                stance = (
+                    "relative expensive/cheap stance incomplete — historical percentile or "
+                    "sector premium not yet reconstructed for the primary multiple"
+                )
+            summary = f"{summary} Relative read: {stance}."
+            why.append(f"Relative valuation: {stance}")
         return timed_result(
             self.spec.id,
             ok=True,

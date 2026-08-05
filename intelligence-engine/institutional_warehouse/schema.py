@@ -683,6 +683,79 @@ OWNERSHIP = Tab(
 )
 
 # --------------------------------------------------------------------------
+# Tab — Share Count History (Phase 7.4F FWCP)
+# --------------------------------------------------------------------------
+
+SHARE_COUNT_HISTORY = Tab(
+    id="share_count_history",
+    label="Share Count History",
+    description=(
+        "Point-in-time share counts for HVIE, EPS, BVPS, market cap and EV. "
+        "Never stores PE/PB/EV — those remain HVIE reconstructions."
+    ),
+    mode="append",
+    key=("symbol", "as_of", "source"),
+    order_by=("as_of DESC", "symbol"),
+    search_columns=("symbol",),
+    icon="shares",
+    notes=(
+        "Prefer diluted / weighted-average when available. "
+        "Negative or zero share counts are rejected by FWCP DQIV.",
+    ),
+    columns=(
+        _c("symbol", "Symbol", TEXT, required=True, width=130, group="Key"),
+        _c("as_of", "As Of", DATE, required=True, width=120, group="Key"),
+        _c("basic_shares", "Basic Shares", NUMBER, width=150, group="Shares", unit=UNIT_COUNT),
+        _c("diluted_shares", "Diluted Shares", NUMBER, width=150, group="Shares", unit=UNIT_COUNT),
+        _c("weighted_average_shares", "Weighted Avg Shares", NUMBER, width=180, group="Shares",
+           unit=UNIT_COUNT),
+        _c("shares_outstanding", "Shares Outstanding", NUMBER, width=170, group="Shares",
+           unit=UNIT_COUNT, help="Canonical share count used by HVIE / market cap"),
+        _c("free_float_shares", "Free Float", NUMBER, width=140, group="Shares", unit=UNIT_COUNT),
+        _c("statement_type", "Statement Type", TEXT, width=140, group="Identity",
+           options=STATEMENT_TYPES),
+        _c("fiscal_period", "Fiscal Period", TEXT, width=130, group="Identity"),
+        _c("confidence", "Confidence", NUMBER, width=110, group="Quality"),
+        _c("dqiv_status", "DQIV", TEXT, width=110, group="Quality"),
+        _c("validation_notes", "Notes", TEXT, width=220, group="Quality"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+FWCP_IMPORT_QUEUE = Tab(
+    id="fwcp_import_queue",
+    label="FWCP Import Queue",
+    description="Financial Warehouse Completion Programme import / retry queue.",
+    mode="master",
+    key=("symbol",),
+    order_by=("updated_at DESC", "symbol"),
+    search_columns=("symbol", "queue_status", "blocking_reason"),
+    icon="queue",
+    columns=(
+        _c("symbol", "Symbol", TEXT, required=True, width=130, group="Key"),
+        _c("queue_status", "Queue Status", TEXT, width=140, group="Runtime",
+           options=("PENDING", "RUNNING", "RETRY", "COMPLETED", "FAILED", "SKIPPED")),
+        _c("lifecycle", "Lifecycle", TEXT, width=160, group="Runtime"),
+        _c("pack", "Active Pack", TEXT, width=160, group="Runtime"),
+        _c("blocking_reason", "Blocking Reason", TEXT, width=200, group="Health"),
+        _c("attempts", "Attempts", INTEGER, width=100, group="Runtime"),
+        _c("last_error", "Last Error", TEXT, width=280, group="Health"),
+        _c("annual_ok", "Annual OK", BOOL, width=100, group="Coverage"),
+        _c("quarterly_ok", "Quarterly OK", BOOL, width=110, group="Coverage"),
+        _c("share_count_ok", "Share Count OK", BOOL, width=130, group="Coverage"),
+        _c("consensus_ok", "Consensus OK", BOOL, width=120, group="Coverage"),
+        _c("ownership_ok", "Ownership OK", BOOL, width=120, group="Coverage"),
+        _c("peers_ok", "Peers OK", BOOL, width=100, group="Coverage"),
+        _c("profile_ok", "Profile OK", BOOL, width=110, group="Coverage"),
+        _c("last_run_at", "Last Run", DATETIME, width=170, group="Health"),
+        _c("next_retry_at", "Next Retry", DATETIME, width=170, group="Health"),
+        _c("completed_at", "Completed At", DATETIME, width=170, group="Health"),
+        _c("updated_at", "Updated At", DATETIME, width=170, group="Health"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
 # Tab 12 — Hedge Fund Factors (computed)
 # --------------------------------------------------------------------------
 
@@ -1488,6 +1561,7 @@ TABS: tuple[Tab, ...] = (
     DAILY_MARKET_HISTORY,
     FINANCIALS_ANNUAL,
     FINANCIALS_QUARTERLY,
+    SHARE_COUNT_HISTORY,
     HISTORICAL_RATIOS,
     HISTORICAL_VALUATION,
     CONSENSUS,
@@ -1496,6 +1570,7 @@ TABS: tuple[Tab, ...] = (
     CORPORATE_ACTIONS,
     OWNERSHIP,
     PEER_RELATIONSHIPS,
+    FWCP_IMPORT_QUEUE,
     INSTITUTIONAL_FLOW,
     VALUATION_RATIOS,
     BOOTSTRAP_RUNS,

@@ -5,11 +5,23 @@
  */
 
 function geminiKey() {
-  return (process.env.GEMINI_API_KEY || process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
+  return (
+    process.env.GEMINI_API_KEY
+    || process.env.GOOGLE_GEMINI_API_KEY
+    || process.env.GOOGLE_GENERATIVE_AI_API_KEY
+    || process.env.GOOGLE_API_KEY
+    || process.env.GENERATIVE_LANGUAGE_API_KEY
+    || ''
+  ).trim();
 }
 
 function openaiKey() {
-  return (process.env.OPENAI_API_KEY || '').trim();
+  return (
+    process.env.OPENAI_API_KEY
+    || process.env.OPENAI_MARKET_BRIEFING_KEY
+    || process.env.AGIB_OPENAI_API_KEY
+    || ''
+  ).trim();
 }
 
 function geminiModel() {

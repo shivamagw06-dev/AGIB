@@ -61,8 +61,6 @@ from ask_product_test.agi_core_v1_0 import (  # noqa: E402
     baseline_manifest,
 )
 from ask_product_test.acceptance_data import (  # noqa: E402
-    INFRASTRUCTURE_DEPENDENT_SUITES,
-    PRODUCT_SUITES,
     apply_env_defaults,
     bootstrap_acceptance_data,
     check_acceptance_data,

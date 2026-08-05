@@ -34,7 +34,7 @@ def plan_and_gather(
     question: str,
     *,
     ticker: Optional[str] = None,
-    max_providers: int = 8,
+    max_providers: int = 12,
 ) -> dict[str, Any]:
     """Full KUL path: query plan → knowledge plan → consult → rank → fuse.
 
@@ -222,4 +222,10 @@ def answer_for_ask(question: str, *, ticker: Optional[str] = None) -> Optional[d
     out.setdefault("engine", "knowledge_unification")
     out["uko"] = True
     out["providers_used"] = sources
+    try:
+        from ask_product_quality.production import enrich_answer
+
+        out = enrich_answer(out, question=question)
+    except Exception:
+        pass
     return out

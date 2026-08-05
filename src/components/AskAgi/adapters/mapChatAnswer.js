@@ -1,10 +1,15 @@
 /**
  * Project mapSearchPack → chat-first AGIB answer model.
- * Follows Response Constitution v1.0:
- * Direct Answer → Why → Thesis → Bull/Bear → Bottom Line → Supporting → Follow-ups.
+ * Stack: Response Constitution → Ask Intelligence Constitution → Playbook Framework → Workflow Framework.
  */
 
 import { mapSearchPack } from './mapSearchPack';
+import {
+  enrichJourneyMap,
+  getResearchJourneyState,
+  mergeResearchJourneyState,
+} from '@/lib/researchJourney';
+import { getResearchSession, mergeResearchSession } from '@/lib/researchSession';
 
 function asList(v, n = 8) {
   if (!Array.isArray(v)) return [];
@@ -61,6 +66,48 @@ export function mapChatAnswer(pack) {
   if (!vm) return null;
 
   const rc = vm.responseConstitution || pack?.answer_construction?.response_constitution || null;
+  const aic =
+    vm.askIntelligenceConstitution ||
+    pack?.answer_construction?.ask_intelligence_constitution ||
+    pack?.answer?.ask_intelligence_constitution ||
+    null;
+  const aicSections = aic?.sections || {};
+  const investmentContext = aicSections.investment_context || aic?.intent || null;
+  const ipf =
+    vm.institutionalPlaybookFramework ||
+    pack?.answer_construction?.institutional_playbook_framework ||
+    pack?.answer?.institutional_playbook_framework ||
+    null;
+  const playbook = ipf?.playbook || null;
+  const ticker = vm.ticker;
+  const playbookKey = playbook?.playbook_key || 'investment_assessment';
+
+  let journeyState = vm.researchJourneyState || ipf?.research_journey_state || null;
+  if (journeyState) {
+    journeyState = mergeResearchJourneyState(ticker, playbookKey, journeyState);
+  } else {
+    journeyState = getResearchJourneyState(ticker, playbookKey);
+  }
+  const journeyRaw = vm.researchJourney || ipf?.research_journey || null;
+  const researchJourney = enrichJourneyMap(journeyRaw, journeyState) || journeyRaw;
+
+  const rwf =
+    vm.researchWorkflowFramework ||
+    pack?.answer_construction?.research_workflow_framework ||
+    pack?.answer?.research_workflow_framework ||
+    null;
+  const workflowKey = rwf?.workflow?.workflow_key || 'investment_opportunity_evaluation';
+  let researchSession = vm.researchSession || rwf?.research_session || null;
+  if (researchSession) {
+    researchSession = mergeResearchSession(ticker, workflowKey, researchSession);
+  } else {
+    researchSession = getResearchSession(ticker, workflowKey);
+  }
+  const researchStatus = vm.researchStatus || rwf?.research_status || null;
+  const decisionObjective = vm.decisionObjective || rwf?.decision_objective?.objective || null;
+  const nextBestResearchQuestion =
+    vm.nextBestResearchQuestion || rwf?.next_best_research_question || null;
+
   const view = institutionalViewLabel(
     vm.stance || vm.institutionalView?.stance || '',
     vm.institutionalAnswer?.recommendation || vm.decisionEngine?.action || ''
@@ -176,10 +223,39 @@ export function mapChatAnswer(pack) {
     conviction: vm.conviction || view,
   };
 
+  const directAnswer =
+    aicSections.executive_summary ||
+    rc?.direct_answer ||
+    vm.institutionalAnswer?.text ||
+    vm.executive ||
+    vm.conclusion ||
+    'AGIB is assembling institutional intelligence for this question.';
+
+  const researchConclusion =
+    vm.researchConclusion ||
+    pack?.answer?.research_conclusion ||
+    aicSections.research_conclusion ||
+    null;
+
+  const questionsBeforeYouDecide = asList(
+    vm.questionsBeforeYouDecide ||
+      pack?.answer?.questions_before_you_decide ||
+      aicSections.questions_before_you_decide ||
+      researchConclusion?.key_questions_remaining,
+    8
+  );
+
+  const institutionalThinkingFramework = aic?.institutional_thinking_framework || null;
+
   const followUps = asList(
     [
+      nextBestResearchQuestion?.question,
+      ...(vm.suggestedNextResearch || []),
+      ...questionsBeforeYouDecide,
       ...(rc?.suggested_follow_ups || []),
       ...(vm.explore || []),
+      researchStatus?.next_activity ? `Continue: ${researchStatus.next_activity}` : null,
+      researchJourney?.next_step ? `Continue: ${researchJourney.next_step}` : null,
       `Why ${view}?`,
       vm.ticker ? `Compare ${vm.ticker} with peers` : 'Show peer comparison',
       'Explain the valuation in plain English',
@@ -200,13 +276,6 @@ export function mapChatAnswer(pack) {
     ],
     4
   );
-
-  const directAnswer =
-    rc?.direct_answer ||
-    vm.institutionalAnswer?.text ||
-    vm.executive ||
-    vm.conclusion ||
-    'AGIB is assembling institutional intelligence for this question.';
 
   const whyAgib = asList(rc?.why_agib_thinks_this?.length ? rc.why_agib_thinks_this : vm.why, 5);
 
@@ -245,7 +314,22 @@ export function mapChatAnswer(pack) {
     recentResearch,
     freshness: vm.freshness,
     lastUpdated: vm.lastUpdated,
-    constitutionVersion: rc?.version || '1.0',
+    constitutionVersion: aic?.version || ipf?.version || rc?.version || '1.0',
+    investmentContext,
+    researchConclusion,
+    questionsBeforeYouDecide,
+    institutionalThinkingFramework,
+    methodologyIntent: investmentContext?.primary_intent || aic?.intent?.primary_intent || null,
+    realIntent: investmentContext?.real_intent || aic?.intent?.real_intent || decisionObjective || null,
+    playbook,
+    researchJourney,
+    researchJourneyState: journeyState,
+    researchStatus,
+    researchSession,
+    decisionObjective,
+    nextBestResearchQuestion,
+    workflow: rwf?.workflow || null,
+    suggestedNextResearch: asList(vm.suggestedNextResearch || [], 6),
     deep: {
       thesis: vm.thesis,
       why: whyAgib,

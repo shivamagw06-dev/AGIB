@@ -3208,6 +3208,30 @@ export default function createIntelligenceRouter() {
   router.get('/ifac/debug', kfGet('/v1/ifac/debug'));
   router.get('/ifac/provenance', kfGet('/v1/ifac/provenance'));
   router.get('/ifac/dashboard', kfGet('/v1/ifac/dashboard'));
+  router.get('/aqe/health', kfGet('/v1/aqe/health'));
+  router.get('/aqe/dashboard', kfGet('/v1/aqe/dashboard'));
+  router.post('/aqe/inspect', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/aqe/inspect', {
+        method: 'POST',
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(r);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'aqe inspect failed' });
+    }
+  });
+  router.post('/aqe/quality-gate', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/aqe/quality-gate', {
+        method: 'POST',
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(r);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'aqe quality-gate failed' });
+    }
+  });
   router.post('/ifac/compose', async (req, res) => {
     try {
       const r = await engineFetch('/v1/ifac/compose', {
@@ -3385,6 +3409,55 @@ export default function createIntelligenceRouter() {
   });
 
   // Mission Control V1 — administrator operations centre (read-only)
+  const MC_DASHBOARD_CACHE = { body: null, at: 0 };
+  const MC_DASHBOARD_CACHE_MS = 5 * 60_000;
+
+  async function fetchMissionControlDashboard({ timeoutMs = 25_000, retries = 1 } = {}) {
+    let lastErr = null;
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+      try {
+        const result = await engineFetch('/v1/mission-control/dashboard', { timeoutMs });
+        if (!result.ok) {
+          const err = new Error(
+            result.data?.error || result.data?.detail || `engine_http_${result.status}`,
+          );
+          err.status = result.status;
+          throw err;
+        }
+        if (result.data && typeof result.data === 'object') {
+          MC_DASHBOARD_CACHE.body = result.data;
+          MC_DASHBOARD_CACHE.at = Date.now();
+        }
+        return result.data;
+      } catch (err) {
+        lastErr = err;
+        const retryable =
+          err?.name === 'TimeoutError'
+          || err?.name === 'AbortError'
+          || /timed out|aborted|fetch failed|ECONNRESET|ENOTFOUND|EAI_AGAIN/i.test(
+            String(err?.message || ''),
+          );
+        if (attempt < retries && retryable) {
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+        break;
+      }
+    }
+    if (
+      MC_DASHBOARD_CACHE.body
+      && Date.now() - MC_DASHBOARD_CACHE.at < MC_DASHBOARD_CACHE_MS
+    ) {
+      return {
+        ...MC_DASHBOARD_CACHE.body,
+        stale: true,
+        _stale_reason: String(lastErr?.message || 'engine_unavailable').slice(0, 200),
+      };
+    }
+    throw lastErr || new Error('mission_control_dashboard_unavailable');
+  }
+
   router.get('/mission-control/health', kfGet('/v1/mission-control/health'));
   router.get('/mission-control/intelligence-map', async (_req, res) => {
     try {
@@ -3514,12 +3587,9 @@ export default function createIntelligenceRouter() {
 
   router.get('/mission-control/dashboard', async (_req, res) => {
     try {
-      // Snapshot path — keep Node timeout short; engine must not compute.
-      const result = await engineFetch('/v1/mission-control/dashboard', { timeoutMs: 10_000 });
-      if (!result.ok) {
-        return res.status(result.status).json(result.data);
-      }
-      let desk = result.data && typeof result.data === 'object' ? { ...result.data } : {};
+      // Snapshot reader — tolerate IE cold start with retry + short stale cache.
+      let desk = await fetchMissionControlDashboard({ timeoutMs: 25_000, retries: 1 });
+      desk = desk && typeof desk === 'object' ? { ...desk } : {};
       const warming = desk.status === 'warming' || desk._warming === true;
       if (warming) {
         // Do not fan out learning/API enrich while the desk is warming.
@@ -3610,7 +3680,9 @@ export default function createIntelligenceRouter() {
       return res.status(503).json({
         error: 'Mission Control dashboard unavailable',
         detail: error.message,
-        hint: 'Snapshot reader failed — check intelligence engine health / disk snapshot.',
+        hint:
+          'Intelligence engine may be cold-starting or redeploying. Wait 30–60s and refresh. '
+          + 'If it persists, check /api/intelligence/health and MC snapshot on disk.',
       });
     }
   });
@@ -8260,12 +8332,12 @@ export default function createIntelligenceRouter() {
         'admin',
     ).slice(0, 200);
 
-  const warehouseGet = (buildPath) => async (req, res) => {
+  const warehouseGet = (buildPath, timeoutMs = 120_000) => async (req, res) => {
     try {
       const qs = new URLSearchParams(req.query || {}).toString();
       const target = typeof buildPath === 'function' ? buildPath(req) : buildPath;
       const result = await engineFetch(`${target}${qs ? `?${qs}` : ''}`, {
-        timeoutMs: 120_000,
+        timeoutMs,
         headers: { 'X-AGI-Actor': warehouseActor(req) },
       });
       return res.status(result.status).json(result.data);
@@ -8296,6 +8368,42 @@ export default function createIntelligenceRouter() {
   router.get('/warehouse/stats', warehouseGet('/v1/warehouse/stats'));
   router.get('/warehouse/whoami', warehouseGet('/v1/warehouse/whoami'));
   router.get('/warehouse/coverage', warehouseGet('/v1/warehouse/coverage'));
+  // Phase 7.4F — Financial Warehouse Completion Programme
+  router.get('/fwcp/health', warehouseGet('/v1/fwcp/health'));
+  router.get('/warehouse/financial-coverage', warehouseGet('/v1/warehouse/financial-coverage'));
+  // Phase 7.4F Step 0 — Financial Warehouse Coverage Audit (read-only)
+  router.get('/warehouse/financial-audit', warehouseGet('/v1/warehouse/financial-audit', 180_000));
+  router.get('/warehouse/coverage/summary', warehouseGet('/v1/warehouse/coverage/summary', 180_000));
+  router.get('/warehouse/coverage/sector', warehouseGet('/v1/warehouse/coverage/sector', 180_000));
+  router.get('/warehouse/missing-financials', warehouseGet('/v1/warehouse/missing-financials', 180_000));
+  router.get('/warehouse/company/:symbol/coverage', warehouseGet((req) =>
+    `/v1/warehouse/company/${encode(req.params.symbol)}/coverage`));
+  router.get('/warehouse/missing-statements', warehouseGet('/v1/warehouse/missing-statements'));
+  router.get('/warehouse/missing-share-count', warehouseGet('/v1/warehouse/missing-share-count'));
+  router.get('/warehouse/import/status', warehouseGet('/v1/warehouse/import/status'));
+  router.get('/warehouse/import/board', warehouseGet('/v1/warehouse/import/board'));
+  router.get('/warehouse/import/capital-iq', warehouseGet('/v1/warehouse/import/capital-iq'));
+  router.post('/warehouse/import/start', warehousePost('/v1/warehouse/import/start'));
+  router.post('/warehouse/import/stop', warehousePost('/v1/warehouse/import/stop'));
+  router.post('/warehouse/import/resume', warehousePost('/v1/warehouse/import/resume'));
+  router.post('/warehouse/import/retry', warehousePost('/v1/warehouse/import/retry', 300_000));
+  router.post('/warehouse/import/run', warehousePost('/v1/warehouse/import/run', 300_000));
+  router.post('/warehouse/import/capital-iq', warehousePost('/v1/warehouse/import/capital-iq', 300_000));
+  router.post('/warehouse/share-count/:symbol/sync', warehousePost((req) =>
+    `/v1/warehouse/share-count/${encode(req.params.symbol)}/sync`));
+  // Phase 7.4F — Yahoo-first financial fill (fast EMPTY / thin path)
+  router.get('/warehouse/yahoo-fill/status', warehouseGet('/v1/warehouse/yahoo-fill/status', 180_000));
+  router.get('/warehouse/yahoo-fill/board', warehouseGet('/v1/warehouse/yahoo-fill/board', 180_000));
+  router.get('/warehouse/yahoo-fill/queue', warehouseGet('/v1/warehouse/yahoo-fill/queue', 180_000));
+  router.get('/warehouse/yahoo-fill/probe', warehouseGet('/v1/warehouse/yahoo-fill/probe', 120_000));
+  router.get('/warehouse/upstox-fill/queue', warehouseGet('/v1/warehouse/upstox-fill/queue', 180_000));
+  router.get('/warehouse/upstox-fill/board', warehouseGet('/v1/warehouse/upstox-fill/board', 180_000));
+  router.post('/warehouse/yahoo-fill/start', warehousePost('/v1/warehouse/yahoo-fill/start'));
+  router.post('/warehouse/yahoo-fill/stop', warehousePost('/v1/warehouse/yahoo-fill/stop'));
+  router.post('/warehouse/yahoo-fill/resume', warehousePost('/v1/warehouse/yahoo-fill/resume'));
+  router.post('/warehouse/yahoo-fill/run', warehousePost('/v1/warehouse/yahoo-fill/run', 600_000));
+  router.post('/warehouse/yahoo-fill/:symbol', warehousePost((req) =>
+    `/v1/warehouse/yahoo-fill/${encode(req.params.symbol)}`, 120_000));
   router.get('/warehouse/audit', warehouseGet('/v1/warehouse/audit'));
   router.get('/warehouse/validate', warehouseGet('/v1/warehouse/validate'));
   router.get('/warehouse/imports', warehouseGet('/v1/warehouse/imports'));

@@ -148,5 +148,26 @@ def test_pure_concept_question_still_routes_through_financial_router_end_to_end(
     view = ui.search("What is Free Cash Flow?")
     payload = view.model_dump(mode="json") if hasattr(view, "model_dump") else dict(view)
     orch = payload.get("ask_orchestration") or {}
-    assert orch.get("short_circuit") == "financial_router"
-    assert orch.get("financial_engine") == "financial_concepts"
+    # Phase 9.2 / KUL: pure concepts short-circuit via Knowledge Unification
+    # (financial_concepts / foundations / FSI) rather than the legacy
+    # financial_router label — same engines, unified planner path.
+    sc = orch.get("short_circuit")
+    assert sc in {"financial_router", "knowledge_unification"}
+    sources = list((payload.get("meta") or {}).get("sources") or [])
+    engine = orch.get("financial_engine")
+    assert engine in {
+        "financial_concepts",
+        "financial_foundations",
+        "financial_statement_intelligence",
+        None,
+    } or any(
+        s in sources
+        for s in (
+            "financial_concepts",
+            "financial_foundations",
+            "financial_statement_intelligence",
+            "knowledge_unification",
+        )
+    )
+    summary = ((payload.get("answer") or {}).get("summary") or "").lower()
+    assert "cash" in summary or "fcf" in summary

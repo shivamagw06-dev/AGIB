@@ -53,18 +53,29 @@ def _statements_available(symbol: str) -> tuple[bool, int]:
 
 
 def _has_share_count(symbol: str) -> tuple[bool, Optional[float]]:
-    """Share count from statements or price history — required for P/B and EV."""
+    """Share count from FWCP share_count_history, statements, or prices — required for P/B and EV."""
+    ticker = str(symbol or "").strip().upper()
+    # Phase 7.4F — prefer dedicated share_count_history tab.
+    try:
+        from financial_warehouse_completion.share_count import has_share_count as fwcp_shares
+
+        ok, shares = fwcp_shares(ticker)
+        if ok:
+            return True, shares
+    except Exception:
+        pass
     from institutional_warehouse import store
     from institutional_warehouse.values import to_number
 
-    ticker = str(symbol or "").strip().upper()
-    for tab in ("financials_annual", "financials_quarterly", "daily_market_history"):
+    for tab in ("share_count_history", "financials_annual", "financials_quarterly", "daily_market_history"):
         try:
             rows = store.fetch(tab, entity=ticker, limit=20).get("rows") or []
         except Exception:
             rows = []
         for row in rows:
-            shares = to_number(row.get("shares_outstanding"))
+            shares = to_number(
+                row.get("shares_outstanding") or row.get("diluted_shares") or row.get("weighted_average_shares")
+            )
             if shares is not None and shares > 0:
                 return True, shares
     return False, None

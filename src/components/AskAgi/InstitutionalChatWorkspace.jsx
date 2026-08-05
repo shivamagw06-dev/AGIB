@@ -76,6 +76,73 @@ function deepText(answer, chipId) {
   }
 }
 
+function ResearchStatus({ status, workflow, objective }) {
+  if (!status?.items?.length) return null;
+  return (
+    <section className="ac-block ac-journey">
+      <h2>{status.display || 'Research Status'}</h2>
+      {objective && (
+        <p className="ac-intent-note" style={{ fontSize: '0.82rem', color: '#5b6570', marginTop: 0 }}>
+          Objective: {objective}
+          {workflow?.name ? ` · Workflow: ${workflow.name}` : ''}
+        </p>
+      )}
+      <ul className="ac-journey-steps">
+        {status.items.map((item) => (
+          <li
+            key={item.label}
+            className={
+              item.status === 'complete' ? 'done' : item.status === 'needs_review' ? 'review' : item.current ? 'current' : ''
+            }
+          >
+            <span>{item.symbol || (item.status === 'complete' ? '✓' : item.status === 'needs_review' ? '⚠' : '□')}</span>{' '}
+            {item.note || item.label}
+          </li>
+        ))}
+      </ul>
+      {status.needs_further_investigation && (
+        <p className="ac-confidence-why" style={{ marginTop: '0.55rem' }}>
+          Needs Further Investigation — additional evidence required before research can firm up.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function NextBestResearch({ nbrq, onAsk }) {
+  if (!nbrq?.question) return null;
+  return (
+    <section className="ac-block ac-nbrq">
+      <h2>Next Best Research Question</h2>
+      <button type="button" className="ac-nbrq-btn" onClick={() => onAsk(nbrq.question)}>
+        {nbrq.question}
+      </button>
+      {nbrq.reason && <p className="ac-confidence-why">{nbrq.reason}</p>}
+    </section>
+  );
+}
+
+function ResearchProgressFallback({ journey, playbook }) {
+  if (!journey?.steps?.length) return null;
+  return (
+    <section className="ac-block ac-journey">
+      <h2>Research Progress</h2>
+      {playbook?.name && (
+        <p className="ac-intent-note" style={{ fontSize: '0.82rem', color: '#5b6570', marginTop: 0 }}>
+          Playbook: {playbook.name}
+        </p>
+      )}
+      <ul className="ac-journey-steps">
+        {journey.steps.map((step) => (
+          <li key={step.label} className={step.completed ? 'done' : step.current ? 'current' : ''}>
+            <span>{step.completed ? '✓' : '□'}</span> {step.label}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function AnswerTurn({ answer, onAsk }) {
   const [openChip, setOpenChip] = useState(null);
   if (!answer) return null;
@@ -84,9 +151,25 @@ function AnswerTurn({ answer, onAsk }) {
     <div className="ac-msg ac-msg-agi">
       <div className="ac-label">AGI</div>
 
+      <ResearchStatus
+        status={answer.researchStatus}
+        workflow={answer.workflow}
+        objective={answer.decisionObjective}
+      />
+      {!answer.researchStatus?.items?.length && (
+        <ResearchProgressFallback journey={answer.researchJourney} playbook={answer.playbook} />
+      )}
+
+      <NextBestResearch nbrq={answer.nextBestResearchQuestion} onAsk={onAsk} />
+
       {/* 1. Direct Answer */}
       <div className="ac-direct">
         <p className="ac-kicker">Direct Answer</p>
+        {answer.realIntent && (
+          <p className="ac-intent-note" style={{ fontSize: '0.82rem', color: '#5b6570', marginBottom: '0.55rem' }}>
+            Research focus: {answer.realIntent}
+          </p>
+        )}
         <p className="ac-direct-text">{answer.directAnswer}</p>
         <div className="ac-meta-row">
           <div>
@@ -165,7 +248,40 @@ function AnswerTurn({ answer, onAsk }) {
         </div>
       </section>
 
-      {/* 5. Bottom Line */}
+      {/* 5. Research Conclusion */}
+      {answer.researchConclusion && (
+        <section className="ac-block ac-research-conclusion">
+          <h2>Research Conclusion</h2>
+          <p>{answer.researchConclusion.summary || answer.bottomLine}</p>
+          {answer.researchConclusion.key_uncertainties?.length > 0 && (
+            <>
+              <h3 style={{ fontSize: '0.88rem', marginTop: '0.75rem' }}>Key Uncertainties</h3>
+              <ul className="ac-why-list">
+                {answer.researchConclusion.key_uncertainties.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          <p className="ac-confidence-why" style={{ marginTop: '0.65rem' }}>
+            The final investment decision remains yours — AGI provides institutional research context, not instructions.
+          </p>
+        </section>
+      )}
+
+      {/* 6. Questions Before You Decide */}
+      {answer.questionsBeforeYouDecide?.length > 0 && (
+        <section className="ac-block">
+          <h2>Questions Before You Decide</h2>
+          <ul className="ac-why-list">
+            {answer.questionsBeforeYouDecide.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* 7. Bottom Line */}
       {answer.bottomLine && (
         <section className="ac-block ac-bottom-line">
           <h2>Bottom Line</h2>
@@ -173,7 +289,7 @@ function AnswerTurn({ answer, onAsk }) {
         </section>
       )}
 
-      {/* 6. Supporting Intelligence */}
+      {/* 8. Supporting Intelligence */}
       <section className="ac-block">
         <h2>Supporting Intelligence</h2>
         <div className="ac-chips">
@@ -195,7 +311,7 @@ function AnswerTurn({ answer, onAsk }) {
         )}
       </section>
 
-      {/* 7. Suggested Follow-up Questions */}
+      {/* 9. Suggested Follow-up Questions */}
       <section className="ac-block">
         <h2>Suggested Follow-up Questions</h2>
         <div className="ac-follows">

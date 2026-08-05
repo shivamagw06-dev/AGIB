@@ -940,7 +940,7 @@ export const getGovernmentDashboard = () =>
 export const getMissionControlHealth = () =>
   intelligenceFetch('/mission-control/health', { timeoutMs: 15_000 });
 export const getMissionControlDashboard = () =>
-  intelligenceFetch('/mission-control/dashboard', { timeoutMs: 15_000 });
+  intelligenceFetch('/mission-control/dashboard', { timeoutMs: 30_000 });
 export const getMissionControlAgentMap = () =>
   intelligenceFetch('/mission-control/agent-map', { timeoutMs: 15_000 });
 export const getIntelligenceMapSnapshot = () =>
@@ -3234,6 +3234,14 @@ export const getIfacDebug = (limit = 20) =>
   intelligenceFetch(`/ifac/debug?limit=${encodeURIComponent(limit)}`);
 export const postIfacCompose = (body = {}) =>
   intelligenceFetch('/ifac/compose', { method: 'POST', body, timeoutMs: 120_000 });
+
+export const getAqeHealth = () => intelligenceFetch('/aqe/health');
+export const getAqeDashboard = () =>
+  intelligenceFetch('/aqe/dashboard', { timeoutMs: 60_000 });
+export const postAqeInspect = (body = {}) =>
+  intelligenceFetch('/aqe/inspect', { method: 'POST', body, timeoutMs: 60_000 });
+export const postAqeQualityGate = (body = {}) =>
+  intelligenceFetch('/aqe/quality-gate', { method: 'POST', body, timeoutMs: 60_000 });
 
 /** Market & Sector Intelligence Terminal v1.0 */
 export const getMiHealth = () => intelligenceFetch('/market-intelligence/health');

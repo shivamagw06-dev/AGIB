@@ -8,17 +8,17 @@ from typing import Optional
 FAMILY_PRIORITY: dict[str, dict[str, tuple[str, ...]]] = {
     "company": {
         "primary": ("research_intelligence_engine",),
-        "secondary": ("forecast_intelligence_engine",),
+        # Business narrative before thin FIE scenario dumps for IC memoranda.
+        "secondary": ("business_intelligence", "investment_intelligence"),
         "supporting": (
+            "forecast_intelligence_engine",
             "valuation_attribution_engine",
             "historical_valuation_intelligence",
             "unified_valuation_engine",
             "macro_intelligence_engine",
             "valuation_policy_engine",
             "market_intelligence_engine",
-            "business_intelligence",
             "industry_intelligence",
-            "investment_intelligence",
             "historical_intelligence",
             "institutional_warehouse",
             "valuation_terminal",
@@ -27,17 +27,16 @@ FAMILY_PRIORITY: dict[str, dict[str, tuple[str, ...]]] = {
     },
     "company_intel": {
         "primary": ("research_intelligence_engine",),
-        "secondary": ("forecast_intelligence_engine",),
+        "secondary": ("business_intelligence", "investment_intelligence"),
         "supporting": (
+            "forecast_intelligence_engine",
             "valuation_attribution_engine",
             "historical_valuation_intelligence",
             "unified_valuation_engine",
             "macro_intelligence_engine",
             "valuation_policy_engine",
             "market_intelligence_engine",
-            "business_intelligence",
             "industry_intelligence",
-            "investment_intelligence",
             "historical_intelligence",
             "institutional_warehouse",
             "valuation_terminal",
@@ -184,6 +183,21 @@ FAMILY_PRIORITY: dict[str, dict[str, tuple[str, ...]]] = {
         ),
         "reference": ("valuation_consensus",),
     },
+    # Moat / business-model pedagogy — BI leads; valuation is supporting only.
+    "business": {
+        "primary": ("business_intelligence",),
+        "secondary": ("industry_intelligence", "investment_intelligence"),
+        "supporting": (
+            "research_intelligence_engine",
+            "forecast_intelligence_engine",
+            "valuation_attribution_engine",
+            "unified_valuation_engine",
+            "historical_valuation_intelligence",
+            "capiq_ikt",
+            "company_memory",
+        ),
+        "reference": ("valuation_consensus",),
+    },
 }
 
 
@@ -204,6 +218,20 @@ def resolve_family(family: Optional[str], question: str = "") -> str:
     f = aliases.get(f, f)
 
     # High-confidence question overrides — applied even when UKO family is set.
+    # Full IC memoranda beat incidental "business model" section lists.
+    if any(
+        k in q
+        for k in (
+            "investment committee",
+            "institutional equity analyst",
+            "as if you were",
+            "dossier",
+            "committee memorandum",
+            "research memorandum",
+            "preparing an investment",
+        )
+    ):
+        return "company"
     if any(
         k in q
         for k in (
@@ -213,11 +241,40 @@ def resolve_family(family: Optional[str], question: str = "") -> str:
             "premium valuation",
             "premium to peers",
             "valuation attribution",
+            "trades at a premium valuation",
+            "why .* trades at a premium",
         )
-    ) or ("premium" in q and any(k in q for k in ("attribute", "attribution", "break down", "decompose"))):
+    ) or (
+        "premium" in q
+        and any(k in q for k in ("attribute", "attribution", "break down", "decompose", "why"))
+        and "pricing" not in q
+    ):
         return "attribution"
-    if any(k in q for k in ("investment committee", "institutional equity analyst", "as if you were", "dossier")):
-        return "company"
+    if any(
+        k in q
+        for k in (
+            "moat",
+            "pricing power",
+            "switching costs",
+            "premium pricing",
+            "sustain premium",
+            "membership model",
+            "competitive advantage",
+        )
+    ) or (
+        "business model" in q
+        and not any(
+            k in q
+            for k in (
+                "investment committee",
+                "memorandum",
+                "dossier",
+                "monitoring points",
+                "observed, derived",
+            )
+        )
+    ):
+        return "business"
     if any(k in q for k in ("compare ", " versus ", " vs ", "stronger institutional profile")):
         return "comparison"
     if any(k in q for k in ("expensive or cheap", "currently expensive", "currently cheap", "overvalued", "undervalued")):
@@ -239,7 +296,9 @@ def resolve_family(family: Optional[str], question: str = "") -> str:
         return "forecast"
     if any(k in q for k in ("expensive", "cheap", "valuation", "overvalued", "undervalued")):
         return "valuation"
-    return "company" if f in {"company", "business"} else (f if f in FAMILY_PRIORITY else "company")
+    if f == "business":
+        return "business"
+    return "company" if f == "company" else (f if f in FAMILY_PRIORITY else "company")
 
 
 def priority_order(family: str) -> list[str]:

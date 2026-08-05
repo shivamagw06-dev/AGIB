@@ -177,6 +177,31 @@
 
 .vp-back:hover { color: var(--vp-text); }
 
+.vp-panel {
+  background: var(--vp-panel);
+  border: 1px solid var(--vp-line);
+  padding: 1rem 1.1rem;
+}
+
+.vp-h2 {
+  font-family: "IBM Plex Serif", Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+}
+
+.vp-pre {
+  background: #0c1015;
+  border: 1px solid var(--vp-line);
+  padding: 0.75rem;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.vp-stat.ok .value { color: var(--vp-ok); }
+.vp-stat.warn .value { color: var(--vp-warn); }
+.vp-stat.bad .value { color: var(--vp-bad); }
+
 /* HVIE Runtime board */
 .hr-actions {
   display: flex;

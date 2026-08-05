@@ -18726,6 +18726,314 @@ async def warehouse_coverage():
 
 
 # ---------------------------------------------------------------------------
+# Phase 7.4F — Financial Warehouse Completion Programme (FWCP)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/fwcp/health")
+async def fwcp_health():
+    from financial_warehouse_completion import health
+
+    return health()
+
+
+@router.get("/warehouse/financial-coverage")
+async def warehouse_financial_coverage():
+    from financial_warehouse_completion import financial_coverage
+
+    return financial_coverage()
+
+
+@router.get("/warehouse/financial-audit")
+async def warehouse_financial_audit():
+    """Phase 7.4F Step 0 — read-only financial warehouse coverage audit."""
+    from financial_warehouse_completion import financial_audit
+
+    return financial_audit()
+
+
+@router.get("/warehouse/coverage/summary")
+async def warehouse_coverage_summary():
+    from financial_warehouse_completion import coverage_summary
+
+    return coverage_summary()
+
+
+@router.get("/warehouse/coverage/sector")
+async def warehouse_coverage_sector():
+    from financial_warehouse_completion import coverage_sector
+
+    return coverage_sector()
+
+
+@router.get("/warehouse/missing-financials")
+async def warehouse_missing_financials(limit: int = 500, classification: str | None = None):
+    from financial_warehouse_completion import missing_financials
+
+    return missing_financials(limit=limit, classification=classification)
+
+
+@router.get("/warehouse/company/{symbol}/coverage")
+async def warehouse_company_financial_coverage(symbol: str):
+    from financial_warehouse_completion import company_coverage
+
+    return company_coverage(symbol)
+
+
+@router.get("/warehouse/missing-statements")
+async def warehouse_missing_statements(limit: int = 500):
+    from financial_warehouse_completion import missing_statements
+
+    return missing_statements(limit=limit)
+
+
+@router.get("/warehouse/missing-share-count")
+async def warehouse_missing_share_count(limit: int = 500):
+    from financial_warehouse_completion import missing_share_count
+
+    return missing_share_count(limit=limit)
+
+
+@router.get("/warehouse/import/status")
+async def warehouse_import_status():
+    from financial_warehouse_completion import import_status
+
+    return import_status()
+
+
+@router.get("/warehouse/import/board")
+async def warehouse_import_board():
+    from financial_warehouse_completion import import_board
+
+    return import_board()
+
+
+@router.post("/warehouse/import/start")
+async def warehouse_import_start(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import import_start
+
+    body = payload or {}
+    return import_start(
+        batch=int(body.get("batch") or 15),
+        actor=_warehouse_actor(body, x_agi_actor),
+    )
+
+
+@router.post("/warehouse/import/stop")
+async def warehouse_import_stop():
+    from financial_warehouse_completion import import_stop
+
+    return import_stop()
+
+
+@router.post("/warehouse/import/resume")
+async def warehouse_import_resume(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import import_resume
+
+    body = payload or {}
+    return import_resume(
+        batch=int(body.get("batch") or 15),
+        actor=_warehouse_actor(body, x_agi_actor),
+    )
+
+
+@router.post("/warehouse/import/retry")
+async def warehouse_import_retry(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import import_retry
+
+    body = payload or {}
+    return import_retry(
+        limit=int(body.get("limit") or 50),
+        actor=_warehouse_actor(body, x_agi_actor),
+    )
+
+
+@router.post("/warehouse/import/run")
+async def warehouse_import_run(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import import_run
+
+    body = payload or {}
+    symbols = body.get("symbols")
+    if isinstance(symbols, str):
+        symbols = [symbols]
+    return import_run(
+        batch=int(body.get("batch") or 10),
+        symbols=symbols,
+        actor=_warehouse_actor(body, x_agi_actor),
+        include_capital_iq=bool(body.get("include_capital_iq")),
+    )
+
+
+@router.get("/warehouse/import/capital-iq")
+async def warehouse_import_capital_iq_status():
+    from financial_warehouse_completion import capital_iq
+
+    return capital_iq()
+
+
+@router.post("/warehouse/import/capital-iq")
+async def warehouse_import_capital_iq_run(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import run_capital_iq
+
+    body = payload or {}
+    limit = body.get("limit")
+    return run_capital_iq(
+        limit=int(limit) if limit is not None else None,
+        actor=_warehouse_actor(body, x_agi_actor),
+    )
+
+
+@router.post("/warehouse/share-count/{symbol}/sync")
+async def warehouse_share_count_sync(
+    symbol: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import sync_shares
+
+    body = payload or {}
+    return sync_shares(symbol, actor=_warehouse_actor(body, x_agi_actor))
+
+
+# ---------------------------------------------------------------------------
+# Phase 7.4F — Yahoo-first financial fill (fast EMPTY / thin path)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/warehouse/yahoo-fill/status")
+async def warehouse_yahoo_fill_status():
+    from financial_warehouse_completion import yahoo_fill_status
+
+    return yahoo_fill_status()
+
+
+@router.get("/warehouse/yahoo-fill/board")
+async def warehouse_yahoo_fill_board():
+    from financial_warehouse_completion import yahoo_fill_board
+
+    return yahoo_fill_board()
+
+
+@router.get("/warehouse/yahoo-fill/queue")
+async def warehouse_yahoo_fill_queue(limit: int = 200, include_thin: bool = True):
+    from financial_warehouse_completion import yahoo_fill_queue
+
+    return yahoo_fill_queue(limit=limit, include_thin=include_thin)
+
+
+@router.get("/warehouse/yahoo-fill/probe")
+async def warehouse_yahoo_fill_probe(symbol: str = "RELIANCE"):
+    from financial_warehouse_completion import yahoo_fill_probe
+
+    return yahoo_fill_probe(symbol)
+
+
+@router.get("/warehouse/upstox-fill/queue")
+async def warehouse_upstox_fill_queue(
+    limit: int = 200,
+    include_thin: bool = True,
+    exclude: str = "",
+):
+    from financial_warehouse_completion import upstox_fill_queue
+
+    exclude_list = [s.strip().upper() for s in str(exclude or "").split(",") if s.strip()]
+    return upstox_fill_queue(limit=limit, include_thin=include_thin, exclude=exclude_list or None)
+
+
+@router.get("/warehouse/upstox-fill/board")
+async def warehouse_upstox_fill_board():
+    from financial_warehouse_completion import upstox_fill_board
+
+    return upstox_fill_board()
+
+
+@router.post("/warehouse/yahoo-fill/start")
+async def warehouse_yahoo_fill_start(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import yahoo_fill_start
+
+    body = payload or {}
+    return yahoo_fill_start(
+        batch=int(body.get("batch") or 25),
+        actor=_warehouse_actor(body, x_agi_actor) or "yahoo_fill",
+        pause_seconds=float(body.get("pause_seconds") if body.get("pause_seconds") is not None else 0.35),
+        include_thin=bool(body.get("include_thin", True)),
+    )
+
+
+@router.post("/warehouse/yahoo-fill/stop")
+async def warehouse_yahoo_fill_stop():
+    from financial_warehouse_completion import yahoo_fill_stop
+
+    return yahoo_fill_stop()
+
+
+@router.post("/warehouse/yahoo-fill/resume")
+async def warehouse_yahoo_fill_resume(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import yahoo_fill_resume
+
+    body = payload or {}
+    return yahoo_fill_resume(
+        batch=int(body.get("batch") or 25),
+        actor=_warehouse_actor(body, x_agi_actor) or "yahoo_fill",
+        pause_seconds=float(body.get("pause_seconds") if body.get("pause_seconds") is not None else 0.35),
+        include_thin=bool(body.get("include_thin", True)),
+    )
+
+
+@router.post("/warehouse/yahoo-fill/run")
+async def warehouse_yahoo_fill_run(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import yahoo_fill_run
+
+    body = payload or {}
+    symbols = body.get("symbols")
+    if isinstance(symbols, str):
+        symbols = [symbols]
+    return yahoo_fill_run(
+        batch=int(body.get("batch") or 25),
+        symbols=symbols,
+        actor=_warehouse_actor(body, x_agi_actor) or "yahoo_fill",
+        pause_seconds=float(body.get("pause_seconds") if body.get("pause_seconds") is not None else 0.35),
+        include_thin=bool(body.get("include_thin", True)),
+    )
+
+
+@router.post("/warehouse/yahoo-fill/{symbol}")
+async def warehouse_yahoo_fill_symbol(
+    symbol: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import yahoo_fill_company
+
+    body = payload or {}
+    return yahoo_fill_company(symbol, actor=_warehouse_actor(body, x_agi_actor) or "yahoo_fill")
+
+
+# ---------------------------------------------------------------------------
 # Historical Backfill & Time-Series (Phase 7.1a)
 # ---------------------------------------------------------------------------
 
@@ -20191,6 +20499,37 @@ async def ifac_dashboard():
     from intelligence_fusion_answer_composer.production import dashboard
 
     return dashboard()
+
+
+@router.get("/aqe/health")
+async def aqe_health():
+    """Phase 9.2 — Ask Product Quality & Institutional Answer Excellence."""
+    from ask_product_quality.production import health
+
+    return health()
+
+
+@router.get("/aqe/dashboard")
+async def aqe_dashboard():
+    from ask_product_quality.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/aqe/inspect")
+async def aqe_inspect(payload: dict[str, Any] = Body(default_factory=dict)):
+    from ask_product_quality.routing import inspect_routing
+
+    body = payload or {}
+    return inspect_routing(str(body.get("question") or ""), ticker=body.get("ticker"))
+
+
+@router.post("/aqe/quality-gate")
+async def aqe_quality_gate(payload: dict[str, Any] = Body(default_factory=dict)):
+    from ask_product_quality.production import quality_gate
+
+    body = payload or {}
+    return quality_gate(body.get("answer") or body, question=str(body.get("question") or ""))
 
 
 @router.get("/valuation-engine/health")

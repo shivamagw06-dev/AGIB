@@ -62,6 +62,8 @@ const authorNavItems = [
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/data-warehouse', label: 'Data Warehouse', icon: Database },
+  { to: '/admin/financial-warehouse', label: 'Financial Warehouse', icon: Database },
+  { to: '/admin/financial-coverage', label: 'Financial Coverage', icon: CalendarRange },
   { to: '/admin/historical-coverage', label: 'Historical Coverage', icon: CalendarRange },
   { to: '/admin/upstox-bootstrap', label: 'Upstox Bootstrap', icon: Database },
   { to: '/admin/upstox-fundamentals', label: 'Upstox Fundamentals', icon: Building2 },
@@ -72,6 +74,8 @@ const navItems = [
   { to: '/admin/forecast-runtime', label: 'Forecast Runtime', icon: LineChart },
   { to: '/admin/macro-runtime', label: 'Macro Runtime', icon: Globe2 },
   { to: '/admin/ifac', label: 'Answer Composer', icon: Layers3 },
+  { to: '/admin/aqe', label: 'Ask Product Quality', icon: ClipboardCheck },
+  { to: '/admin/kul', label: 'KUL Routing', icon: Network },
   { to: '/admin/intelligence', label: 'Intelligence CMS', icon: Sparkles },
   { to: '/admin/knowledge-operations', label: 'Knowledge Operations', icon: Library },
   { to: '/admin/valuation-intelligence', label: 'Valuation Intelligence', icon: Scale },

@@ -95,6 +95,28 @@ NAMED_PEDAGOGY: dict[str, dict[str, Any]] = {
             "transactions convert heavily to free cash flow with limited capex."
         ),
         "moats": ["network_effects", "brand", "switching_costs"],
+        "contrast_keys": {
+            "pricing": "network toll on card volume",
+            "volume": "global acceptance footprint",
+            "margin_driver": "asset-light take-rate and scale",
+        },
+    },
+    "mastercard": {
+        "archetype": "payment_network",
+        "industry_key": "platform",
+        "business_type": "platform",
+        "how_it_makes_money": (
+            "Mastercard is an asset-light payment network similar to Visa: it earns "
+            "on transaction and service fees across its acceptance network without "
+            "funding consumer credit balances, so economics centre on take-rate, "
+            "volume mix, and network density."
+        ),
+        "moats": ["network_effects", "brand", "switching_costs"],
+        "contrast_keys": {
+            "pricing": "network toll and value-added services",
+            "volume": "global acceptance and cross-border mix",
+            "margin_driver": "asset-light fee economics",
+        },
     },
 }
 
@@ -108,6 +130,8 @@ _ALIAS_TO_KEY: dict[str, str] = {
     "reliance industries limited": "reliance",
     "ril": "reliance",
     "visa": "visa",
+    "mastercard": "mastercard",
+    "master card": "mastercard",
 }
 
 

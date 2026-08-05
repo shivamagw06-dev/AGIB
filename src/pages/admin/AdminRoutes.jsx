@@ -66,10 +66,14 @@ import UpstoxFundamentals from '@/pages/admin/UpstoxFundamentals';
 import ValuationPolicy from '@/pages/admin/ValuationPolicy';
 import HistoricalValuation from '@/pages/admin/HistoricalValuation';
 import HvieRuntime from '@/pages/admin/HvieRuntime';
+import FinancialWarehouse from '@/pages/admin/FinancialWarehouse';
+import FinancialCoverage from '@/pages/admin/FinancialCoverage';
 import ResearchIntelligence from '@/pages/admin/ResearchIntelligence';
 import ForecastRuntime from '@/pages/admin/ForecastRuntime';
 import MacroRuntime from '@/pages/admin/MacroRuntime';
 import IfacComposer from '@/pages/admin/IfacComposer';
+import AskProductQuality from '@/pages/admin/AskProductQuality';
+import KulDashboard from '@/pages/admin/KulDashboard';
 import IntelligenceCmsRoutes from '@/pages/admin/intelligence/IntelligenceCmsRoutes';
 
 export default function AdminRoutes() {
@@ -95,10 +99,16 @@ export default function AdminRoutes() {
         {/* Full-bleed Historical Valuation Intelligence Engine (Phase 8.3) */}
         <Route path="historical-valuation" element={<HistoricalValuation />} />
         <Route path="hvie-runtime" element={<HvieRuntime />} />
+        {/* Full-bleed Financial Warehouse Completion (Phase 7.4F) */}
+        <Route path="financial-warehouse" element={<FinancialWarehouse />} />
+        {/* Phase 7.4F Step 0 — read-only financial coverage audit */}
+        <Route path="financial-coverage" element={<FinancialCoverage />} />
         <Route path="research-intelligence" element={<ResearchIntelligence />} />
         <Route path="forecast-runtime" element={<ForecastRuntime />} />
         <Route path="macro-runtime" element={<MacroRuntime />} />
         <Route path="ifac" element={<IfacComposer />} />
+        <Route path="aqe" element={<AskProductQuality />} />
+        <Route path="kul" element={<KulDashboard />} />
         {/* Full-bleed Institutional Morning Office — daily investment desk */}
         <Route path="investment-office" element={<InvestmentOfficeAdmin />} />
         {/* Intelligence CMS — structured data modules (Valuation Monitor first) */}

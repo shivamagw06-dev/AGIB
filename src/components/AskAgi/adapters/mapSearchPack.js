@@ -922,6 +922,76 @@ export function mapSearchPack(pack) {
         : pack.answer?.response_constitution?.enabled
           ? pack.answer.response_constitution
           : null,
+    askIntelligenceConstitution:
+      ac?.ask_intelligence_constitution?.enabled
+        ? ac.ask_intelligence_constitution
+        : pack.answer?.ask_intelligence_constitution?.enabled
+          ? pack.answer.ask_intelligence_constitution
+          : null,
+    researchConclusion:
+      ac?.research_conclusion ||
+      pack.answer?.research_conclusion ||
+      ac?.ask_intelligence_constitution?.sections?.research_conclusion ||
+      null,
+    questionsBeforeYouDecide:
+      ac?.questions_before_you_decide ||
+      pack.answer?.questions_before_you_decide ||
+      ac?.ask_intelligence_constitution?.sections?.questions_before_you_decide ||
+      null,
+    intentResolution:
+      ac?.intent_resolution ||
+      pack.answer?.intent_resolution ||
+      pack.intent_resolution ||
+      null,
+    institutionalPlaybookFramework:
+      ac?.institutional_playbook_framework?.enabled
+        ? ac.institutional_playbook_framework
+        : pack.answer?.institutional_playbook_framework?.enabled
+          ? pack.answer.institutional_playbook_framework
+          : null,
+    researchJourney:
+      ac?.research_journey ||
+      pack.answer?.research_journey ||
+      ac?.institutional_playbook_framework?.research_journey ||
+      null,
+    researchJourneyState:
+      ac?.research_journey_state ||
+      pack.answer?.research_journey_state ||
+      ac?.institutional_playbook_framework?.research_journey_state ||
+      null,
+    suggestedNextResearch:
+      ac?.suggested_next_research ||
+      pack.answer?.suggested_next_research ||
+      ac?.institutional_playbook_framework?.suggested_next_research ||
+      null,
+    playbookValidation: ac?.playbook_validation || pack.answer?.playbook_validation || null,
+    researchWorkflowFramework:
+      ac?.research_workflow_framework?.enabled
+        ? ac.research_workflow_framework
+        : pack.answer?.research_workflow_framework?.enabled
+          ? pack.answer.research_workflow_framework
+          : null,
+    decisionObjective:
+      ac?.decision_objective ||
+      pack.answer?.decision_objective ||
+      ac?.research_workflow_framework?.decision_objective?.objective ||
+      null,
+    researchStatus:
+      ac?.research_status ||
+      pack.answer?.research_status ||
+      ac?.research_workflow_framework?.research_status ||
+      null,
+    researchSession:
+      ac?.research_session ||
+      pack.answer?.research_session ||
+      ac?.research_session_state ||
+      null,
+    nextBestResearchQuestion:
+      ac?.next_best_research_question ||
+      pack.answer?.next_best_research_question ||
+      ac?.research_workflow_framework?.next_best_research_question ||
+      null,
+    workflowValidation: ac?.workflow_validation || pack.answer?.workflow_validation || null,
     bottomLine:
       asText(ac?.bottom_line) ||
       asText(ac?.response_constitution?.bottom_line) ||

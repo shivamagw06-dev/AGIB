@@ -386,6 +386,95 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
     except Exception:
         out.setdefault("response_constitution", {"enabled": False, "bypassed": True})
 
+    # Ask Intelligence Constitution v1.0 — institutional response methodology (code, not prompt).
+    try:
+        from ask_intelligence_constitution import apply_ask_intelligence_constitution
+
+        out = apply_ask_intelligence_constitution(
+            out,
+            query=str(kwargs.get("query") or ""),
+            intent_resolution=kwargs.get("intent_resolution") or out.get("intent_resolution"),
+            ticker=kwargs.get("ticker"),
+            company=kwargs.get("company"),
+            house_label=kwargs.get("house_label") or out.get("house_label"),
+        )
+    except Exception:
+        out.setdefault("ask_intelligence_constitution", {"enabled": False, "bypassed": True})
+
+    # Institutional Playbook Framework v1.0 — methodology layer (Ask → Investment OS).
+    try:
+        from institutional_playbook_framework import apply_institutional_playbook_framework
+
+        out = apply_institutional_playbook_framework(
+            out,
+            query=str(kwargs.get("query") or ""),
+            intent_resolution=kwargs.get("intent_resolution") or out.get("intent_resolution"),
+            playbook_selection=kwargs.get("playbook_selection") or out.get("playbook_selection"),
+            ticker=kwargs.get("ticker"),
+            research_journey_state=kwargs.get("research_journey_state"),
+        )
+    except Exception:
+        out.setdefault("institutional_playbook_framework", {"enabled": False, "bypassed": True})
+
+    # Research Workflow Framework v1.0 — orchestrates playbooks into research sessions.
+    try:
+        from research_workflow_framework import apply_research_workflow_framework
+
+        out = apply_research_workflow_framework(
+            out,
+            query=str(kwargs.get("query") or ""),
+            intent_resolution=kwargs.get("intent_resolution") or out.get("intent_resolution"),
+            ticker=kwargs.get("ticker"),
+            company=kwargs.get("company"),
+            research_session_state=kwargs.get("research_session_state"),
+        )
+    except Exception:
+        out.setdefault("research_workflow_framework", {"enabled": False, "bypassed": True})
+
+    # Institutional Knowledge Factory v1.0 — transforms evidence into institutional knowledge.
+    try:
+        from institutional_knowledge_factory import apply_ikf
+
+        out = apply_ikf(
+            out,
+            query=str(kwargs.get("query") or ""),
+            ticker=kwargs.get("ticker"),
+            company=kwargs.get("company"),
+            evidence_items=kwargs.get("evidence_items"),
+            reason=kwargs.get("reason"),
+        )
+    except Exception:
+        out.setdefault("institutional_knowledge_factory", {"enabled": False, "bypassed": True})
+
+    # Institutional Knowledge Runtime v1.0 — validated assertions before downstream consumption.
+    try:
+        from institutional_knowledge_runtime import apply_ikr_runtime
+
+        out = apply_ikr_runtime(
+            out,
+            query=str(kwargs.get("query") or ""),
+            ticker=kwargs.get("ticker"),
+            company=kwargs.get("company"),
+            iko=kwargs.get("iko") or out.get("iko"),
+            evidence_graph=kwargs.get("evidence_graph"),
+            monitoring_metrics=kwargs.get("monitoring_metrics"),
+        )
+    except Exception:
+        out.setdefault("institutional_knowledge_runtime", {"enabled": False, "bypassed": True})
+
+    # Institutional Writing Constitution v1.0 — IRE communication layer (how AGI explains).
+    try:
+        from institutional_writing_constitution import apply_institutional_writing_constitution
+
+        out = apply_institutional_writing_constitution(
+            out,
+            query=str(kwargs.get("query") or ""),
+            ticker=kwargs.get("ticker"),
+            company=kwargs.get("company"),
+        )
+    except Exception:
+        out.setdefault("institutional_writing_constitution", {"enabled": False, "bypassed": True})
+
     return out
 
 
@@ -404,6 +493,12 @@ def quality_gates() -> dict[str, Any]:
             "institutional_analyst_framework_soft": True,
             "institutional_research_writer_soft": True,
             "response_constitution_v1": True,
+            "ask_intelligence_constitution_v1": True,
+            "institutional_playbook_framework_v1": True,
+            "research_workflow_framework_v1": True,
+            "institutional_knowledge_factory_v1": True,
+            "institutional_knowledge_runtime_v1": True,
+            "institutional_writing_constitution_v1": True,
         },
         "flags": flags_dict(),
     }
