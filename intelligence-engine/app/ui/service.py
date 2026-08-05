@@ -4304,6 +4304,41 @@ class UiService:
                 if isinstance(answer_construction, dict)
                 else None
             ),
+            "research_workflow_framework": (
+                (answer_construction or {}).get("research_workflow_framework")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
+            "decision_objective": (
+                (answer_construction or {}).get("decision_objective")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
+            "research_status": (
+                (answer_construction or {}).get("research_status")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
+            "research_session": (
+                (answer_construction or {}).get("research_session")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
+            "research_session_state": (
+                (answer_construction or {}).get("research_session_state")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
+            "next_best_research_question": (
+                (answer_construction or {}).get("next_best_research_question")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
+            "workflow_validation": (
+                (answer_construction or {}).get("workflow_validation")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
             "intent_resolution": intent_resolution_pack if isinstance(intent_resolution_pack, dict) else None,
             "answer_structure": (
                 (answer_construction or {}).get("answer_structure")
@@ -4409,11 +4444,18 @@ class UiService:
                     if isinstance(a, dict) and a.get("title")
                 ],
             )
+        _nbrq = (
+            (answer_construction or {}).get("next_best_research_question")
+            if isinstance(answer_construction, dict)
+            else None
+        )
         _next_research = (
             (answer_construction or {}).get("suggested_next_research")
             if isinstance(answer_construction, dict)
             else None
         )
+        if isinstance(_nbrq, dict) and _nbrq.get("question"):
+            followups = [str(_nbrq["question"])] + [x for x in followups if x != _nbrq["question"]]
         if isinstance(_next_research, list) and _next_research:
             followups = [str(x) for x in _next_research if x] + [x for x in followups if x not in _next_research]
         recommendations["related_questions"] = followups[:6]

@@ -1,7 +1,6 @@
 /**
  * Project mapSearchPack → chat-first AGIB answer model.
- * Layered stack:
- * Response Constitution (shape) → Ask Intelligence Constitution → Playbook Framework (journey).
+ * Stack: Response Constitution → Ask Intelligence Constitution → Playbook Framework → Workflow Framework.
  */
 
 import { mapSearchPack } from './mapSearchPack';
@@ -10,6 +9,7 @@ import {
   getResearchJourneyState,
   mergeResearchJourneyState,
 } from '@/lib/researchJourney';
+import { getResearchSession, mergeResearchSession } from '@/lib/researchSession';
 
 function asList(v, n = 8) {
   if (!Array.isArray(v)) return [];
@@ -90,6 +90,23 @@ export function mapChatAnswer(pack) {
   }
   const journeyRaw = vm.researchJourney || ipf?.research_journey || null;
   const researchJourney = enrichJourneyMap(journeyRaw, journeyState) || journeyRaw;
+
+  const rwf =
+    vm.researchWorkflowFramework ||
+    pack?.answer_construction?.research_workflow_framework ||
+    pack?.answer?.research_workflow_framework ||
+    null;
+  const workflowKey = rwf?.workflow?.workflow_key || 'investment_opportunity_evaluation';
+  let researchSession = vm.researchSession || rwf?.research_session || null;
+  if (researchSession) {
+    researchSession = mergeResearchSession(ticker, workflowKey, researchSession);
+  } else {
+    researchSession = getResearchSession(ticker, workflowKey);
+  }
+  const researchStatus = vm.researchStatus || rwf?.research_status || null;
+  const decisionObjective = vm.decisionObjective || rwf?.decision_objective?.objective || null;
+  const nextBestResearchQuestion =
+    vm.nextBestResearchQuestion || rwf?.next_best_research_question || null;
 
   const view = institutionalViewLabel(
     vm.stance || vm.institutionalView?.stance || '',
@@ -232,10 +249,12 @@ export function mapChatAnswer(pack) {
 
   const followUps = asList(
     [
+      nextBestResearchQuestion?.question,
       ...(vm.suggestedNextResearch || []),
       ...questionsBeforeYouDecide,
       ...(rc?.suggested_follow_ups || []),
       ...(vm.explore || []),
+      researchStatus?.next_activity ? `Continue: ${researchStatus.next_activity}` : null,
       researchJourney?.next_step ? `Continue: ${researchJourney.next_step}` : null,
       `Why ${view}?`,
       vm.ticker ? `Compare ${vm.ticker} with peers` : 'Show peer comparison',
@@ -301,10 +320,15 @@ export function mapChatAnswer(pack) {
     questionsBeforeYouDecide,
     institutionalThinkingFramework,
     methodologyIntent: investmentContext?.primary_intent || aic?.intent?.primary_intent || null,
-    realIntent: investmentContext?.real_intent || aic?.intent?.real_intent || null,
+    realIntent: investmentContext?.real_intent || aic?.intent?.real_intent || decisionObjective || null,
     playbook,
     researchJourney,
     researchJourneyState: journeyState,
+    researchStatus,
+    researchSession,
+    decisionObjective,
+    nextBestResearchQuestion,
+    workflow: rwf?.workflow || null,
     suggestedNextResearch: asList(vm.suggestedNextResearch || [], 6),
     deep: {
       thesis: vm.thesis,

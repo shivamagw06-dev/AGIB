@@ -76,25 +76,62 @@ function deepText(answer, chipId) {
   }
 }
 
-function ResearchProgress({ journey, playbook }) {
-  if (!journey?.steps?.length) return null;
-  const pct = Math.min(100, Math.max(0, Number(journey.progress_pct) || 0));
+function ResearchStatus({ status, workflow, objective }) {
+  if (!status?.items?.length) return null;
   return (
     <section className="ac-block ac-journey">
-      <h2>Institutional Research Progress</h2>
+      <h2>{status.display || 'Research Status'}</h2>
+      {objective && (
+        <p className="ac-intent-note" style={{ fontSize: '0.82rem', color: '#5b6570', marginTop: 0 }}>
+          Objective: {objective}
+          {workflow?.name ? ` · Workflow: ${workflow.name}` : ''}
+        </p>
+      )}
+      <ul className="ac-journey-steps">
+        {status.items.map((item) => (
+          <li
+            key={item.label}
+            className={
+              item.status === 'complete' ? 'done' : item.status === 'needs_review' ? 'review' : item.current ? 'current' : ''
+            }
+          >
+            <span>{item.symbol || (item.status === 'complete' ? '✓' : item.status === 'needs_review' ? '⚠' : '□')}</span>{' '}
+            {item.note || item.label}
+          </li>
+        ))}
+      </ul>
+      {status.needs_further_investigation && (
+        <p className="ac-confidence-why" style={{ marginTop: '0.55rem' }}>
+          Needs Further Investigation — additional evidence required before research can firm up.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function NextBestResearch({ nbrq, onAsk }) {
+  if (!nbrq?.question) return null;
+  return (
+    <section className="ac-block ac-nbrq">
+      <h2>Next Best Research Question</h2>
+      <button type="button" className="ac-nbrq-btn" onClick={() => onAsk(nbrq.question)}>
+        {nbrq.question}
+      </button>
+      {nbrq.reason && <p className="ac-confidence-why">{nbrq.reason}</p>}
+    </section>
+  );
+}
+
+function ResearchProgressFallback({ journey, playbook }) {
+  if (!journey?.steps?.length) return null;
+  return (
+    <section className="ac-block ac-journey">
+      <h2>Research Progress</h2>
       {playbook?.name && (
         <p className="ac-intent-note" style={{ fontSize: '0.82rem', color: '#5b6570', marginTop: 0 }}>
           Playbook: {playbook.name}
-          {playbook.purpose ? ` — ${playbook.purpose}` : ''}
         </p>
       )}
-      <div className="ac-journey-bar" aria-label={`Research progress ${pct}%`}>
-        <div className="ac-journey-fill" style={{ width: `${pct}%` }} />
-      </div>
-      <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: '0.35rem 0 0.65rem' }}>
-        {journey.progress_label || `${pct}%`} complete
-        {journey.next_step ? ` · Next: ${journey.next_step}` : ''}
-      </p>
       <ul className="ac-journey-steps">
         {journey.steps.map((step) => (
           <li key={step.label} className={step.completed ? 'done' : step.current ? 'current' : ''}>
@@ -114,7 +151,16 @@ function AnswerTurn({ answer, onAsk }) {
     <div className="ac-msg ac-msg-agi">
       <div className="ac-label">AGI</div>
 
-      <ResearchProgress journey={answer.researchJourney} playbook={answer.playbook} />
+      <ResearchStatus
+        status={answer.researchStatus}
+        workflow={answer.workflow}
+        objective={answer.decisionObjective}
+      />
+      {!answer.researchStatus?.items?.length && (
+        <ResearchProgressFallback journey={answer.researchJourney} playbook={answer.playbook} />
+      )}
+
+      <NextBestResearch nbrq={answer.nextBestResearchQuestion} onAsk={onAsk} />
 
       {/* 1. Direct Answer */}
       <div className="ac-direct">
