@@ -187,29 +187,64 @@ async function loop() {
   state.startedAt = state.startedAt || nowIso();
   state.endedAt = null;
   state.lastError = null;
+  let idle = 0;
+  let zeroStreak = 0;
   try {
-    let idle = 0;
     while (!state.stopped && state.status === 'running') {
-      // eslint-disable-next-line no-await-in-loop
-      const out = await runBatch({ batchSize: state.batchSize });
+      let out;
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        out = await runBatch({ batchSize: state.batchSize });
+      } catch (err) {
+        state.lastError = err?.message || String(err);
+        pushRecent({ event: 'batch_error', error: state.lastError });
+        state.pauseMs = Math.min(120_000, Math.max(state.pauseMs * 2, 15_000));
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => setTimeout(r, state.pauseMs));
+        continue;
+      }
       if (!out.batch?.size) {
         idle += 1;
-        if (idle >= 2) break;
+        // Queue dry — clear attempt memory so cooldown symbols can retry later.
+        if (idle >= 2) {
+          if ((state.attempted || []).length) {
+            state.attempted = [];
+            idle = 0;
+            state.pauseMs = Math.min(120_000, Math.max(state.pauseMs, 30_000));
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((r) => setTimeout(r, state.pauseMs));
+            continue;
+          }
+          break;
+        }
         // eslint-disable-next-line no-await-in-loop
         await new Promise((r) => setTimeout(r, 2000));
         continue;
       }
       idle = 0;
+      if (!out.batch?.ingest_rows) {
+        zeroStreak += 1;
+        if (zeroStreak >= 8) {
+          // Drop oldest half of attempted so rate-limited symbols can rotate.
+          const n = (state.attempted || []).length;
+          state.attempted = (state.attempted || []).slice(Math.floor(n / 2));
+          zeroStreak = 0;
+          state.pauseMs = Math.min(120_000, Math.max(state.pauseMs, 45_000));
+        }
+      } else {
+        zeroStreak = 0;
+      }
       // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, state.pauseMs));
     }
     state.status = state.stopped ? 'stopped' : 'idle';
     state.endedAt = nowIso();
   } catch (err) {
-    state.status = 'failed';
+    // Last-resort: never leave a permanent failed state for transient faults.
     state.lastError = err?.message || String(err);
+    state.status = 'idle';
     state.endedAt = nowIso();
-    pushRecent({ event: 'failed', error: state.lastError });
+    pushRecent({ event: 'loop_ended', error: state.lastError });
   } finally {
     loopPromise = null;
   }

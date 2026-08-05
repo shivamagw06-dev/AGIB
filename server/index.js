@@ -303,7 +303,10 @@ app.use('/api/upstox', marketIntelLimiter, (req, res, next) => {
   req.url = `/upstox${req.url === '/' ? '' : req.url}`;
   return marketRouter.handle(req, res, next);
 });
-app.use('/api/research/nifty500', nifty500ResearchLimiter, createNifty500ResearchRouter());
+const nifty500ResearchRouter = createNifty500ResearchRouter();
+app.use('/api/research/nifty500', nifty500ResearchLimiter, nifty500ResearchRouter);
+// Alias — some clients/probes hit /nifty50 without the trailing 0.
+app.use('/api/research/nifty50', nifty500ResearchLimiter, nifty500ResearchRouter);
 app.use('/api/intelligence', createIntelligenceRouter());
 app.use('/api/ui', createUiRouter());
 app.use('/api/pe', createPeIntelligenceRouter());
@@ -544,6 +547,32 @@ reg('/api/trending', async (req, res) => {
         res.set('X-AGI-Upstream-Cache', 'rate-limited');
         return res.json(trendingCache);
       }
+      // Soft fallback via Groww/NSE dashboard so homepage desks stay populated.
+      try {
+        const { getDashboardData } = await import('./services/marketDataService.js');
+        const dash = await getDashboardData({
+          indianApiKey: API_KEY,
+          indianApiBase: BASE_URL,
+        });
+        const soft = {
+          trending_stocks: {
+            top_gainers: dash?.gainers || [],
+            top_losers: dash?.losers || [],
+          },
+          source: 'agi-market-fallback',
+          stale: true,
+          upstream_status: 429,
+        };
+        if ((soft.trending_stocks.top_gainers.length + soft.trending_stocks.top_losers.length) > 0) {
+          trendingCache = soft;
+          trendingExpiry = Date.now() + Math.min(PROXY_CACHE_TTL_MS, 60_000);
+          trendingStaleExpiry = Date.now() + PROXY_CACHE_STALE_MS;
+          res.set('X-AGI-Upstream-Cache', 'dashboard-fallback');
+          return res.status(200).json(soft);
+        }
+      } catch (fallbackErr) {
+        console.warn('[trending] dashboard fallback failed:', fallbackErr?.message || fallbackErr);
+      }
       return res.status(200).json({
         error: 'upstream_rate_limited',
         trending_stocks: { top_gainers: [], top_losers: [] },
@@ -587,7 +616,29 @@ reg('/api/NSE_most_active', (req, res) => proxyFetch(res, `${BASE_URL}/NSE_most_
 reg('/api/BSE_most_active', (req, res) => proxyFetch(res, `${BASE_URL}/BSE_most_active`));
 reg('/api/mutual_funds', (req, res) => proxyFetch(res, `${BASE_URL}/mutual_funds`));
 reg('/api/price_shockers', (req, res) => proxyFetch(res, `${BASE_URL}/price_shockers`));
-reg('/api/commodities', (req, res) => proxyFetch(res, `${BASE_URL}/commodities`));
+reg('/api/commodities', async (req, res) => {
+  try {
+    const { fetchYahooIndices } = await import('./providers/yahooIndices.js');
+    const rows = await fetchYahooIndices(['Gold', 'Silver', 'Brent', 'Bitcoin', 'USDINR']);
+    if (rows.length) {
+      return res.status(200).json({
+        commodities: rows.map((r) => ({
+          name: r.name,
+          price: r.price,
+          percentChange: r.percentChange,
+          change: r.percentChange,
+          source: r.source || 'yahoo',
+        })),
+        source: 'yahoo',
+        updatedAt: new Date().toISOString(),
+        stale: false,
+      });
+    }
+  } catch (err) {
+    console.warn('[commodities] yahoo fallback failed:', err?.message || err);
+  }
+  return proxyFetch(res, `${BASE_URL}/commodities`);
+});
 reg('/api/market-context', async (_req, res) => {
   const data = await getMarketContext();
   res.set('Cache-Control', 'public, max-age=900, stale-while-revalidate=300');
@@ -711,7 +762,25 @@ reg('/api/historical_data', async (req, res) => {
 });
 
 reg('/api/historical_stats', (req, res) => proxyFetch(res, `${BASE_URL}/historical_stats?${new URLSearchParams(req.query).toString()}`));
-reg('/api/news', (req, res) => proxyFetch(res, `${BASE_URL}/news?${new URLSearchParams(req.query).toString()}`));
+reg('/api/news', async (req, res) => {
+  // Prefer public headlines service when IndianAPI is rate-limited / empty.
+  try {
+    const headlines = await getNewsHeadlines();
+    if (Array.isArray(headlines?.items) && headlines.items.length) {
+      res.set('Cache-Control', 'public, max-age=1800, stale-while-revalidate=300');
+      return res.status(200).json({
+        news: headlines.items,
+        items: headlines.items,
+        source: headlines.source || 'newsapi',
+        updatedAt: headlines.updatedAt,
+        stale: Boolean(headlines.stale),
+      });
+    }
+  } catch (err) {
+    console.warn('[news] headlines fallback failed:', err?.message || err);
+  }
+  return proxyFetch(res, `${BASE_URL}/news?${new URLSearchParams(req.query).toString()}`);
+});
 reg('/api/ipo/summary', async (_req, res) => {
   const data = await getIpoSummary();
   res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=300');
@@ -768,7 +837,10 @@ const AGI_MARKET_INTEL = new Set([
   'dashboard',
   'ticker',
   'pulse',
+  'overview',
+  'global-snapshot',
   'groww-health',
+  'groww-status',
 ]);
 
 // Mounted AGI routers (must never be forwarded to IndianAPI).
