@@ -431,6 +431,21 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
     except Exception:
         out.setdefault("research_workflow_framework", {"enabled": False, "bypassed": True})
 
+    # Institutional Knowledge Factory v1.0 — transforms evidence into institutional knowledge.
+    try:
+        from institutional_knowledge_factory import apply_ikf
+
+        out = apply_ikf(
+            out,
+            query=str(kwargs.get("query") or ""),
+            ticker=kwargs.get("ticker"),
+            company=kwargs.get("company"),
+            evidence_items=kwargs.get("evidence_items"),
+            reason=kwargs.get("reason"),
+        )
+    except Exception:
+        out.setdefault("institutional_knowledge_factory", {"enabled": False, "bypassed": True})
+
     # Institutional Knowledge Runtime v1.0 — validated assertions before downstream consumption.
     try:
         from institutional_knowledge_runtime import apply_ikr_runtime
@@ -440,7 +455,7 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
             query=str(kwargs.get("query") or ""),
             ticker=kwargs.get("ticker"),
             company=kwargs.get("company"),
-            iko=kwargs.get("iko"),
+            iko=kwargs.get("iko") or out.get("iko"),
             evidence_graph=kwargs.get("evidence_graph"),
             monitoring_metrics=kwargs.get("monitoring_metrics"),
         )
@@ -468,6 +483,7 @@ def quality_gates() -> dict[str, Any]:
             "ask_intelligence_constitution_v1": True,
             "institutional_playbook_framework_v1": True,
             "research_workflow_framework_v1": True,
+            "institutional_knowledge_factory_v1": True,
             "institutional_knowledge_runtime_v1": True,
         },
         "flags": flags_dict(),
