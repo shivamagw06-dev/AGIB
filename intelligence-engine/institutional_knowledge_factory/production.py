@@ -7,6 +7,7 @@ from typing import Any
 from institutional_knowledge_factory.compile import compile_company, compile_universe, gather_sources
 from institutional_knowledge_factory.decision_memory import get_decision_memory, record_decision_memory
 from institutional_knowledge_factory.dna_update import update_company_dna
+from institutional_knowledge_factory.evidence_graph import get_graph_pack, graph_stats
 from institutional_knowledge_factory.extract import extract_claims
 from institutional_knowledge_factory.kpi import calculate_knowledge_kpis
 from institutional_knowledge_factory.maturity import calculate_maturity
@@ -99,6 +100,11 @@ def apply_ikf(out: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
 
     if factory_result:
         out["ikf_pack"] = factory_result
+        out["evidence_graph"] = factory_result.get("evidence_graph")
+    else:
+        out["evidence_graph"] = get_graph_pack(entity_id)
+
+    result["evidence_graph_stats"] = graph_stats(entity_id)
 
     return out
 
@@ -115,6 +121,7 @@ def health() -> dict[str, Any]:
         "writers_llm_allowed": False,
         "incremental_pipeline_steps": 11,
         "compile_pipeline_steps": 12,
+        "evidence_graph_owned_by": "kpe",
         "architecture_freeze": "v1.0",
     }
 
@@ -130,6 +137,8 @@ __all__ = [
     "extract_claims",
     "gather_sources",
     "get_decision_memory",
+    "get_graph_pack",
+    "graph_stats",
     "health",
     "institutional_review",
     "load_iko",

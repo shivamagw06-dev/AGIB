@@ -4,16 +4,16 @@ from __future__ import annotations
 
 from typing import Any
 
+from institutional_knowledge_factory.assertion_compiler import compile_assertions
 from institutional_knowledge_factory.decision_memory import version_decision_memory
 from institutional_knowledge_factory.dna_update import update_company_dna
-from institutional_knowledge_factory.extract import extract_claims
+from institutional_knowledge_factory.evidence_graph import apply_delta, get_graph_pack
 from institutional_knowledge_factory.notifications import notify_research_workflows
 from institutional_knowledge_factory.quality import compute_knowledge_quality
 from institutional_knowledge_factory.review import institutional_review
 from institutional_knowledge_factory.schema import IKF_VERSION, PIPELINE_STEPS, PROGRAMME
 from institutional_knowledge_factory.sources import normalize_sources
 from institutional_knowledge_factory.thesis import evaluate_thesis
-from institutional_knowledge_factory.validate import validate_evidence_batch
 from institutional_knowledge_runtime.assertions import claim_to_assertion
 from institutional_knowledge_runtime.contradictions import resolve_contradictions
 from institutional_knowledge_runtime.store import put
@@ -37,16 +37,9 @@ def process_evidence(
     normalized = normalize_sources(collected)
     steps_completed.append("normalize")
 
-    # 3. Extract
-    extracted = extract_claims(normalized)
-    steps_completed.append("extract")
-
-    # 4. Identify Claims (merged with extract — claims identified from templates)
-    steps_completed.append("identify_claims")
-
-    # 5. Validate Evidence
-    valid_claims, validation_reports = validate_evidence_batch(extracted)
-    steps_completed.append("validate_evidence")
+    # 3–5. Assertion Compiler (extract + validate)
+    valid_claims, extracted, validation_reports = compile_assertions(normalized)
+    steps_completed.extend(["extract", "identify_claims", "validate_evidence"])
 
     # 6. Resolve Contradictions (pre-update)
     assertions = [claim_to_assertion(c) for c in valid_claims]
@@ -86,7 +79,7 @@ def process_evidence(
     )
     steps_completed.append("notify_research_workflows")
 
-    # Evidence graph delta (refs only)
+    # KPE-owned Evidence Graph (writes only — apps never query directly)
     evidence_delta = []
     for source in normalized:
         for claim in valid_claims:
@@ -99,7 +92,11 @@ def process_evidence(
                         "claim_id": claim.get("claim_id"),
                         "trust_score": source.get("trust_score"),
                         "freshness": source.get("freshness"),
+                        "provenance": "kpe_incremental",
                     })
+    if evidence_delta:
+        apply_delta(entity_id, evidence_delta)
+    graph_pack = get_graph_pack(entity_id)
 
     return {
         "enabled": True,
@@ -122,6 +119,7 @@ def process_evidence(
         "review": review,
         "notifications": notifications,
         "evidence_graph_delta": evidence_delta,
+        "evidence_graph": graph_pack,
         "deterministic": True,
         "llm": False,
         "llm_used": False,
