@@ -10,7 +10,7 @@
 
 AGI's core architecture is **frozen at v1.0**.
 
-Future work prioritizes **knowledge quality, coverage, research accuracy, performance, and user experience** — not new frameworks, constitutions, or orchestration layers.
+From this date forward, work prioritizes **knowledge quality, coverage, research accuracy, performance, and user experience** — not new frameworks, constitutions, or orchestration layers.
 
 ---
 
@@ -79,22 +79,40 @@ Every new feature must answer:
 | KPE, KR, KO, or IRE | Extend that component |
 | None (demonstrably) | Only then consider a new component — requires architecture review |
 
+> **No new architectural component may be added unless an existing component demonstrably cannot solve the problem.**
+
 ---
 
 ## Stable components
 
-| Component | Module |
-|-----------|--------|
-| **Knowledge Objects (KO)** | `institutional_knowledge_object` |
-| **Knowledge Production Engine (KPE)** | `institutional_knowledge_factory` |
-| **Evidence Graph (KPE infra)** | `institutional_knowledge_factory/evidence_graph.py` |
-| **Assertion Compiler (KPE infra)** | `institutional_knowledge_factory/assertion_compiler.py` |
-| **Knowledge Runtime (KR)** | `institutional_knowledge_runtime` |
-| **Decision Memory** | `institutional_knowledge_factory/decision_memory` |
-| **Research Workflow** | `research_workflow_framework` |
-| **Institutional Research Engine (IRE)** | User-facing (internal orchestration TBD) |
+Changes to these require **exceptional justification** and architecture review:
 
-Legacy names (`IKO`, `IKF`, `IKR`) remain as aliases during migration.
+| Component | Module | Role |
+|-----------|--------|------|
+| **Knowledge Objects (KO)** | `institutional_knowledge_object` | Claim-centric institutional memory |
+| **Knowledge Production Engine (KPE)** | `institutional_knowledge_factory` | Compile + Incremental modes |
+| **Evidence Graph (KPE infra)** | `institutional_knowledge_factory/evidence_graph.py` | KPE-owned evidence → assertion links |
+| **Assertion Compiler (KPE infra)** | `institutional_knowledge_factory/assertion_compiler.py` | Extract + validate assertions |
+| **Knowledge Runtime (KR)** | `institutional_knowledge_runtime` | Validation, selection, versioning |
+| **Decision Memory** | `institutional_knowledge_factory/decision_memory` | Explainable evolution |
+| **Research Workflow** | `research_workflow_framework` | Session orchestration |
+| **Institutional Playbooks** | `institutional_playbook_framework` | Research methodology |
+| **Ask Intelligence** | `ask_intelligence_constitution` | Response methodology |
+| **Response Layer** | `response_constitution` | Institutional voice |
+| **Institutional Research Engine (IRE)** | User-facing | Research orchestration and presentation |
+
+Legacy names (`IKO`, `IKF`, `IKR`, `IKC`) remain as aliases during migration.
+
+---
+
+## Knowledge Production Engine — two modes, one engine
+
+| Mode | Entry point | Use case |
+|------|-------------|----------|
+| **Compile** | `compile_company()` | First population, rebuild, migration, repair |
+| **Incremental** | `process_evidence()` | Earnings, filings, news, management changes |
+
+There is **one production engine**. Not separate Factory and Compiler architectures.
 
 ---
 
@@ -116,6 +134,8 @@ Legacy names (`IKO`, `IKF`, `IKR`) remain as aliases during migration.
 
 ## Knowledge KPIs (product metrics)
 
+Track product outcomes, not architecture artifacts:
+
 ```text
 NIFTY 50 Compiled:              50/50
 Knowledge Grade:                  A-
@@ -134,8 +154,9 @@ Last Refresh:                     < 24h
 1. NIFTY 50 compilation (`compile_universe`)
 2. Wire Ask to assemble from compiled Knowledge Objects
 3. Decision Memory durable store
-4. Expand to NIFTY 500, then full market
-5. Phased namespace migration (aliases only until Milestone 1)
+4. Knowledge KPI dashboard
+5. Expand to NIFTY 500, then full market
+6. Phased namespace migration (aliases only until Milestone 1)
 
 ---
 
@@ -143,8 +164,22 @@ Last Refresh:                     < 24h
 
 - New constitutions or methodology documents
 - New orchestration layers
+- New runtime abstractions
 - Evidence Graph as standalone application layer
 - Big-bang renames
+
+---
+
+## Namespace migration (phased)
+
+| Current | Target | Phase |
+|---------|--------|-------|
+| `institutional_knowledge_object` | `knowledge/objects` | Post-Milestone 1 |
+| `institutional_knowledge_factory` | `knowledge/production` | Post-Milestone 1 |
+| `institutional_knowledge_runtime` | `knowledge/runtime` | Post-Milestone 1 |
+| Investment OS (internal) | Institutional Research Engine (IRE) | UX naming |
+
+**Do not big-bang rename.** Aliases and re-exports until Milestone 1 is demonstrated.
 
 ---
 
