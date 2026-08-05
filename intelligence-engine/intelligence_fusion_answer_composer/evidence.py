@@ -164,10 +164,7 @@ def missing_data_message(provider_id: str, summary: str = "", why: Optional[list
             "Market Intelligence is used where available."
         )
     if not summary.strip():
-        return (
-            f"Institutional evidence from {provider_id.replace('_', ' ')} is not yet available "
-            "for this question. Other engines with coverage continue below."
-        )
+        return explain_missing_intelligence(provider_id)
     return None
 
 
@@ -195,6 +192,25 @@ def is_low_quality_lead(pack: EnginePack) -> bool:
     if s.startswith("{") or s.startswith("[") or "': {" in s or '": {' in s:
         return True
     low = s.lower()
+    # Generic / wrong-company template leads — never headline.
+    if any(
+        p in low
+        for p in (
+            "for unknown",
+            "for commodity",
+            "business type: unknown",
+            "based on retrieved evidence for the subject",
+            "indian stock market q&a",
+            "no historical conclusion",
+            "holds no historical",
+        )
+    ):
+        return True
+    # Sparse valuation dumps (Current PE / None tables) must not headline moat answers.
+    if low.startswith("current pe") and ("none" in low or len(s) < 80):
+        return True
+    if low.count("none") >= 3 and any(k in low for k in ("percentile", "median", "regime")):
+        return True
     if pack.provider_id == "forecast_intelligence_engine":
         outlookish = any(
             k in low
@@ -218,6 +234,44 @@ def is_low_quality_lead(pack: EnginePack) -> bool:
         if "risk_register" in low or "key_risks" in low:
             return True
     return False
+
+
+def explain_missing_intelligence(provider_id: str, *, section: str = "") -> str:
+    """Institutional phrasing when an engine has no usable content."""
+    label = {
+        "historical_valuation_intelligence": (
+            "Historical valuation intelligence is currently unavailable because "
+            "reconstructed warehouse history has insufficient observations. "
+            "Current valuation remains available where the unified valuation engine has coverage."
+        ),
+        "valuation_attribution_engine": (
+            "Valuation attribution is unavailable because premium/discount drivers "
+            "could not be reconstructed from warehouse observations."
+        ),
+        "forecast_intelligence_engine": (
+            "Forward outlook intelligence is limited because forecast observations "
+            "are incomplete for this question."
+        ),
+        "macro_intelligence_engine": (
+            "Macro transmission context is limited for this question; company and "
+            "sector intelligence remain available."
+        ),
+        "research_intelligence_engine": (
+            "Institutional research memory did not return a usable dossier section "
+            "for this question."
+        ),
+        "business_intelligence": (
+            "Business-model intelligence is limited for this entity; identity and "
+            "financial layers remain available where covered."
+        ),
+    }.get(provider_id)
+    if label:
+        return label
+    sec = f" ({section})" if section else ""
+    return (
+        f"This intelligence layer{sec} is currently unavailable because warehouse "
+        "or engine coverage is insufficient. Other sections remain available."
+    )
 
 
 def sanitize_summary(text: str, *, max_len: int = 480) -> str:

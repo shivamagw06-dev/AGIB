@@ -175,12 +175,21 @@ _FAMILY_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("forecast", re.compile(
         r"\b(forecast|outlook|bull case|bear case|base case|"
         r"next 3(?:\s*[–-]\s*5)? years|scenario probabilities)\b", re.I)),
+    # Moat / premium-pricing business questions must win over valuation attribution.
+    ("business", re.compile(
+        r"\b(business model|what does .+ do|explain .{0,40}do|moat|"
+        r"competes?|unit economics|switching costs?|pricing power|"
+        r"sustain(?:s|ed|ing)? premium pricing|premium pricing|"
+        r"competitive advantage|membership model)\b", re.I)),
     # Attribution / premium decomposition must win over incidental "macro factors"
     # mentions inside company valuation questions (HDFC premium, etc.).
+    # Do not steal moat/pricing-power questions ("sustain premium pricing").
     ("attribution", re.compile(
         r"\b(attribute|attribution|break down the premium|decompose|"
         r"trades? at a premium|trading at a premium|premium to peers|"
-        r"premium valuation|why .{0,40}premium)\b", re.I)),
+        r"premium valuation|"
+        r"why .{0,40}(?:trades? at a |trading at a |valued at a )?premium"
+        r"(?! pricing))\b", re.I)),
     # Explicit compare / expensive-cheap must win over "historical valuation"
     # mentions that appear as section lists inside those questions.
     ("comparison", re.compile(
@@ -207,7 +216,8 @@ _FAMILY_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("valuation", re.compile(
         r"\b(expensive|cheap|overvalued|undervalued|valuation|multiple|"
         r"p/?e\b|p/?b\b|ev/?ebitda|price to (?:earnings|book|sales)|"
-        r"trades? at|re-?rat(?:e|ing)|de-?rat(?:e|ing)|discount|premium)\b", re.I)),
+        r"trades? at|re-?rat(?:e|ing)|de-?rat(?:e|ing)|discount|"
+        r"(?<!pricing )(?<!sustain )(?<!sustains )(?<!sustaining )premium)\b", re.I)),
     ("financials", re.compile(
         r"\b(revenue|eps|earnings|margin|debt|cash flow|fcf|capex|"
         r"balance sheet|income statement|working capital)\b", re.I)),
@@ -222,9 +232,6 @@ _FAMILY_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         r"management (?:said|commentary)|what changed)\b", re.I)),
     ("portfolio", re.compile(
         r"\b(portfolio|position sizing|allocation|gross exposure|net exposure)\b", re.I)),
-    ("business", re.compile(
-        r"\b(business model|what does .+ do|explain .{0,40}do|moat|"
-        r"competes?|unit economics)\b", re.I)),
     ("industry", re.compile(
         r"\b(industry|sector|how (?:are|is) .{0,30} valued|banking valuation|"
         r"valu(?:e|ing) (?:a |an )?(?:bank|saas|nbfc))\b", re.I)),

@@ -3208,6 +3208,30 @@ export default function createIntelligenceRouter() {
   router.get('/ifac/debug', kfGet('/v1/ifac/debug'));
   router.get('/ifac/provenance', kfGet('/v1/ifac/provenance'));
   router.get('/ifac/dashboard', kfGet('/v1/ifac/dashboard'));
+  router.get('/aqe/health', kfGet('/v1/aqe/health'));
+  router.get('/aqe/dashboard', kfGet('/v1/aqe/dashboard'));
+  router.post('/aqe/inspect', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/aqe/inspect', {
+        method: 'POST',
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(r);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'aqe inspect failed' });
+    }
+  });
+  router.post('/aqe/quality-gate', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/aqe/quality-gate', {
+        method: 'POST',
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(r);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'aqe quality-gate failed' });
+    }
+  });
   router.post('/ifac/compose', async (req, res) => {
     try {
       const r = await engineFetch('/v1/ifac/compose', {

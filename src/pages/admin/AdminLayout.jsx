@@ -72,6 +72,8 @@ const navItems = [
   { to: '/admin/forecast-runtime', label: 'Forecast Runtime', icon: LineChart },
   { to: '/admin/macro-runtime', label: 'Macro Runtime', icon: Globe2 },
   { to: '/admin/ifac', label: 'Answer Composer', icon: Layers3 },
+  { to: '/admin/aqe', label: 'Ask Product Quality', icon: ClipboardCheck },
+  { to: '/admin/kul', label: 'KUL Routing', icon: Network },
   { to: '/admin/intelligence', label: 'Intelligence CMS', icon: Sparkles },
   { to: '/admin/knowledge-operations', label: 'Knowledge Operations', icon: Library },
   { to: '/admin/valuation-intelligence', label: 'Valuation Intelligence', icon: Scale },

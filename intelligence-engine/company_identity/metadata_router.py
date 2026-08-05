@@ -37,6 +37,16 @@ _FIELD_PATTERNS: tuple[tuple[str, str, str], ...] = (
     ("employees", "Employees", r"\bemployees?\b|\bheadcount\b|\bstaff\s+strength\b"),
     ("founded", "Founded", r"\bfounded\b|\bincorporat\w+\b|\bestablished\b|\byear\s+of\s+founding\b"),
     ("isin", "ISIN", r"\bisin\b"),
+    (
+        "market_cap",
+        "Market Cap",
+        r"\bmarket\s*cap(?:itali[sz]ation)?\b|\bmkt\s*cap\b",
+    ),
+    (
+        "enterprise_value",
+        "Enterprise Value",
+        r"\benterprise\s+value\b|\bev\b(?!\s*/)",
+    ),
 )
 
 _COMPILED = tuple((key, label, re.compile(rx, re.I)) for key, label, rx in _FIELD_PATTERNS)
@@ -54,7 +64,8 @@ _ANALYTICAL_RE = re.compile(
 )
 
 # Fields the canonical registry does not carry from the Capital IQ export.
-_UNAVAILABLE_FIELDS = {"headquarters", "employees", "founded", "isin"}
+# ISIN / market_cap / EV are answered when present on CompanyIdentity.
+_UNAVAILABLE_FIELDS = {"headquarters", "employees", "founded"}
 
 MAX_METADATA_WORDS = 12
 
@@ -97,7 +108,8 @@ _FIELD_WORDS_RE = re.compile(
     r"business|archetype|trading|status|products|product|competitors|competitor|peers|"
     r"peer|rivals|dna|headquarters|head|office|hq|employees|headcount|staff|strength|"
     r"founded|incorporated|incorporation|established|year|isin|of|the|for|what|is|whats|"
-    r"which|show|me|tell|give|please|and|in|on|at)\b",
+    r"which|show|me|tell|give|please|and|in|on|at|"
+    r"market|cap|capitalization|capitalisation|mkt|enterprise|value|ev)\b",
     re.I,
 )
 
@@ -248,6 +260,11 @@ def route(question: str) -> Optional[dict[str, Any]]:
             missing.append(label)
             continue
         answered.append({"field": key, "label": label, "value": value})
+
+    # Market-data fields with empty registry values should fall through to KUL /
+    # CapIQ engines rather than short-circuit with an empty metadata answer.
+    if not answered and fields and all(k in {"market_cap", "enterprise_value", "isin"} for k, _ in fields):
+        return None
 
     if not answered and not missing:
         return None

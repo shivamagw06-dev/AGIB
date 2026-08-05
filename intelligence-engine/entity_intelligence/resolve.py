@@ -37,8 +37,9 @@ from entity_intelligence.schema import (
 _CONCEPT_RE = re.compile(
     r"\b(what is|what are|explain|define|meaning of|how (does|do|to)|"
     r"why (does|do|is|are|can|could|might|would|should)|"
+    r"what creates|what drives|what risks|"
     r"roic|ebitda|free cash flow|enterprise value|moat|pricing power|"
-    r"working capital|wacc|"
+    r"switching costs?|network effects?|working capital|wacc|"
     # Accounting pedagogy — "Why does every transaction require a debit and a
     # credit?" is a concept question and must never be treated as a company.
     r"debit|credit\b|journal entry|double entry|accrual|depreciation|amortisation|"
@@ -61,15 +62,18 @@ _INDUSTRY_PEDAGOGY_RE = re.compile(
     r"cement|steel|metals|mining|chemicals|fertilisers?|fertilizers?|"
     r"refiners?|oil and gas|utilities|power|renewables|"
     r"fmcg|retail|qsr|hotels|real estate|realty|logistics|shipping|"
-    r"auto|automobiles?|auto components|capital goods|infrastructure)\b"
-    r"[^?]{0,60}?"
+    r"auto|automobiles?|auto components|capital goods|infrastructure|"
+    r"paint companies|paints?)\b"
+    r"[^?]{0,80}?"
     r"\b(valued|valuation|kpis?|metrics|economics|unit economics|margins|"
-    r"drivers?|cycle|returns|capital intensity|competition|regulation)\b"
+    r"drivers?|cycle|returns|capital intensity|competition|regulation|"
+    r"risks?|switching costs?|moat|pricing power)\b"
     r"|"
-    r"\b(how (?:are|is|do you value)|what (?:kpis?|metrics|drives?|matters?)|explain)\b"
-    r"[^?]{0,40}?"
+    r"\b(how (?:are|is|do you value)|what (?:kpis?|metrics|drives?|matters?|creates?|risks?)|explain)\b"
+    r"[^?]{0,60}?"
     r"\b(banks?|telecom|airlines?|hospitals?|cement|steel|pharma|fmcg|retail|"
-    r"utilities|refiners?|it services|insurance|real estate|logistics)\b",
+    r"utilities|refiners?|it services|insurance|real estate|logistics|"
+    r"paint companies|paints?)\b",
     re.I,
 )
 _MACRO_RE = re.compile(
@@ -93,6 +97,15 @@ _COMPANY_SHAPE_RE = re.compile(
 )
 _UNKNOWN_FICTION_RE = re.compile(
     r"\b(xyz quantum|abc pharma|quorvex|listed yesterday|fictional|made[- ]up company)\b",
+    re.I,
+)
+# Business pedagogy for well-known globals outside CapIQ coverage — allow BI /
+# industry engines with no ticker bind. Investment-style analysis still refuses.
+_BUSINESS_PEDAGOGY_RE = re.compile(
+    r"\b(moat|business model|how (?:does|do) .+ make money|membership model|"
+    r"competitive advantage|pricing power|switching costs?|network effects?|"
+    r"compare|vs\.?|versus|more profitable|higher margins|unit economics|"
+    r"why (?:is|does|do|are) .{0,40}(?:moat|profitable|margins?|fcf|cash flow))\b",
     re.I,
 )
 
@@ -260,9 +273,9 @@ def _clarification_payload(stem: str, cands: list[dict[str, Any]]) -> dict[str, 
 
 def _unsupported_payload(name: str, *, reason: str) -> dict[str, Any]:
     summary = (
-        f"I identified “{name}”, but I do not currently have verified institutional coverage "
-        f"sufficient to produce a structured investment-style analysis. "
-        f"I will not substitute another company. ({reason})"
+        f"I could not identify verified institutional coverage for “{name}”. "
+        f"There is no verified company dossier sufficient to produce a structured "
+        f"investment-style analysis. I will not substitute another company. ({reason})"
     )
     return {
         "ok": True,
@@ -277,6 +290,39 @@ def _unsupported_payload(name: str, *, reason: str) -> dict[str, Any]:
             f"{name} is outside the verified institutional coverage universe for this request.",
             "AGI will not bind a different CapIQ ticker or invent coverage.",
             "Ask about a covered company, or ask a general industry/concept question.",
+        ],
+        "version": EI_VERSION,
+    }
+
+
+def _pedagogy_payload(ent: dict[str, Any], *, question: str) -> dict[str, Any]:
+    """Allow BI/industry pedagogy for unsupported globals — never CapIQ-bind."""
+    name = ent["canonical_name"]
+    return {
+        "ok": True,
+        "state": STATE_VERIFIED_CONCEPT,
+        "confidence": 0.94,
+        "allow_planner": True,
+        "pedagogy_only": True,
+        "unsupported_global": True,
+        "entity": {
+            "id": ent.get("id"),
+            "canonical_name": name,
+            "ticker": None,
+            "coverage": COVERAGE_NONE,
+            "unsupported_global": True,
+            "forbid_tickers": list(ent.get("forbid_tickers") or []),
+        },
+        "ticker": None,
+        "canonical_name": name,
+        "summary": (
+            f"{name} is outside the verified CapIQ coverage universe. "
+            "Answering from institutional business pedagogy only — no ticker substitution."
+        ),
+        "why": [
+            f"Resolved named entity “{name}” as unsupported-global pedagogy.",
+            "Planner allowed for BI / industry economics; CapIQ company engines forbidden.",
+            f"Question shape: business pedagogy ({question[:72]}).",
         ],
         "version": EI_VERSION,
     }
@@ -365,9 +411,16 @@ def resolve(question: str) -> dict[str, Any]:
     # Curated entity match (longest alias)
     ent, conf, alias = _find_entity_in_text(q)
     if ent:
-        # Global unsupported
+        # Global unsupported — investment refuse, but business pedagogy may proceed
+        # via BI named templates with no CapIQ ticker bind.
         if ent.get("unsupported_global") or ent.get("coverage") == COVERAGE_NONE:
-            return _unsupported_payload(ent["canonical_name"], reason="unsupported global / no verified coverage")
+            if _BUSINESS_PEDAGOGY_RE.search(q):
+                out = _pedagogy_payload(ent, question=q)
+                out["matched_alias"] = alias
+                return out
+            return _unsupported_payload(
+                ent["canonical_name"], reason="unsupported global / no verified coverage"
+            )
 
         # Private / insufficient institutional — verified identity, block planner
         if ent.get("listing") == LISTING_PRIVATE or ent.get("coverage") == COVERAGE_INSUFFICIENT:

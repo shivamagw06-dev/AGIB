@@ -70,6 +70,8 @@ import ResearchIntelligence from '@/pages/admin/ResearchIntelligence';
 import ForecastRuntime from '@/pages/admin/ForecastRuntime';
 import MacroRuntime from '@/pages/admin/MacroRuntime';
 import IfacComposer from '@/pages/admin/IfacComposer';
+import AskProductQuality from '@/pages/admin/AskProductQuality';
+import KulDashboard from '@/pages/admin/KulDashboard';
 import IntelligenceCmsRoutes from '@/pages/admin/intelligence/IntelligenceCmsRoutes';
 
 export default function AdminRoutes() {
@@ -99,6 +101,8 @@ export default function AdminRoutes() {
         <Route path="forecast-runtime" element={<ForecastRuntime />} />
         <Route path="macro-runtime" element={<MacroRuntime />} />
         <Route path="ifac" element={<IfacComposer />} />
+        <Route path="aqe" element={<AskProductQuality />} />
+        <Route path="kul" element={<KulDashboard />} />
         {/* Full-bleed Institutional Morning Office — daily investment desk */}
         <Route path="investment-office" element={<InvestmentOfficeAdmin />} />
         {/* Intelligence CMS — structured data modules (Valuation Monitor first) */}

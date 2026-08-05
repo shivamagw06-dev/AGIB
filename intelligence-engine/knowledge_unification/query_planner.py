@@ -35,8 +35,9 @@ _VALUATION_RE = re.compile(
     re.I,
 )
 _BUSINESS_RE = re.compile(
-    r"\b(business model|how does .+ make money|how .+ (?:make|makes) money|"
-    r"products?|competitors?|moat|segments?|revenue stream|monetis\w*|monetiz\w*)\b",
+    r"\b(business model|membership model|how does .+ make money|how .+ (?:make|makes) money|"
+    r"products?|competitors?|moat|segments?|revenue stream|monetis\w*|monetiz\w*|"
+    r"cost advantages?|growth drivers?|what drives growth)\b",
     re.I,
 )
 _MOAT_RE = re.compile(
@@ -140,6 +141,12 @@ _CONSENSUS_SCREEN_RE = re.compile(
 _MACRO_RE = re.compile(
     r"\b(macro|gdp|inflation|interest rate|rbi|fed|risk premium|country premium|"
     r"rate cut|rate hike|basis point|repo rate|nbfc)\b",
+    re.I,
+)
+# Pure definitions of macro-finance terms belong to concepts/academy, not MIE.
+_MACRO_CONCEPT_TERM_RE = re.compile(
+    r"\b(equity risk premium|country risk premium|risk premium|inflation|"
+    r"cost of equity|gdp|interest rate)\b",
     re.I,
 )
 _MARKET_RE = re.compile(
@@ -446,7 +453,22 @@ def plan_query(question: str) -> QueryPlan:
         types.append("research")
         types.append("investment")
     if _MACRO_RE.search(q):
-        types.append("macro")
+        # "What is equity risk premium?" / "Explain inflation" are concept
+        # pedagogy — not live macro-regime questions for MIE.
+        if (
+            _CONCEPT_RE.search(q)
+            and _MACRO_CONCEPT_TERM_RE.search(q)
+            and not re.search(
+                r"\b(outlook|regime|affect|impact|transmission|cycle|"
+                r"for (?:banks?|nbfcs?|india)|current macro)\b",
+                q,
+                re.I,
+            )
+        ):
+            if "concept" not in types:
+                types.append("concept")
+        else:
+            types.append("macro")
     if _MARKET_RE.search(q):
         types.append("market")
         if re.search(r"today'?s|market summary|market breadth|sector rotation", q, re.I):
@@ -512,13 +534,23 @@ def plan_query(question: str) -> QueryPlan:
         # Only drop when the bind is not itself one of those names (never in IKT).
         company, ticker = None, None
     # Industry pedagogy phrases must not CapIQ-bind a random "Real Estate" company.
-    if ticker and re.search(
-        r"\b(real estate|industry|sector|oligopoly|porter|five forces|"
-        r"typically valued|industry economics)\b",
-        q,
-        re.I,
-    ) and not re.search(
-        r"\b(infosys|tcs|hdfc|reliance|dmart|wipro|icici|sbi)\b", q, re.I
+    # Keep the bind when the question explicitly names a firm (Titan Company sector,
+    # Infosys competitors, …) — only strip fuzzy/pedagogy false binds.
+    if (
+        ticker
+        and re.search(
+            r"\b(real estate|industry|sector|oligopoly|porter|five forces|"
+            r"typically valued|industry economics)\b",
+            q,
+            re.I,
+        )
+        and not explicit
+        and not re.search(
+            r"\b(infosys|tcs|hdfc|reliance|dmart|wipro|icici|sbi|titan|"
+            r"axis|kotak|adani|ongc|asian paints)\b",
+            q,
+            re.I,
+        )
     ):
         company, ticker = None, None
         if "company" in types:

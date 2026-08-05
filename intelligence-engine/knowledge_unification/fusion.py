@@ -95,7 +95,11 @@ _GENERIC_TEMPLATE_RE = re.compile(
     # "For banks, enterprise value is primarily driven by …"
     r"^\s*for [a-z0-9_ /&+-]{2,40}, enterprise value is primarily driven by|"
     r"^\s*for unknown,|"
+    r"^\s*for commodity,|"
     r"^\s*unknown structure|"
+    r"business type:\s*unknown|"
+    r"based on retrieved evidence for the subject|"
+    r"indian stock market q&a|"
     # "Banks economics: revenue from …" — an industry card, not a company answer.
     r"^\s*[a-z][a-z /&+-]{2,30} economics:\s|"
     r"^\s*industry dna:",

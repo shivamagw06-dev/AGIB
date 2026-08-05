@@ -184,6 +184,21 @@ FAMILY_PRIORITY: dict[str, dict[str, tuple[str, ...]]] = {
         ),
         "reference": ("valuation_consensus",),
     },
+    # Moat / business-model pedagogy — BI leads; valuation is supporting only.
+    "business": {
+        "primary": ("business_intelligence",),
+        "secondary": ("industry_intelligence", "investment_intelligence"),
+        "supporting": (
+            "research_intelligence_engine",
+            "forecast_intelligence_engine",
+            "valuation_attribution_engine",
+            "unified_valuation_engine",
+            "historical_valuation_intelligence",
+            "capiq_ikt",
+            "company_memory",
+        ),
+        "reference": ("valuation_consensus",),
+    },
 }
 
 
@@ -204,6 +219,20 @@ def resolve_family(family: Optional[str], question: str = "") -> str:
     f = aliases.get(f, f)
 
     # High-confidence question overrides — applied even when UKO family is set.
+    if any(
+        k in q
+        for k in (
+            "moat",
+            "business model",
+            "pricing power",
+            "switching costs",
+            "premium pricing",
+            "sustain premium",
+            "membership model",
+            "competitive advantage",
+        )
+    ):
+        return "business"
     if any(
         k in q
         for k in (
@@ -239,7 +268,9 @@ def resolve_family(family: Optional[str], question: str = "") -> str:
         return "forecast"
     if any(k in q for k in ("expensive", "cheap", "valuation", "overvalued", "undervalued")):
         return "valuation"
-    return "company" if f in {"company", "business"} else (f if f in FAMILY_PRIORITY else "company")
+    if f == "business":
+        return "business"
+    return "company" if f == "company" else (f if f in FAMILY_PRIORITY else "company")
 
 
 def priority_order(family: str) -> list[str]:
