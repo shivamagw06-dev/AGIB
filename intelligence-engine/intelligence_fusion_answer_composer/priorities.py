@@ -219,20 +219,20 @@ def resolve_family(family: Optional[str], question: str = "") -> str:
     f = aliases.get(f, f)
 
     # High-confidence question overrides — applied even when UKO family is set.
+    # Full IC memoranda beat incidental "business model" section lists.
     if any(
         k in q
         for k in (
-            "moat",
-            "business model",
-            "pricing power",
-            "switching costs",
-            "premium pricing",
-            "sustain premium",
-            "membership model",
-            "competitive advantage",
+            "investment committee",
+            "institutional equity analyst",
+            "as if you were",
+            "dossier",
+            "committee memorandum",
+            "research memorandum",
+            "preparing an investment",
         )
     ):
-        return "business"
+        return "company"
     if any(
         k in q
         for k in (
@@ -242,11 +242,40 @@ def resolve_family(family: Optional[str], question: str = "") -> str:
             "premium valuation",
             "premium to peers",
             "valuation attribution",
+            "trades at a premium valuation",
+            "why .* trades at a premium",
         )
-    ) or ("premium" in q and any(k in q for k in ("attribute", "attribution", "break down", "decompose"))):
+    ) or (
+        "premium" in q
+        and any(k in q for k in ("attribute", "attribution", "break down", "decompose", "why"))
+        and "pricing" not in q
+    ):
         return "attribution"
-    if any(k in q for k in ("investment committee", "institutional equity analyst", "as if you were", "dossier")):
-        return "company"
+    if any(
+        k in q
+        for k in (
+            "moat",
+            "pricing power",
+            "switching costs",
+            "premium pricing",
+            "sustain premium",
+            "membership model",
+            "competitive advantage",
+        )
+    ) or (
+        "business model" in q
+        and not any(
+            k in q
+            for k in (
+                "investment committee",
+                "memorandum",
+                "dossier",
+                "monitoring points",
+                "observed, derived",
+            )
+        )
+    ):
+        return "business"
     if any(k in q for k in ("compare ", " versus ", " vs ", "stronger institutional profile")):
         return "comparison"
     if any(k in q for k in ("expensive or cheap", "currently expensive", "currently cheap", "overvalued", "undervalued")):

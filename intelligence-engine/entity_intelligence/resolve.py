@@ -103,8 +103,10 @@ _UNKNOWN_FICTION_RE = re.compile(
 # industry engines with no ticker bind. Investment-style analysis still refuses.
 _BUSINESS_PEDAGOGY_RE = re.compile(
     r"\b(moat|business model|how (?:does|do) .+ make money|membership model|"
-    r"competitive advantage|pricing power|switching costs?|network effects?|"
+    r"competitive advantages?|pricing power|switching costs?|network effects?|"
+    r"business quality|valuation philosophy|profitability|"
     r"compare|vs\.?|versus|more profitable|higher margins|unit economics|"
+    r"analy[sz]e .{0,40}(?:moat|competitive|business|profit)|"
     r"why (?:is|does|do|are) .{0,40}(?:moat|profitable|margins?|fcf|cash flow))\b",
     re.I,
 )

@@ -66,7 +66,62 @@ class MarketIntelligenceEngineProvider:
         except Exception as exc:
             return empty_result(self.spec.id, t0, str(exc)[:160])
         if not pack.get("ok"):
-            return empty_result(self.spec.id, t0, str(pack.get("error") or "mi_empty"))
+            # Still return an institutional market frame — never silent on breadth/flows.
+            breadth_note = "Market breadth unavailable — insufficient warehouse price history."
+            flow_note = "Institutional flows (FII/DII) unavailable — warehouse flow table empty."
+            rotate_note = "Sector rotation unavailable — no valuation universe to rank leaders/laggards."
+            try:
+                from market_intelligence_engine import breadth as breadth_mod
+                from market_intelligence_engine import flows as flows_mod
+
+                b = breadth_mod.market_breadth() or {}
+                f = flows_mod.institutional_flows() or {}
+                if b.get("ok") and b.get("advance_decline_ratio") is not None:
+                    breadth_note = (
+                        f"Market breadth — advance/decline={b.get('advance_decline_ratio')}, "
+                        f"stance={b.get('stance') or b.get('sentiment') or 'n/a'}."
+                    )
+                if f.get("available"):
+                    flow_note = (
+                        f"Institutional flows — latest net={f.get('net_institutional_flow')}, "
+                        f"as of {f.get('latest_date')}."
+                    )
+                elif f.get("note"):
+                    flow_note = str(f.get("note"))
+            except Exception:
+                pass
+            summary = (
+                "Indian market intelligence — warehouse coverage is currently thin, so AGIB "
+                "reports the research frame rather than fabricating breadth or flow prints. "
+                f"{breadth_note} {flow_note} {rotate_note} "
+                "Monitor: index breadth, FII/DII net, sector rotation vs valuation medians, "
+                "and the macro liquidity/rates backdrop."
+            )
+            expl = {
+                "observed": [f"dashboard_error={pack.get('error') or 'mi_empty'}"],
+                "derived": [breadth_note, flow_note],
+                "inferred": [
+                    "Rotation and market-wide valuation stance require a populated warehouse universe."
+                ],
+            }
+            return timed_result(
+                self.spec.id,
+                ok=True,
+                empty=False,
+                confidence=0.45,
+                t0=t0,
+                summary=summary[:1200],
+                why=[breadth_note, flow_note, rotate_note, "Research priorities: breadth, flows, rotation, macro"],
+                evidence=[{
+                    "source": "market_intelligence_engine",
+                    "title": "mi:coverage_gap",
+                    "explainability": expl,
+                }],
+                facts=[
+                    {"field": "coverage_gap", "value": pack.get("error") or "mi_empty", "source": "mi"},
+                ],
+                raw={"engine": "market_intelligence_engine", "coverage_gap": True, "error": pack.get("error")},
+            )
 
         agi = pack.get("summary") or {}
         summary = (
