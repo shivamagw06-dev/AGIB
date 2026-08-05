@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from financial_warehouse_completion import audit, coverage, import_runtime, yahoo_fill
+from financial_warehouse_completion import audit, coverage, import_runtime, upstox_fill, yahoo_fill
 from financial_warehouse_completion.capital_iq_import import import_framework_status, run_capital_iq_stage
 from financial_warehouse_completion.models import ENGINE_CODE, PROGRAMME_CODE, PROGRAMME_VERSION, TARGETS
 from financial_warehouse_completion.share_count import sync_symbol as sync_share_count
@@ -41,6 +41,8 @@ def health() -> dict[str, Any]:
             "/v1/warehouse/yahoo-fill/start",
             "/v1/warehouse/yahoo-fill/run",
             "/v1/warehouse/yahoo-fill/stop",
+            "/v1/warehouse/upstox-fill/queue",
+            "/v1/warehouse/upstox-fill/board",
             "/v1/warehouse/import/start",
             "/v1/warehouse/import/retry",
             "/v1/warehouse/import/status",
@@ -237,3 +239,11 @@ def yahoo_fill_company(symbol: str, actor: str = "yahoo_fill") -> dict[str, Any]
 
 def yahoo_fill_probe(symbol: str = "RELIANCE") -> dict[str, Any]:
     return yahoo_fill.probe(symbol)
+
+
+def upstox_fill_queue(limit: int = 200, include_thin: bool = True) -> dict[str, Any]:
+    return upstox_fill.queue_candidates(limit=limit, include_thin=include_thin)
+
+
+def upstox_fill_board() -> dict[str, Any]:
+    return upstox_fill.board()

@@ -62,9 +62,27 @@ Capital IQ / Upstox / Yahoo / Connector
    Coverage board + HVIE eligibility
 ```
 
-## Yahoo-first fill (fast path)
+## Upstox-first fill (preferred on Render)
 
-After Step 0, use Yahoo Finance to fill EMPTY / thin companies quickly:
+Yahoo fundamentals are often **empty from datacenter IPs**. Prefer Upstox:
+
+| Method | Path |
+|--------|------|
+| GET | `/v1/warehouse/upstox-fill/queue` |
+| GET | `/v1/warehouse/upstox-fill/board` |
+| POST | `/api/upstox/statements/fill-empty` |
+| POST | `/api/upstox/statements/fill-empty/run` |
+| POST | `/api/upstox/statements/fill-empty/stop` |
+
+Calls `GET /v2/fundamentals/{isin}/income-statement|balance-sheet|cash-flow` with
+`type=consolidated`, `time_period=yearly|quarterly`, `fs=true`. Units: crore → INR million.
+Queue: EMPTY → MINIMAL → thin, **INE\* ISIN only** (skips INF\* funds).
+
+Admin: `/admin/financial-coverage` → **Start Upstox fill**.
+
+## Yahoo-first fill (fallback)
+
+After Step 0, Yahoo Finance can fill EMPTY / thin companies when egress allows:
 
 | Method | Path |
 |--------|------|

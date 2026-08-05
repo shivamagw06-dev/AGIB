@@ -18943,6 +18943,20 @@ async def warehouse_yahoo_fill_probe(symbol: str = "RELIANCE"):
     return yahoo_fill_probe(symbol)
 
 
+@router.get("/warehouse/upstox-fill/queue")
+async def warehouse_upstox_fill_queue(limit: int = 200, include_thin: bool = True):
+    from financial_warehouse_completion import upstox_fill_queue
+
+    return upstox_fill_queue(limit=limit, include_thin=include_thin)
+
+
+@router.get("/warehouse/upstox-fill/board")
+async def warehouse_upstox_fill_board():
+    from financial_warehouse_completion import upstox_fill_board
+
+    return upstox_fill_board()
+
+
 @router.post("/warehouse/yahoo-fill/start")
 async def warehouse_yahoo_fill_start(
     payload: dict[str, Any] = Body(default_factory=dict),

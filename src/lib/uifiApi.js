@@ -47,3 +47,20 @@ export function bootstrapDataset(dataset, body = {}) {
   if (!path) throw new Error(`unknown_dataset:${dataset}`);
   return request(path, { method: 'POST', body });
 }
+
+/** Upstox-first EMPTY statement fill (prefer over Yahoo on Render). */
+export function getUpstoxEmptyFillStatus() {
+  return request('/api/upstox/statements/fill-empty/status');
+}
+
+export function startUpstoxEmptyFill(body = {}) {
+  return request('/api/upstox/statements/fill-empty', { method: 'POST', body });
+}
+
+export function stopUpstoxEmptyFill() {
+  return request('/api/upstox/statements/fill-empty/stop', { method: 'POST', body: {} });
+}
+
+export function runUpstoxEmptyFill(body = {}) {
+  return request('/api/upstox/statements/fill-empty/run', { method: 'POST', body });
+}

@@ -4,12 +4,16 @@ import { ArrowLeft, Pause, Play, RefreshCw, Search, Zap } from 'lucide-react';
 import {
   getCompanyFinancialCoverage,
   getFinancialAudit,
+  getUpstoxFillBoard,
   getYahooFillBoard,
-  postYahooFillResume,
-  postYahooFillRun,
-  postYahooFillStart,
   postYahooFillStop,
 } from '@/lib/warehouseApi';
+import {
+  getUpstoxEmptyFillStatus,
+  runUpstoxEmptyFill,
+  startUpstoxEmptyFill,
+  stopUpstoxEmptyFill,
+} from '@/lib/uifiApi';
 import './valuationPolicy.css';
 
 function fmt(n, d = 0) {
@@ -59,6 +63,8 @@ const CLASS_TONE = {
 export default function FinancialCoverage() {
   const [board, setBoard] = useState(null);
   const [yahoo, setYahoo] = useState(null);
+  const [upstox, setUpstox] = useState(null);
+  const [upstoxBoard, setUpstoxBoard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(null);
@@ -71,12 +77,16 @@ export default function FinancialCoverage() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [data, yb] = await Promise.all([
+      const [data, yb, ub, us] = await Promise.all([
         getFinancialAudit(),
         getYahooFillBoard().catch(() => null),
+        getUpstoxFillBoard().catch(() => null),
+        getUpstoxEmptyFillStatus().catch(() => null),
       ]);
       setBoard(data);
       setYahoo(yb);
+      setUpstoxBoard(ub);
+      setUpstox(us);
       setError(null);
     } catch (err) {
       setError(String(err?.message || err));
@@ -88,31 +98,35 @@ export default function FinancialCoverage() {
   useEffect(() => {
     refresh();
     const id = setInterval(() => {
+      getUpstoxEmptyFillStatus().then(setUpstox).catch(() => {});
       getYahooFillBoard().then(setYahoo).catch(() => {});
     }, 15000);
     return () => clearInterval(id);
   }, [refresh]);
 
-  const yahooAct = async (label, fn) => {
+  const upstoxAct = async (label, fn) => {
     setBusy(true);
     setNote(null);
     try {
+      // Pause Yahoo worker if still spinning — Upstox is the Render path.
+      await postYahooFillStop().catch(() => null);
       const out = await fn();
       if (out?.already_running) {
-        setNote('Yahoo fill already running — EMPTY/thin names are being written.');
+        setNote('Upstox fill already running — EMPTY INE* equities are being written.');
       } else if (out?.ok === false) {
         setNote(`${label} failed: ${out.error || 'unknown'}`);
       } else if (label === 'run') {
         const b = out?.batch || {};
-        setNote(`Yahoo batch: ${b.filled ?? 0} filled, ${b.failed ?? 0} failed. Ceiling ≈4–5 annual years.`);
+        setNote(`Upstox batch: ${b.filled ?? 0} filled, ${b.failed ?? 0} failed, ${b.ingest_rows ?? 0} rows.`);
       } else {
         setNote(
-          label === 'start' || label === 'resume'
-            ? 'Yahoo fill started. Prioritises EMPTY → MINIMAL → thin. Will not create 10y depth alone.'
-            : 'Yahoo fill paused.',
+          label === 'start'
+            ? 'Upstox fill started. Uses /fundamentals/{isin}/income-statement (+ BS/CF), yearly+quarterly.'
+            : 'Upstox fill paused.',
         );
       }
-      setYahoo(await getYahooFillBoard().catch(() => out?.board || null));
+      setUpstox(await getUpstoxEmptyFillStatus().catch(() => out));
+      setUpstoxBoard(await getUpstoxFillBoard().catch(() => null));
     } catch (err) {
       setError(String(err?.message || err));
     } finally {
@@ -158,28 +172,30 @@ export default function FinancialCoverage() {
       <div className="vp-shell">
         <Link to="/admin" className="vp-back"><ArrowLeft size={16} /> Admin</Link>
 
-        <p className="vp-kicker">Phase 7.4F · Step 0 audit + Yahoo fill</p>
+        <p className="vp-kicker">Phase 7.4F · Step 0 audit + Upstox fill</p>
         <h1 className="vp-title">Financial Coverage Audit</h1>
         <p className="vp-sub">
-          Measures warehouse depth, then fills EMPTY / thin names from Yahoo Finance
-          (≈4–5 annual years, ≈4–6 quarters). CapIQ remains the path to 10-year COMPLETE depth.
-          Audit scan is read-only; Yahoo fill writes statements + share counts only — never vendor PE/PB/EV.
+          Measures warehouse depth, then fills EMPTY / thin equities from{' '}
+          <strong>Upstox fundamentals</strong> by ISIN
+          (<code>/fundamentals/&#123;isin&#125;/income-statement</code> + balance-sheet + cash-flow).
+          Prefer Upstox on Render — Yahoo fundamentals are blocked from datacenter IPs.
+          CapIQ remains the path to 10-year COMPLETE depth. Never imports vendor PE/PB/EV.
         </p>
 
         <div className="hr-actions">
           <button
             type="button"
             className="hr-btn primary"
-            disabled={busy || yahoo?.runtime?.status === 'running'}
-            onClick={() => yahooAct('start', () => postYahooFillStart({ batch: 25, pause_seconds: 0.35, include_thin: true }))}
+            disabled={busy || upstox?.runtime?.status === 'running'}
+            onClick={() => upstoxAct('start', () => startUpstoxEmptyFill({ batch: 10, concurrency: 2, include_thin: true }))}
           >
-            <Play size={14} /> Start Yahoo fill
+            <Play size={14} /> Start Upstox fill
           </button>
           <button
             type="button"
             className="hr-btn"
-            disabled={busy || yahoo?.runtime?.status !== 'running'}
-            onClick={() => yahooAct('stop', () => postYahooFillStop())}
+            disabled={busy || upstox?.runtime?.status !== 'running'}
+            onClick={() => upstoxAct('stop', () => stopUpstoxEmptyFill())}
           >
             <Pause size={14} /> Pause
           </button>
@@ -187,46 +203,42 @@ export default function FinancialCoverage() {
             type="button"
             className="hr-btn"
             disabled={busy}
-            onClick={() => yahooAct('resume', () => postYahooFillResume({ batch: 25 }))}
+            onClick={() => upstoxAct('run', () => runUpstoxEmptyFill({ batch: 5 }))}
           >
-            Resume
-          </button>
-          <button
-            type="button"
-            className="hr-btn"
-            disabled={busy}
-            onClick={() => yahooAct('run', () => postYahooFillRun({ batch: 15, include_thin: true }))}
-          >
-            <Zap size={14} /> Run 15 now
+            <Zap size={14} /> Run 5 now
           </button>
           <button type="button" className="hr-btn" disabled={loading} onClick={refresh}>
             <RefreshCw size={14} /> {loading ? 'Scanning…' : 'Re-run audit'}
           </button>
+          <Link to="/admin/upstox-fundamentals" className="hr-btn">Upstox UIFI →</Link>
           <Link to="/admin/financial-warehouse" className="hr-btn">Import runtime →</Link>
         </div>
 
         {note ? <p className="hr-note">{note}</p> : null}
         {error ? <p className="vp-error">{error}</p> : null}
         {yahoo?.diagnosis ? (
-          <p className="vp-error" style={{ marginTop: '0.75rem' }}>{yahoo.diagnosis}</p>
-        ) : null}
-        {yahoo?.plain_english ? (
-          <p className="vp-sub" style={{ marginTop: '0.75rem' }}>
-            Yahoo worker: <strong>{yahoo?.runtime?.status || 'idle'}</strong>
-            {' · '}filled {fmt(yahoo?.progress?.filled)} / processed {fmt(yahoo?.progress?.processed)}
-            {' · '}failed {fmt(yahoo?.progress?.failed)}
-            {yahoo?.progress?.blocked ? ` · blocked ${fmt(yahoo.progress.blocked)}` : ''}
-            {' · '}EMPTY waiting {fmt(yahoo?.progress?.empty_waiting)}
-            {' · '}skipped funds {fmt(yahoo?.progress?.skipped_non_equity)}
+          <p className="vp-error" style={{ marginTop: '0.75rem' }}>
+            Yahoo note: {yahoo.diagnosis} Use <strong>Start Upstox fill</strong> instead.
           </p>
         ) : null}
-        {(yahoo?.last_errors || []).length ? (
+        {upstox?.plain_english || upstoxBoard?.plain_english ? (
+          <p className="vp-sub" style={{ marginTop: '0.75rem' }}>
+            Upstox worker: <strong>{upstox?.runtime?.status || 'idle'}</strong>
+            {' · '}filled {fmt(upstox?.runtime?.filled)} / processed {fmt(upstox?.runtime?.processed)}
+            {' · '}failed {fmt(upstox?.runtime?.failed)}
+            {' · '}EMPTY+INE waiting {fmt(upstoxBoard?.progress?.empty)}
+            {' · '}{upstoxBoard?.plain_english || upstox?.plain_english}
+          </p>
+        ) : null}
+        {(upstox?.recent || []).length ? (
           <div className="vp-panel" style={{ marginTop: '0.75rem' }}>
-            <h2 className="vp-h2">Recent Yahoo errors</h2>
+            <h2 className="vp-h2">Recent Upstox fill batches</h2>
             <ul className="vp-muted" style={{ margin: 0, paddingLeft: '1.1rem', fontSize: '0.8rem' }}>
-              {yahoo.last_errors.slice(-8).map((e) => (
-                <li key={`${e.symbol}-${e.at}`}>
-                  <strong>{e.symbol}</strong>: {e.error}
+              {upstox.recent.slice(0, 8).map((e) => (
+                <li key={`${e.at}-${e.event}`}>
+                  {e.event}: filled {e.filled ?? '—'} / failed {e.failed ?? '—'}
+                  {e.error ? ` — ${e.error}` : ''}
+                  {Array.isArray(e.symbols) ? ` [${e.symbols.slice(0, 5).join(', ')}]` : ''}
                 </li>
               ))}
             </ul>

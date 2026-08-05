@@ -356,6 +356,48 @@ export default function createMarketRouter(env = {}) {
     }
   });
 
+  // Upstox-first EMPTY statement fill (prefer over Yahoo on Render)
+  router.get('/upstox/statements/fill-empty/status', async (_req, res) => {
+    try {
+      const { getUpstoxEmptyFillStatus } = await import('../services/upstoxEmptyFill.js');
+      return res.status(200).json(getUpstoxEmptyFillStatus());
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'upstox_fill_status_failed' });
+    }
+  });
+  router.post('/upstox/statements/fill-empty', async (req, res) => {
+    try {
+      const { startUpstoxEmptyFill } = await import('../services/upstoxEmptyFill.js');
+      return res.status(200).json(await startUpstoxEmptyFill({
+        batchSize: req.body?.batch || req.body?.batchSize,
+        concurrency: req.body?.concurrency,
+        pauseMs: req.body?.pause_ms || req.body?.pauseMs,
+        includeThin: req.body?.include_thin !== false,
+      }));
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'upstox_fill_start_failed' });
+    }
+  });
+  router.post('/upstox/statements/fill-empty/stop', async (_req, res) => {
+    try {
+      const { stopUpstoxEmptyFill } = await import('../services/upstoxEmptyFill.js');
+      return res.status(200).json(await stopUpstoxEmptyFill());
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'upstox_fill_stop_failed' });
+    }
+  });
+  router.post('/upstox/statements/fill-empty/run', async (req, res) => {
+    try {
+      const { runUpstoxEmptyFillBatch } = await import('../services/upstoxEmptyFill.js');
+      return res.status(200).json(await runUpstoxEmptyFillBatch({
+        batchSize: req.body?.batch || req.body?.batchSize || 10,
+        symbols: req.body?.symbols,
+      }));
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'upstox_fill_run_failed' });
+    }
+  });
+
   router.get('/intelligence', async (_req, res) => {
     // Warm Groww/NSE ticker in the same 30-min cycle as AGI outlook.
     void getTickerData(env).catch(() => null);

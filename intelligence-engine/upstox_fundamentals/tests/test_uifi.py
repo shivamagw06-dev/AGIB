@@ -57,6 +57,65 @@ def test_normalise_income_statement_periods():
     assert any(r.get("revenue") == 150000 for r in rows)
 
 
+def test_normalise_upstox_v2_history_shape():
+    """Upstox docs shape: category/history + full_statement with Mar YYYY periods."""
+    rows = normalise_statements({
+        "symbol": "RELIANCE",
+        "data": {
+            "type": "consolidated",
+            "time_period": "yearly",
+            "units_in": "crore",
+            "income_statement": [
+                {
+                    "category": "revenue",
+                    "history": [
+                        {"value": 982671, "period": "Mar 2025"},
+                        {"value": 917121, "period": "Mar 2024"},
+                    ],
+                },
+                {
+                    "category": "net_profit",
+                    "history": [
+                        {"value": 80787, "period": "Mar 2025"},
+                        {"value": 78633, "period": "Mar 2024"},
+                    ],
+                },
+            ],
+            "full_statement": [
+                {
+                    "particular": "Total Revenue",
+                    "history": [
+                        {"period": "Mar 2025", "value": 982671},
+                        {"period": "Mar 2024", "value": 917121},
+                    ],
+                },
+                {
+                    "particular": "Profit After Tax",
+                    "history": [
+                        {"period": "Mar 2025", "value": 80787},
+                        {"period": "Mar 2024", "value": 78633},
+                    ],
+                },
+                {
+                    "particular": "EPS - Basic",
+                    "history": [
+                        {"period": "Mar 2025", "value": 51.47},
+                        {"period": "Mar 2024", "value": 51.45},
+                    ],
+                },
+            ],
+        },
+    }, kind="income-statement")
+    assert len(rows) >= 2
+    assert all(r["statement_frequency"] == "ANNUAL" for r in rows)
+    assert all(r["statement_type"] == "CONSOLIDATED" for r in rows)
+    assert {r["fiscal_year"] for r in rows} >= {"FY2025", "FY2024"}
+    fy25 = next(r for r in rows if r["fiscal_year"] == "FY2025")
+    assert fy25.get("revenue") == 982671
+    assert fy25.get("pat") == 80787
+    assert fy25.get("eps") == 51.47
+
+
 def test_merge_statements():
     income = normalise_statements({
         "symbol": "TCS",
