@@ -4129,6 +4129,15 @@ class UiService:
             decision_engine = {}
 
         answer_meta_institutional: dict[str, Any] = {}
+        intent_resolution_pack: dict[str, Any] = {}
+        try:
+            intent_resolution_pack = (ask_pipeline_runtime or {}).get("intent_resolution") or {}
+            if not intent_resolution_pack:
+                from ask_pipeline.intent_resolution import resolve_intent
+
+                intent_resolution_pack = resolve_intent(q) or {}
+        except Exception:
+            intent_resolution_pack = {}
         try:
             from answer_construction.production import package_for_ask_agi as ac_package
 
@@ -4136,6 +4145,7 @@ class UiService:
                 ac_package(
                     query=q,
                     ticker=detected_ticker,
+                    intent_resolution=intent_resolution_pack if isinstance(intent_resolution_pack, dict) else None,
                     executive=executive,
                     thesis=thesis,
                     house_label=house_label,
@@ -4252,6 +4262,22 @@ class UiService:
                 else None
             ),
             "response_constitution": _rc if isinstance(_rc, dict) else None,
+            "ask_intelligence_constitution": (
+                (answer_construction or {}).get("ask_intelligence_constitution")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
+            "research_conclusion": (
+                (answer_construction or {}).get("research_conclusion")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
+            "questions_before_you_decide": (
+                (answer_construction or {}).get("questions_before_you_decide")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
+            "intent_resolution": intent_resolution_pack if isinstance(intent_resolution_pack, dict) else None,
             "answer_structure": (
                 (answer_construction or {}).get("answer_structure")
                 if isinstance(answer_construction, dict)

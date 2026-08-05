@@ -922,6 +922,27 @@ export function mapSearchPack(pack) {
         : pack.answer?.response_constitution?.enabled
           ? pack.answer.response_constitution
           : null,
+    askIntelligenceConstitution:
+      ac?.ask_intelligence_constitution?.enabled
+        ? ac.ask_intelligence_constitution
+        : pack.answer?.ask_intelligence_constitution?.enabled
+          ? pack.answer.ask_intelligence_constitution
+          : null,
+    researchConclusion:
+      ac?.research_conclusion ||
+      pack.answer?.research_conclusion ||
+      ac?.ask_intelligence_constitution?.sections?.research_conclusion ||
+      null,
+    questionsBeforeYouDecide:
+      ac?.questions_before_you_decide ||
+      pack.answer?.questions_before_you_decide ||
+      ac?.ask_intelligence_constitution?.sections?.questions_before_you_decide ||
+      null,
+    intentResolution:
+      ac?.intent_resolution ||
+      pack.answer?.intent_resolution ||
+      pack.intent_resolution ||
+      null,
     bottomLine:
       asText(ac?.bottom_line) ||
       asText(ac?.response_constitution?.bottom_line) ||

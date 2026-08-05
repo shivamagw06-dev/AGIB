@@ -386,6 +386,21 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
     except Exception:
         out.setdefault("response_constitution", {"enabled": False, "bypassed": True})
 
+    # Ask Intelligence Constitution v1.0 — institutional response methodology (code, not prompt).
+    try:
+        from ask_intelligence_constitution import apply_ask_intelligence_constitution
+
+        out = apply_ask_intelligence_constitution(
+            out,
+            query=str(kwargs.get("query") or ""),
+            intent_resolution=kwargs.get("intent_resolution") or out.get("intent_resolution"),
+            ticker=kwargs.get("ticker"),
+            company=kwargs.get("company"),
+            house_label=kwargs.get("house_label") or out.get("house_label"),
+        )
+    except Exception:
+        out.setdefault("ask_intelligence_constitution", {"enabled": False, "bypassed": True})
+
     return out
 
 
@@ -404,6 +419,7 @@ def quality_gates() -> dict[str, Any]:
             "institutional_analyst_framework_soft": True,
             "institutional_research_writer_soft": True,
             "response_constitution_v1": True,
+            "ask_intelligence_constitution_v1": True,
         },
         "flags": flags_dict(),
     }
