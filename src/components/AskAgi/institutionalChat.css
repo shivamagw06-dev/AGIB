@@ -736,6 +736,30 @@
   font-weight: 650;
 }
 
+.ac-journey-steps li.review {
+  color: var(--ac-amber);
+  font-weight: 650;
+}
+
+.ac-nbrq-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--ac-line);
+  background: var(--ac-panel);
+  border-radius: 0.65rem;
+  padding: 0.75rem 0.9rem;
+  font: inherit;
+  font-weight: 650;
+  color: var(--ac-blue);
+  cursor: pointer;
+}
+
+.ac-nbrq-btn:hover {
+  border-color: var(--ac-blue);
+  background: rgba(26, 75, 140, 0.04);
+}
+
 @keyframes ac-rise {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }

@@ -416,6 +416,21 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
     except Exception:
         out.setdefault("institutional_playbook_framework", {"enabled": False, "bypassed": True})
 
+    # Research Workflow Framework v1.0 — orchestrates playbooks into research sessions.
+    try:
+        from research_workflow_framework import apply_research_workflow_framework
+
+        out = apply_research_workflow_framework(
+            out,
+            query=str(kwargs.get("query") or ""),
+            intent_resolution=kwargs.get("intent_resolution") or out.get("intent_resolution"),
+            ticker=kwargs.get("ticker"),
+            company=kwargs.get("company"),
+            research_session_state=kwargs.get("research_session_state"),
+        )
+    except Exception:
+        out.setdefault("research_workflow_framework", {"enabled": False, "bypassed": True})
+
     return out
 
 
@@ -436,6 +451,7 @@ def quality_gates() -> dict[str, Any]:
             "response_constitution_v1": True,
             "ask_intelligence_constitution_v1": True,
             "institutional_playbook_framework_v1": True,
+            "research_workflow_framework_v1": True,
         },
         "flags": flags_dict(),
     }
