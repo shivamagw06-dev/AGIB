@@ -108,6 +108,23 @@ def test_upsert_updates_bump_version_and_journal():
     assert any(h["column"] == "company_name" for h in history)
 
 
+def test_all_rows_paginates_past_max_limit(monkeypatch):
+    """Coverage audits request limit>MAX_LIMIT; must not silently stop at one page."""
+    monkeypatch.setattr(store, "MAX_LIMIT", 10)
+    _seed_master("AAA")
+    market = [
+        {"symbol": "AAA", "date": f"2026-01-{(i):02d}", "close": float(i)}
+        for i in range(1, 26)
+    ]
+    store.upsert("daily_market_history", market, source="test", actor="tester")
+    total = store.fetch("daily_market_history", limit=1)["total"]
+    assert total == 25
+    page = store.fetch("daily_market_history", limit=100)
+    assert page["returned"] == 10  # per-request clamp
+    all_of_them = store.all_rows("daily_market_history", limit=100)
+    assert len(all_of_them) == 25
+
+
 def test_append_tab_keeps_each_period_as_its_own_row():
     rows = [
         {"symbol": "AXISBANK", "date": "2026-07-30", "close": 1000.0},

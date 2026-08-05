@@ -19,7 +19,12 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def queue_candidates(*, limit: int = 200, include_thin: bool = True) -> dict[str, Any]:
+def queue_candidates(
+    *,
+    limit: int = 200,
+    include_thin: bool = True,
+    exclude: Optional[list[str] | set[str] | tuple[str, ...]] = None,
+) -> dict[str, Any]:
     """EMPTY → MINIMAL → thin, requiring INE* equity ISIN (skip INF* funds)."""
     from financial_warehouse_completion.audit import (
         CLASS_EMPTY,
@@ -30,7 +35,18 @@ def queue_candidates(*, limit: int = 200, include_thin: bool = True) -> dict[str
         _index_by_symbol,
         _load_rows,
         _quarterly_stats,
+        clear_audit_cache,
     )
+
+    # Queue must see freshly written statement rows (not a stale audit scan).
+    clear_audit_cache()
+    clear_queue_cache()
+
+    exclude_set = {
+        str(s or "").strip().upper()
+        for s in (exclude or [])
+        if str(s or "").strip()
+    }
 
     masters = _load_rows("company_master", limit=100000)
     annual_ix = _index_by_symbol(_load_rows("financials_annual", limit=500000))
@@ -41,10 +57,14 @@ def queue_candidates(*, limit: int = 200, include_thin: bool = True) -> dict[str
     thin: list[dict[str, Any]] = []
     skipped_no_isin = 0
     skipped_non_equity = 0
+    skipped_excluded = 0
 
     for m in masters:
         sym = str(m.get("symbol") or "").strip().upper()
         if not sym:
+            continue
+        if sym in exclude_set:
+            skipped_excluded += 1
             continue
         isin = str(m.get("isin") or "").strip().upper()
         if _looks_non_equity(sym, m.get("company_name"), isin):
@@ -95,6 +115,7 @@ def queue_candidates(*, limit: int = 200, include_thin: bool = True) -> dict[str
             "total_candidates": len(ranked),
             "skipped_non_equity": skipped_non_equity,
             "skipped_no_ine_isin": skipped_no_isin,
+            "skipped_excluded": skipped_excluded,
             "universe": len(masters),
         },
         "rows": ranked[:cap],

@@ -18944,10 +18944,15 @@ async def warehouse_yahoo_fill_probe(symbol: str = "RELIANCE"):
 
 
 @router.get("/warehouse/upstox-fill/queue")
-async def warehouse_upstox_fill_queue(limit: int = 200, include_thin: bool = True):
+async def warehouse_upstox_fill_queue(
+    limit: int = 200,
+    include_thin: bool = True,
+    exclude: str = "",
+):
     from financial_warehouse_completion import upstox_fill_queue
 
-    return upstox_fill_queue(limit=limit, include_thin=include_thin)
+    exclude_list = [s.strip().upper() for s in str(exclude or "").split(",") if s.strip()]
+    return upstox_fill_queue(limit=limit, include_thin=include_thin, exclude=exclude_list or None)
 
 
 @router.get("/warehouse/upstox-fill/board")
