@@ -95,6 +95,9 @@ export default function MarketSectorIntelligence() {
   };
 
   const overview = pack?.overview || {};
+  const regime = pack?.market_regime || {};
+  const marketHealth = pack?.market_health || {};
+  const drivers = pack?.market_drivers?.drivers || [];
   const breadth = pack?.breadth || {};
   const flows = pack?.flows || {};
   const heatmap = pack?.sector_heatmap || [];
@@ -126,7 +129,7 @@ export default function MarketSectorIntelligence() {
           <>
             <Section
               title="Market overview"
-              subtitle={`Valuation as of ${overview.valuation_date || '—'} · ${overview.companies || 0} companies · PE coverage ${overview.coverage?.pct != null ? overview.coverage.pct : '—'}%`}
+              subtitle={`Constitution v${pack.constitution || '2.0'} · Valuation as of ${overview.valuation_date || '—'} · ${overview.companies || 0} companies · PE coverage ${overview.coverage?.pct != null ? overview.coverage.pct : '—'}%`}
             >
               <div className="msi-index-row">
                 {(indexSentiments.length ? indexSentiments : pulse?.indices || []).length ? (
@@ -143,13 +146,16 @@ export default function MarketSectorIntelligence() {
                 )}
               </div>
               <div className="msi-grid">
+                <Stat label="Market regime" value={regime.regime || '—'} hint={regime.drivers?.slice(0, 2).join(' · ')} />
+                <Stat label="Market health" value={marketHealth.overall != null ? `${marketHealth.overall}/100` : '—'} />
+                <Stat label="Hist %ile (market)" value={fmt(marketHealth.market_historical_percentile, 0)} hint="Sector median of historical percentiles" />
                 <Stat label="Median P/E" value={fmt(overview.averages?.pe)} />
                 <Stat label="Median P/B" value={fmt(overview.averages?.pb)} />
                 <Stat label="Median EV/EBITDA" value={fmt(overview.averages?.ev_ebitda)} />
-                <Stat label="Median Div Yield" value={`${fmt(overview.averages?.dividend_yield)}%`} />
                 <Stat label="Breadth" value={breadth.heatmap || '—'} hint={breadthHint(breadth)} />
-                <Stat label="Sentiment" value={breadth.sentiment || '—'} />
+                <Stat label="Breadth coverage" value={breadth.coverage_pct != null ? `${fmt(breadth.coverage_pct, 1)}%` : '—'} hint={`${breadth.tracked_universe || breadth.sample_size || 0} tracked`} />
               </div>
+              {breadth.universe_definition ? <p className="msi-hint">{breadth.universe_definition}</p> : null}
               {pack.summary ? <blockquote className="msi-summary">{pack.summary}</blockquote> : null}
             </Section>
 
@@ -164,7 +170,7 @@ export default function MarketSectorIntelligence() {
                   >
                     <strong>{s.sector}</strong>
                     <span>{fmt(s.historical_percentile, 0)}%ile</span>
-                    <span className="tag">{s.opportunity}</span>
+                    <span className="tag">{s.historical_range_status || s.opportunity}</span>
                   </button>
                 ))}
               </div>
@@ -199,7 +205,7 @@ export default function MarketSectorIntelligence() {
                       <th>Sector</th>
                       <th>Premium</th>
                       <th>Hist %ile</th>
-                      <th>Opportunity</th>
+                      <th>Hist range</th>
                       <th>Upstox</th>
                       <th>Cos</th>
                     </tr>
@@ -221,7 +227,7 @@ export default function MarketSectorIntelligence() {
                             : '—'}
                         </td>
                         <td>{fmt(s.historical_percentile, 0)}</td>
-                        <td>{s.opportunity}</td>
+                        <td>{s.historical_range_status || s.opportunity}</td>
                         <td>{s.upstox_coverage_pct != null ? `${fmt(s.upstox_coverage_pct, 0)}%` : '—'}</td>
                         <td>{fmt(s.companies, 0)}</td>
                       </tr>
@@ -314,9 +320,38 @@ export default function MarketSectorIntelligence() {
               </div>
             </Section>
 
+            {drivers.length ? (
+              <Section title="Market drivers" subtitle="Top institutional drivers today — magnitude and affected sectors">
+                <ul className="msi-explain">
+                  {drivers.map((d) => (
+                    <li key={d.driver}>
+                      <strong>{d.driver}</strong> ({d.direction}) — {d.detail}
+                      {d.affected_sectors?.length ? ` · Sectors: ${d.affected_sectors.join(', ')}` : ''}
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+            ) : null}
+
             {pack.rotation?.explanation ? (
               <Section title="Market rotation" subtitle="Money leaving → entering">
                 <p className="msi-note">{pack.rotation.explanation}</p>
+                <div className="msi-grid sm">
+                  {(pack.rotation.leaving || []).length ? (
+                    <Stat
+                      label="Leaving"
+                      value={(pack.rotation.leaving || []).map((r) => r.sector).join(', ')}
+                      hint={(pack.rotation.leaving || []).map((r) => `${r.median_pe_change_pct ?? r.avg_pe_change_pct}%`).join(', ')}
+                    />
+                  ) : null}
+                  {(pack.rotation.entering || []).length ? (
+                    <Stat
+                      label="Entering"
+                      value={(pack.rotation.entering || []).map((r) => r.sector).join(', ')}
+                      hint={(pack.rotation.entering || []).map((r) => `${r.median_pe_change_pct ?? r.avg_pe_change_pct}%`).join(', ')}
+                    />
+                  ) : null}
+                </div>
               </Section>
             ) : null}
 
@@ -330,13 +365,14 @@ export default function MarketSectorIntelligence() {
               </Section>
             ) : null}
 
-            <Section title="Provenance & coverage" subtitle="Every widget reads warehouse or engine">
+            <Section title="Provenance & validation" subtitle="Constitution v2.0 — auditable warehouse-backed intelligence">
               <div className="msi-prov">
                 <div><span>Valuation</span><strong>{pack.provenance?.valuation}</strong></div>
                 <div><span>Price / breadth</span><strong>{pack.provenance?.price}</strong></div>
-                <div><span>Consensus</span><strong>{pack.provenance?.consensus}</strong></div>
                 <div><span>Engine</span><strong>{pack.engine} v{pack.version}</strong></div>
                 <div><span>Coverage</span><strong>{fmt(pack.coverage?.companies, 0)} cos</strong></div>
+                <div><span>Validation</span><strong>{pack.validation?.publishable ? 'Passed' : `${pack.validation?.checks_passed || 0}/${pack.validation?.checks_total || 0} checks`}</strong></div>
+                <div><span>Confidence</span><strong className="msi-hint-inline">{pack.confidence?.methodology?.slice(0, 80)}…</strong></div>
               </div>
             </Section>
           </>

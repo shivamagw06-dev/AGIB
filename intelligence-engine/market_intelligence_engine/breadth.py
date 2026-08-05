@@ -83,6 +83,18 @@ def market_breadth(*, sample_limit: int = 3000) -> dict[str, Any]:
         "sentiment": sentiment,
         "heatmap": heatmap,
         "sample_size": len(returns),
+        "tracked_universe": len(returns),
+        "universe_definition": (
+            "Breadth uses symbols with consecutive daily closes in warehouse.daily_market_history "
+            f"for {latest} vs {prior}. Moves beyond ±0.05% count as advancing/declining; "
+            f"within ±0.05% count as unchanged. Sample capped at {sample_limit} symbols per session."
+        ),
+        "untracked_reasons": [
+            "No consecutive price history in warehouse for the latest two sessions",
+            "Illiquid or suspended names excluded from daily_market_history",
+            "Recently listed symbols pending history accumulation",
+            "Valuation universe exceeds price-history coverage",
+        ],
         "coverage": {
             "history": len(returns),
             "confidence": "high" if len(returns) >= 500 else "moderate" if len(returns) >= 100 else "low",

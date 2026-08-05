@@ -169,6 +169,7 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
             else None
         )
         opportunity = _opportunity_label(hist_pct)
+        range_status = _historical_range_status(hist_pct)
         out.append({
             "sector": sector,
             "companies": len(members),
@@ -196,6 +197,7 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
             "historical_premium_pct": historical_premium,
             "premium_basis": premium_basis,
             "opportunity": opportunity,
+            "historical_range_status": range_status,
             "median_pe": _median([m.get("pe") for m in members]),
             "median_pb": _median([m.get("pb") for m in members]),
             "median_ev_ebitda": _median([m.get("ev_ebitda") for m in members]),
@@ -239,14 +241,20 @@ def _sector_own_history_percentile(
         }
 
 
-def _opportunity_label(hist_pct: Optional[float]) -> str:
+def _historical_range_status(hist_pct: Optional[float]) -> str:
+    """Institutional range label — not buy/sell opportunity language."""
     if hist_pct is None:
-        return "Unknown"
-    if hist_pct <= 30:
-        return "Attractive"
-    if hist_pct >= 70:
-        return "Premium"
-    return "Fair"
+        return "Insufficient History"
+    if hist_pct <= 25:
+        return "Below Historical Range"
+    if hist_pct >= 75:
+        return "Above Historical Range"
+    return "Within Historical Range"
+
+
+def _opportunity_label(hist_pct: Optional[float]) -> str:
+    """Legacy alias — maps to range status for backward compatibility."""
+    return _historical_range_status(hist_pct)
 
 
 def industry_table(universe: dict[str, Any], *, limit: int = 80) -> list[dict[str, Any]]:

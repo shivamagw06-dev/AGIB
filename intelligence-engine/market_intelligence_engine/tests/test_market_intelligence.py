@@ -4,9 +4,9 @@ from market_intelligence_engine import aggregation, flows, ingest_flows, opportu
 
 
 def test_opportunity_label_bands():
-    assert aggregation._opportunity_label(20) == "Attractive"
-    assert aggregation._opportunity_label(50) == "Fair"
-    assert aggregation._opportunity_label(80) == "Premium"
+    assert aggregation._historical_range_status(20) == "Below Historical Range"
+    assert aggregation._historical_range_status(50) == "Within Historical Range"
+    assert aggregation._historical_range_status(80) == "Above Historical Range"
 
 
 def test_normalise_upstox_flow():
@@ -227,3 +227,48 @@ def test_research_confidence_varies_by_data_quality():
     assert pri[0]["confidence"] != pri[1]["confidence"]
     assert pri[0]["confidence"] > pri[1]["confidence"]
     assert pri[1]["confidence"] < 90
+
+
+def test_constitution_validation_passes_clean_pack():
+    from market_intelligence_engine import validation
+
+    pack = {
+        "summary": "Institutional context for research prioritisation, not investment advice.",
+        "research_priorities": [{"symbol": "AAA", "reason": "Valuation percentile 8%", "selection_reasons": ["Low percentile"]}],
+        "sectors": [{"sector": "IT", "premium_pct": 5.0, "premium_basis": "upstox_sector_benchmark"}],
+        "breadth": {"universe_definition": "test definition", "provenance": {"source": "test"}},
+        "confidence": {"methodology": "test methodology"},
+        "market_regime": {"provenance": {"source": "test"}},
+        "market_health": {"provenance": {"source": "test"}},
+        "market_drivers": {"provenance": {"source": "test"}},
+        "flows": {"provenance": {"source": "test"}},
+    }
+    result = validation.validate_dashboard(pack)
+    assert result["publishable"] is True
+
+
+def test_market_regime_not_risk_on_only():
+    from market_intelligence_engine import regime
+
+    out = regime.classify_market_regime(
+        breadth={"advancing": 800, "declining": 200, "heatmap": "Strong Bullish", "date": "2026-08-04"},
+        flows={"available": True, "trend_5d": 500},
+        sectors=[{"sector": "IT", "historical_percentile": 80}, {"sector": "Energy", "historical_percentile": 75}],
+        overview={"coverage": {"pct": 70}},
+    )
+    assert out["regime"] in regime.REGIME_LABELS
+    assert out["regime"] not in ("Risk On", "Risk Off")
+
+
+def test_market_health_has_components():
+    from market_intelligence_engine.health import market_health_score
+
+    out = market_health_score(
+        breadth={"advancing": 400, "declining": 300, "sample_size": 700, "average_return_pct": 0.2},
+        flows={"available": True, "trend_5d": 100},
+        overview={"coverage": {"pct": 65}, "valuation_date": "2026-08-04"},
+        sectors=[{"historical_percentile": 55}],
+    )
+    assert 0 <= out["overall"] <= 100
+    assert "breadth" in out["components"]
+    assert out.get("confidence_methodology")

@@ -111,15 +111,34 @@ def research_priorities(universe: dict[str, Any], opportunities: dict[str, Any],
     out = []
     for i, card in enumerate(ranked, start=1):
         confidence = _research_confidence(card)
+        ev = card.get("evidence") or {}
+        selection_reasons = _selection_reasons(card, ev)
         out.append({
             "rank": i,
             "symbol": card.get("symbol"),
             "company_name": card.get("company_name"),
             "reason": card.get("why"),
+            "selection_reasons": selection_reasons,
             "confidence": confidence,
+            "confidence_note": "Evidence reliability — not expected return",
             "kind": card.get("kind"),
         })
     return out
+
+
+def _selection_reasons(card: dict[str, Any], ev: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    if ev.get("percentile") is not None:
+        reasons.append(f"Historical valuation percentile {ev['percentile']:.0f}%")
+    if ev.get("pe") is not None:
+        reasons.append("PE ratio available for peer comparison")
+    if ev.get("provider_coverage"):
+        reasons.append("Provider ratio coverage present")
+    if (ev.get("analyst_count") or 0) >= 3:
+        reasons.append(f"Analyst coverage ({ev['analyst_count']} estimates)")
+    if card.get("why"):
+        reasons.append(card["why"])
+    return reasons[:5]
 
 
 def _research_confidence(card: dict[str, Any]) -> int:
