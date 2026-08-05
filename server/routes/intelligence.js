@@ -3409,6 +3409,55 @@ export default function createIntelligenceRouter() {
   });
 
   // Mission Control V1 — administrator operations centre (read-only)
+  const MC_DASHBOARD_CACHE = { body: null, at: 0 };
+  const MC_DASHBOARD_CACHE_MS = 5 * 60_000;
+
+  async function fetchMissionControlDashboard({ timeoutMs = 25_000, retries = 1 } = {}) {
+    let lastErr = null;
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+      try {
+        const result = await engineFetch('/v1/mission-control/dashboard', { timeoutMs });
+        if (!result.ok) {
+          const err = new Error(
+            result.data?.error || result.data?.detail || `engine_http_${result.status}`,
+          );
+          err.status = result.status;
+          throw err;
+        }
+        if (result.data && typeof result.data === 'object') {
+          MC_DASHBOARD_CACHE.body = result.data;
+          MC_DASHBOARD_CACHE.at = Date.now();
+        }
+        return result.data;
+      } catch (err) {
+        lastErr = err;
+        const retryable =
+          err?.name === 'TimeoutError'
+          || err?.name === 'AbortError'
+          || /timed out|aborted|fetch failed|ECONNRESET|ENOTFOUND|EAI_AGAIN/i.test(
+            String(err?.message || ''),
+          );
+        if (attempt < retries && retryable) {
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+        break;
+      }
+    }
+    if (
+      MC_DASHBOARD_CACHE.body
+      && Date.now() - MC_DASHBOARD_CACHE.at < MC_DASHBOARD_CACHE_MS
+    ) {
+      return {
+        ...MC_DASHBOARD_CACHE.body,
+        stale: true,
+        _stale_reason: String(lastErr?.message || 'engine_unavailable').slice(0, 200),
+      };
+    }
+    throw lastErr || new Error('mission_control_dashboard_unavailable');
+  }
+
   router.get('/mission-control/health', kfGet('/v1/mission-control/health'));
   router.get('/mission-control/intelligence-map', async (_req, res) => {
     try {
@@ -3538,12 +3587,9 @@ export default function createIntelligenceRouter() {
 
   router.get('/mission-control/dashboard', async (_req, res) => {
     try {
-      // Snapshot path — keep Node timeout short; engine must not compute.
-      const result = await engineFetch('/v1/mission-control/dashboard', { timeoutMs: 10_000 });
-      if (!result.ok) {
-        return res.status(result.status).json(result.data);
-      }
-      let desk = result.data && typeof result.data === 'object' ? { ...result.data } : {};
+      // Snapshot reader — tolerate IE cold start with retry + short stale cache.
+      let desk = await fetchMissionControlDashboard({ timeoutMs: 25_000, retries: 1 });
+      desk = desk && typeof desk === 'object' ? { ...desk } : {};
       const warming = desk.status === 'warming' || desk._warming === true;
       if (warming) {
         // Do not fan out learning/API enrich while the desk is warming.
@@ -3634,7 +3680,9 @@ export default function createIntelligenceRouter() {
       return res.status(503).json({
         error: 'Mission Control dashboard unavailable',
         detail: error.message,
-        hint: 'Snapshot reader failed — check intelligence engine health / disk snapshot.',
+        hint:
+          'Intelligence engine may be cold-starting or redeploying. Wait 30–60s and refresh. '
+          + 'If it persists, check /api/intelligence/health and MC snapshot on disk.',
       });
     }
   });

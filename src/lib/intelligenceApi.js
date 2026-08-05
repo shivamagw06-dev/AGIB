@@ -940,7 +940,7 @@ export const getGovernmentDashboard = () =>
 export const getMissionControlHealth = () =>
   intelligenceFetch('/mission-control/health', { timeoutMs: 15_000 });
 export const getMissionControlDashboard = () =>
-  intelligenceFetch('/mission-control/dashboard', { timeoutMs: 15_000 });
+  intelligenceFetch('/mission-control/dashboard', { timeoutMs: 30_000 });
 export const getMissionControlAgentMap = () =>
   intelligenceFetch('/mission-control/agent-map', { timeoutMs: 15_000 });
 export const getIntelligenceMapSnapshot = () =>
