@@ -221,6 +221,44 @@ def fiscal_label(period_end: str, *, quarterly: bool) -> str:
     return f"{label}{quarter}"
 
 
+def _yahoo_session():
+    """Browser-like session — datacenter IPs often get empty fundamentals without this."""
+    try:
+        from curl_cffi import requests as cffi_requests
+
+        session = cffi_requests.Session(impersonate="chrome")
+        try:
+            # Warm crumb/cookie jar used by Yahoo fundamentals endpoints.
+            session.get("https://fc.yahoo.com", timeout=15)
+            session.get("https://query1.finance.yahoo.com/v1/test/getcrumb", timeout=15)
+        except Exception:
+            pass
+        return session
+    except Exception:
+        return None
+
+
+def _frame_nonempty(frame: Any) -> bool:
+    try:
+        if frame is None:
+            return False
+        if getattr(frame, "empty", False):
+            return False
+        return bool(getattr(frame, "shape", (0, 0))[0] or getattr(frame, "shape", (0, 0))[1])
+    except Exception:
+        return False
+
+
+def _chart_reachable(yahoo_symbol: str) -> bool:
+    """Prices still work when fundamentals are blocked — used to classify errors."""
+    try:
+        raw = _http_get(chart_url(yahoo_symbol, range_="5d", interval="1d"), timeout=15)
+        payload = json.loads(raw.decode("utf-8"))
+        return bool((((payload.get("chart") or {}).get("result") or [None])[0]))
+    except Exception:
+        return False
+
+
 def fetch_statements(
     symbol: str,
     *,
@@ -229,6 +267,8 @@ def fetch_statements(
     """Annual and quarterly statements. Uses yfinance when available.
 
     ``loader`` lets tests supply recorded frames; production passes nothing.
+    On cloud hosts Yahoo often returns empty fundamentals unless curl_cffi
+    chrome impersonation is used; we try that first, then plain Ticker.
     """
     if loader is not None:
         return loader(symbol)
@@ -241,26 +281,69 @@ def fetch_statements(
     from yfinance import Ticker
 
     errors: list[str] = []
+    session = _yahoo_session()
+    chart_ok = False
     for candidate in yahoo_symbols(symbol):
         try:
-            ticker = Ticker(candidate)
-            annual = _merge_frames(
-                [ticker.income_stmt, ticker.balance_sheet, ticker.cashflow], quarterly=False
-            )
-            quarterly = _merge_frames(
-                [ticker.quarterly_income_stmt, ticker.quarterly_balance_sheet,
-                 ticker.quarterly_cashflow],
-                quarterly=True,
-            )
+            ticker = Ticker(candidate, session=session) if session is not None else Ticker(candidate)
+            # Prefer get_* (fundamentals timeseries); fall back to properties.
+            try:
+                income = ticker.get_income_stmt(freq="yearly")
+                balance = ticker.get_balance_sheet(freq="yearly")
+                cash = ticker.get_cash_flow(freq="yearly")
+            except Exception:
+                income = ticker.income_stmt
+                balance = ticker.balance_sheet
+                cash = ticker.cashflow
+            try:
+                q_income = ticker.get_income_stmt(freq="quarterly")
+                q_balance = ticker.get_balance_sheet(freq="quarterly")
+                q_cash = ticker.get_cash_flow(freq="quarterly")
+            except Exception:
+                q_income = ticker.quarterly_income_stmt
+                q_balance = ticker.quarterly_balance_sheet
+                q_cash = ticker.quarterly_cashflow
+
+            if not any(_frame_nonempty(f) for f in (income, balance, cash, q_income, q_balance, q_cash)):
+                # Retry once without a custom session — some envs break with curl_cffi.
+                if session is not None:
+                    ticker2 = Ticker(candidate)
+                    income = ticker2.income_stmt
+                    balance = ticker2.balance_sheet
+                    cash = ticker2.cashflow
+                    q_income = ticker2.quarterly_income_stmt
+                    q_balance = ticker2.quarterly_balance_sheet
+                    q_cash = ticker2.quarterly_cashflow
+
+            annual = _merge_frames([income, balance, cash], quarterly=False)
+            quarterly = _merge_frames([q_income, q_balance, q_cash], quarterly=True)
         except Exception as exc:
-            errors.append(f"{candidate}:{type(exc).__name__}")
+            errors.append(f"{candidate}:{type(exc).__name__}:{str(exc)[:80]}")
             continue
         if annual or quarterly:
-            return {"ok": True, "symbol": symbol, "yahoo_symbol": candidate,
-                    "annual": annual, "quarterly": quarterly}
-        errors.append(f"{candidate}:empty")
-    return {"ok": False, "symbol": symbol, "error": "; ".join(errors)[:300],
-            "annual": [], "quarterly": []}
+            return {
+                "ok": True,
+                "symbol": symbol,
+                "yahoo_symbol": candidate,
+                "annual": annual,
+                "quarterly": quarterly,
+                "transport": "curl_cffi" if session is not None else "yfinance",
+            }
+        if _chart_reachable(candidate):
+            chart_ok = True
+            errors.append(f"{candidate}:fundamentals_empty_chart_ok")
+        else:
+            errors.append(f"{candidate}:empty")
+
+    reason = "; ".join(errors)[:300]
+    if chart_ok:
+        reason = (
+            "yahoo_fundamentals_blocked:"
+            + reason
+            + " (chart/prices reachable; statement endpoints returned empty — "
+            "common on cloud/datacenter IPs)"
+        )
+    return {"ok": False, "symbol": symbol, "error": reason, "annual": [], "quarterly": []}
 
 
 def _merge_frames(frames: list[Any], *, quarterly: bool) -> list[dict[str, Any]]:

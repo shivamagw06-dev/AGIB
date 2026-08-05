@@ -138,12 +138,23 @@ export const FUNDAMENTAL_ENDPOINTS = Object.freeze([
  * GET /fundamentals/{isin}/{endpoint}
  * @param {string} isin e.g. INE002A01018 (Reliance)
  * @param {string} endpoint one of FUNDAMENTAL_ENDPOINTS
+ * @param {{ type?: string, time_period?: string, fs?: boolean }} [query]
  */
-export async function getFundamentals(isin, endpoint) {
+export async function getFundamentals(isin, endpoint, query = {}) {
   if (!FUNDAMENTAL_ENDPOINTS.includes(endpoint)) {
     throw new Error(`Unsupported fundamentals endpoint: ${endpoint}`);
   }
-  return upstoxGet(`/fundamentals/${encodeURIComponent(cleanIsin(isin))}/${endpoint}`);
+  const params = new URLSearchParams();
+  const type = query.type || 'consolidated';
+  const timePeriod = query.time_period || query.timePeriod;
+  if (type) params.set('type', type);
+  if (timePeriod) params.set('time_period', timePeriod);
+  if (query.fs !== false && ['income-statement', 'balance-sheet', 'cash-flow'].includes(endpoint)) {
+    params.set('fs', 'true');
+  }
+  const qs = params.toString();
+  const path = `/fundamentals/${encodeURIComponent(cleanIsin(isin))}/${endpoint}${qs ? `?${qs}` : ''}`;
+  return upstoxGet(path);
 }
 
 export async function getCorporateActions(isin) {

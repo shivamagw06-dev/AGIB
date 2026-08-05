@@ -1,0 +1,249 @@
+/**
+ * Upstox-first EMPTY statement fill.
+ *
+ * Pulls EMPTY/MINIMAL/thin INE* symbols from the intelligence-engine queue,
+ * then reuses refreshUpstoxFundamentals({ dataset: 'statements' }) which
+ * already calls:
+ *   GET /v2/fundamentals/{isin}/income-statement|balance-sheet|cash-flow
+ * with type=consolidated, yearly+quarterly, fs=true.
+ *
+ * Prefer this over Yahoo fill on Render (Yahoo fundamentals are blocked).
+ */
+
+import { refreshUpstoxFundamentals } from './upstoxFundamentalsRefresh.js';
+
+function engineConfig() {
+  let baseUrl = (process.env.AGIB_INTELLIGENCE_ENGINE_URL || process.env.INTELLIGENCE_ENGINE_URL || '').replace(/\/$/, '');
+  if (baseUrl && !/^https?:\/\//i.test(baseUrl)) baseUrl = `https://${baseUrl}`;
+  const token = (process.env.AGIB_SERVICE_TOKEN || process.env.INTELLIGENCE_ENGINE_TOKEN || '').trim();
+  return { baseUrl, token };
+}
+
+async function engineFetch(path, { timeoutMs = 180_000 } = {}) {
+  const { baseUrl, token } = engineConfig();
+  if (!baseUrl || !token) {
+    return { ok: false, status: 503, data: { error: 'intelligence_engine_not_configured' } };
+  }
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+      'X-AGI-Intelligence-Token': token,
+    },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  const text = await response.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { raw: String(text || '').slice(0, 400) };
+  }
+  return { ok: response.ok, status: response.status, data };
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+const state = {
+  status: 'idle', // idle | running | stopped
+  startedAt: null,
+  endedAt: null,
+  stopped: false,
+  batchSize: 10,
+  concurrency: 2,
+  pauseMs: 2000,
+  includeThin: true,
+  processed: 0,
+  filled: 0,
+  failed: 0,
+  lastBatch: null,
+  lastError: null,
+  recent: [],
+};
+
+let loopPromise = null;
+
+function pushRecent(entry) {
+  state.recent = [{ at: nowIso(), ...entry }, ...(state.recent || [])].slice(0, 40);
+}
+
+async function loadQueue(limit) {
+  const qs = new URLSearchParams({
+    limit: String(limit),
+    include_thin: state.includeThin ? 'true' : 'false',
+  });
+  const result = await engineFetch(`/v1/warehouse/upstox-fill/queue?${qs}`);
+  if (!result.ok) {
+    throw new Error(result.data?.error || `queue_http_${result.status}`);
+  }
+  return result.data || {};
+}
+
+async function runBatch({ batchSize = state.batchSize, symbols = null } = {}) {
+  let todo = Array.isArray(symbols) ? symbols.map((s) => String(s).toUpperCase()).filter(Boolean) : null;
+  let queueMeta = null;
+  if (!todo) {
+    queueMeta = await loadQueue(batchSize);
+    todo = (queueMeta.rows || []).map((r) => r.symbol).filter(Boolean);
+  }
+  todo = todo.slice(0, Math.max(1, Math.min(Number(batchSize) || 10, 50)));
+  if (!todo.length) {
+    return {
+      ok: true,
+      batch: { size: 0, filled: 0, failed: 0, at: nowIso() },
+      queue: queueMeta?.counts || null,
+      plain_english: 'Upstox EMPTY queue is dry.',
+    };
+  }
+
+  const result = await refreshUpstoxFundamentals({
+    dataset: 'statements',
+    limit: todo.length,
+    concurrency: state.concurrency,
+    symbols: todo,
+  });
+
+  const fetched = Number(result.fetched || 0);
+  const ok = Boolean(result.ok);
+  const ingestRows = Number(result.ingest?.totals?.rows || 0);
+  const filled = ok && ingestRows > 0 ? todo.length : (ok ? 0 : 0);
+  // Count companies with successful ingest results when available.
+  const ingestResults = result.ingest?.results || [];
+  const companyOk = new Set(
+    ingestResults.filter((r) => r?.ok && r?.symbol).map((r) => String(r.symbol).toUpperCase()),
+  );
+  const filledCount = companyOk.size || (ingestRows > 0 ? Math.min(todo.length, fetched) : 0);
+  const failedCount = Math.max(0, todo.length - filledCount);
+
+  state.processed += todo.length;
+  state.filled += filledCount;
+  state.failed += failedCount;
+  state.lastBatch = {
+    size: todo.length,
+    filled: filledCount,
+    failed: failedCount,
+    fetched,
+    ingest_rows: ingestRows,
+    errors: (result.errors || []).slice(0, 8),
+    at: nowIso(),
+  };
+  pushRecent({
+    event: filledCount ? 'batch_ok' : 'batch_fail',
+    symbols: todo,
+    filled: filledCount,
+    failed: failedCount,
+    error: result.error || null,
+  });
+
+  if ((result.errors || []).some((e) => e.status === 429)) {
+    state.pauseMs = Math.min(60_000, Math.max(state.pauseMs * 2, 5_000));
+  } else {
+    state.pauseMs = Math.max(1_500, Math.floor(state.pauseMs * 0.9));
+  }
+
+  return {
+    ok: true,
+    source: 'upstox',
+    batch: state.lastBatch,
+    queue: queueMeta?.counts || null,
+    refresh: {
+      ok: result.ok,
+      error: result.error || null,
+      fetched,
+      ingest: result.ingest || null,
+      errors: (result.errors || []).slice(0, 10),
+    },
+    plain_english: (
+      `Upstox batch: ${filledCount} filled, ${failedCount} failed, `
+      + `${ingestRows} statement rows written. `
+      + (result.error ? `Last error: ${result.error}` : '')
+    ),
+  };
+}
+
+async function loop() {
+  state.status = 'running';
+  state.stopped = false;
+  state.startedAt = state.startedAt || nowIso();
+  state.endedAt = null;
+  state.lastError = null;
+  try {
+    let idle = 0;
+    while (!state.stopped && state.status === 'running') {
+      // eslint-disable-next-line no-await-in-loop
+      const out = await runBatch({ batchSize: state.batchSize });
+      if (!out.batch?.size) {
+        idle += 1;
+        if (idle >= 2) break;
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => setTimeout(r, 2000));
+        continue;
+      }
+      idle = 0;
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setTimeout(r, state.pauseMs));
+    }
+    state.status = state.stopped ? 'stopped' : 'idle';
+    state.endedAt = nowIso();
+  } catch (err) {
+    state.status = 'failed';
+    state.lastError = err?.message || String(err);
+    state.endedAt = nowIso();
+    pushRecent({ event: 'failed', error: state.lastError });
+  } finally {
+    loopPromise = null;
+  }
+}
+
+export function getUpstoxEmptyFillStatus() {
+  return {
+    ok: true,
+    source: 'upstox',
+    runtime: { ...state, loopAlive: Boolean(loopPromise) },
+    recent: state.recent,
+    plain_english: (
+      `Upstox EMPTY fill is ${state.status}. `
+      + `Processed ${state.processed}, filled ${state.filled}, failed ${state.failed}. `
+      + 'Uses /v2/fundamentals/{isin}/… (yearly+quarterly, consolidated).'
+    ),
+    what_this_does: (
+      'Fills warehouse financials_annual / financials_quarterly for EMPTY equities '
+      + 'with INE* ISINs via Upstox fundamentals. Prefer over Yahoo on Render.'
+    ),
+  };
+}
+
+export async function startUpstoxEmptyFill({
+  batchSize = 10,
+  concurrency = 2,
+  pauseMs = 2000,
+  includeThin = true,
+} = {}) {
+  if (loopPromise) {
+    return { ok: true, already_running: true, ...getUpstoxEmptyFillStatus() };
+  }
+  state.batchSize = Math.max(1, Math.min(Number(batchSize) || 10, 40));
+  state.concurrency = Math.max(1, Math.min(Number(concurrency) || 2, 4));
+  state.pauseMs = Math.max(500, Number(pauseMs) || 2000);
+  state.includeThin = includeThin !== false;
+  state.processed = 0;
+  state.filled = 0;
+  state.failed = 0;
+  state.startedAt = nowIso();
+  state.recent = [];
+  loopPromise = loop();
+  return { ok: true, started: true, ...getUpstoxEmptyFillStatus() };
+}
+
+export async function stopUpstoxEmptyFill() {
+  state.stopped = true;
+  state.status = 'stopped';
+  return { ok: true, stopped: true, ...getUpstoxEmptyFillStatus() };
+}
+
+export async function runUpstoxEmptyFillBatch(opts = {}) {
+  return runBatch(opts);
+}

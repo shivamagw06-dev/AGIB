@@ -122,20 +122,35 @@ export async function refreshUpstoxFundamentals({
       const company = companies[idx];
       try {
         if (ds === 'statements') {
-          const [income, balance, cash] = await Promise.all([
-            getFundamentals(company.isin, 'income-statement'),
-            getFundamentals(company.isin, 'balance-sheet'),
-            getFundamentals(company.isin, 'cash-flow'),
+          // Yearly + quarterly, consolidated, with full_statement line items.
+          const [incomeY, balanceY, cashY, incomeQ, balanceQ, cashQ] = await Promise.all([
+            getFundamentals(company.isin, 'income-statement', { type: 'consolidated', time_period: 'yearly', fs: true }),
+            getFundamentals(company.isin, 'balance-sheet', { type: 'consolidated', time_period: 'yearly', fs: true }),
+            getFundamentals(company.isin, 'cash-flow', { type: 'consolidated', time_period: 'yearly', fs: true }),
+            getFundamentals(company.isin, 'income-statement', { type: 'consolidated', time_period: 'quarterly', fs: true }),
+            getFundamentals(company.isin, 'balance-sheet', { type: 'consolidated', time_period: 'quarterly', fs: true }),
+            getFundamentals(company.isin, 'cash-flow', { type: 'consolidated', time_period: 'quarterly', fs: true }),
           ]);
+          // Ingest yearly and quarterly as separate company blobs so time_period is preserved.
           batch.push({
             symbol: company.symbol,
             isin: company.isin,
             company_id: company.company_id,
             instrument_key: company.instrument_key,
             dataset: 'statements',
-            'income-statement': income,
-            'balance-sheet': balance,
-            'cash-flow': cash,
+            'income-statement': incomeY,
+            'balance-sheet': balanceY,
+            'cash-flow': cashY,
+          });
+          batch.push({
+            symbol: company.symbol,
+            isin: company.isin,
+            company_id: company.company_id,
+            instrument_key: company.instrument_key,
+            dataset: 'statements',
+            'income-statement': incomeQ,
+            'balance-sheet': balanceQ,
+            'cash-flow': cashQ,
           });
         } else if (ds === 'competitors') {
           const key = company.instrument_key || `NSE_EQ|${company.isin}`;

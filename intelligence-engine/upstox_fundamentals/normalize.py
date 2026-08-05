@@ -17,6 +17,17 @@ _PERIOD_RE = re.compile(
     re.I,
 )
 
+# Upstox v2 fundamentals use calendar labels like "Mar 2026", "Dec 2025".
+_MONTH_YEAR_RE = re.compile(
+    r"^(?P<mon>Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*"
+    r"[\s\-/]+(?P<year>\d{2,4})$",
+    re.I,
+)
+_MONTH_NUM = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+
 
 def _num(value: Any) -> Optional[float]:
     if value is None or isinstance(value, bool):
@@ -58,8 +69,49 @@ def _statement_type(raw: Any) -> str:
     return "UNKNOWN"
 
 
+def _parse_month_year_period(text: str) -> dict[str, Any]:
+    """Map Upstox 'Mar 2026' / 'Dec 2025' labels onto Indian FY periods.
+
+    Indian FY ends 31 March: Apr–Mar. The year in the label is the calendar
+    year of the period end; FY label uses the March-ending year.
+    """
+    m = _MONTH_YEAR_RE.match(text.strip())
+    if not m:
+        return {}
+    mon = _MONTH_NUM.get(m.group("mon").lower()[:3])
+    if not mon:
+        return {}
+    year = int(m.group("year"))
+    if year < 100:
+        year += 2000
+    # FY end year: Jan–Mar belong to FY of that calendar year; Apr–Dec to next.
+    fy_end = year if mon <= 3 else year + 1
+    fy_label = f"FY{fy_end}"
+    # Quarter within Indian FY
+    if mon in (4, 5, 6):
+        q = "Q1"
+    elif mon in (7, 8, 9):
+        q = "Q2"
+    elif mon in (10, 11, 12):
+        q = "Q3"
+    else:  # Jan–Mar
+        q = "Q4"
+    return {
+        "fiscal_year": fy_label,
+        "quarter": q,
+        "fiscal_period": f"{fy_label}{q}",
+        # Default quarterly; yearly endpoint overrides to ANNUAL in normalise_statements.
+        "frequency": "QUARTERLY",
+        "period_end_month": mon,
+        "period_end_year": year,
+    }
+
+
 def _parse_period(label: str) -> dict[str, Any]:
     text = str(label or "").strip()
+    month_year = _parse_month_year_period(text)
+    if month_year:
+        return month_year
     m = _PERIOD_RE.match(text.replace(" ", ""))
     if not m:
         # Try FY2024-25 / Mar-24 style leftovers
@@ -107,6 +159,67 @@ def _period_map(node: Any) -> dict[str, Any]:
     return out
 
 
+def _history_to_values(history: Any) -> dict[str, Any]:
+    """Convert Upstox history arrays [{period, value}] into {period: value}."""
+    out: dict[str, Any] = {}
+    if not isinstance(history, list):
+        return out
+    for point in history:
+        if not isinstance(point, dict):
+            continue
+        period = point.get("period") or point.get("label") or point.get("fiscal_period")
+        if period is None:
+            continue
+        out[str(period)] = point.get("value")
+    return out
+
+
+def _extract_history_items(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Pull category/particular history blocks from Upstox v2 fundamentals."""
+    items: list[dict[str, Any]] = []
+    # Summary categories: income_statement / cash_flow arrays
+    for key in ("income_statement", "cash_flow", "balance_sheet"):
+        block = data.get(key)
+        if not isinstance(block, list):
+            continue
+        for row in block:
+            if not isinstance(row, dict):
+                continue
+            name = row.get("category") or row.get("particular") or row.get("name")
+            values = _history_to_values(row.get("history"))
+            if name and values:
+                items.append({"name": str(name), "values": values})
+    # Detailed line items when fs=true
+    full = data.get("full_statement")
+    if isinstance(full, list):
+        for row in full:
+            if not isinstance(row, dict):
+                continue
+            name = row.get("particular") or row.get("category") or row.get("name")
+            values = _history_to_values(row.get("history"))
+            if name and values:
+                items.append({"name": str(name), "values": values})
+    # Some balance-sheet payloads use a top-level history of metric objects
+    top_hist = data.get("history")
+    if isinstance(top_hist, list):
+        for row in top_hist:
+            if not isinstance(row, dict):
+                continue
+            name = row.get("particular") or row.get("category") or row.get("name") or row.get("metric")
+            if row.get("history"):
+                values = _history_to_values(row.get("history"))
+            else:
+                # Flat {period: value} metric row
+                values = {
+                    str(k): v for k, v in row.items()
+                    if k not in {"particular", "category", "name", "metric", "change"}
+                    and _parse_period(str(k))
+                }
+            if name and values:
+                items.append({"name": str(name), "values": values})
+    return items
+
+
 def _line_items(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Map canonical field → {period: value} from an Upstox statement payload."""
     data = payload.get("data") if isinstance(payload.get("data"), (dict, list)) else payload
@@ -114,8 +227,9 @@ def _line_items(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
     statement_type = "UNKNOWN"
     if isinstance(data, dict):
         units_in = data.get("units_in") or data.get("unit")
+        # Prefer explicit statement type — never treat time_period (yearly/quarterly) as type.
         statement_type = _statement_type(
-            data.get("statement_type") or data.get("type") or data.get("time_period")
+            data.get("statement_type") or data.get("type")
         )
         root = data.get("financials") or data.get("statements") or data.get("data") or data
     else:
@@ -123,12 +237,17 @@ def _line_items(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
     # Flatten list of line-item objects.
     items: list[dict[str, Any]] = []
-    if isinstance(root, list):
+    if isinstance(data, dict):
+        items.extend(_extract_history_items(data))
+    if isinstance(root, list) and not items:
         items = [x for x in root if isinstance(x, dict)]
     elif isinstance(root, dict):
         # Either keyed by line name or nested sections.
         for key, value in root.items():
-            if key in {"units_in", "unit", "time_period", "statement_type", "type", "status"}:
+            if key in {
+                "units_in", "unit", "time_period", "statement_type", "type", "status",
+                "income_statement", "cash_flow", "balance_sheet", "full_statement", "history",
+            }:
                 continue
             if isinstance(value, dict) and _period_map(value):
                 items.append({"name": key, "values": _period_map(value)})
@@ -153,12 +272,12 @@ def _line_items(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
         ("operating_revenue", ("operating_revenue",)),
         ("gross_profit", ("gross_profit",)),
         ("ebitda", ("ebitda",)),
-        ("ebit", ("operating_profit", "operating_income_ebit", "ebit")),
+        ("ebit", ("operating_profit", "operating_income_ebit", "operating_income", "ebit")),
         ("pat", ("profit_after_tax", "net_profit", "net_income", "pat")),
         ("pbt", ("profit_before_tax", "pbt")),
         ("finance_cost", ("finance_cost", "interest_expense", "interest")),
         ("tax", ("tax_expense", "tax")),
-        ("eps", ("earnings_per_share", "basic_eps", "eps")),
+        ("eps", ("earnings_per_share", "basic_eps", "eps_-_basic", "eps_basic", "eps")),
         ("revenue", ("total_revenue", "total_income", "net_sales", "revenue", "sales")),
         ("current_assets", ("current_assets",)),
         ("current_liabilities", ("current_liabilities",)),
@@ -300,7 +419,12 @@ def normalise_statements(
     symbol = str(payload.get("symbol") or "").strip().upper()
     if not symbol:
         return []
-    parsed = _line_items(payload if isinstance(payload, dict) else {})
+    raw = payload if isinstance(payload, dict) else {}
+    data_obj = raw.get("data") if isinstance(raw.get("data"), dict) else raw
+    time_period = str(
+        (data_obj or {}).get("time_period") or raw.get("time_period") or ""
+    ).strip().lower()
+    parsed = _line_items(raw)
     by_period = parsed["by_period"]
     stype = parsed["statement_type"]
     if stype == "UNKNOWN":
@@ -310,6 +434,23 @@ def normalise_statements(
         meta = _parse_period(period)
         if not meta:
             continue
+        if time_period == "yearly":
+            fy = meta.get("fiscal_year")
+            meta = {
+                "fiscal_year": fy,
+                "fiscal_period": fy,
+                "frequency": "ANNUAL",
+                "quarter": None,
+            }
+        elif time_period == "quarterly":
+            fy = meta.get("fiscal_year")
+            q = meta.get("quarter") or "Q4"
+            meta = {
+                "fiscal_year": fy,
+                "quarter": q,
+                "fiscal_period": f"{fy}{q}",
+                "frequency": "QUARTERLY",
+            }
         row = {
             "symbol": symbol,
             "statement_type": stype,

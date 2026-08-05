@@ -34,6 +34,7 @@ _RUNTIME: dict[str, Any] = {
     "filled": 0,
     "skipped": 0,
     "failed": 0,
+    "blocked": 0,
     "mode": "yahoo_fill",
     "pause_seconds": 0.35,
 }
@@ -43,23 +44,41 @@ _THREAD: Optional[threading.Thread] = None
 _SKIP_RE = re.compile(
     r"(ETF|BEES|LIQUID|GOLDBEES|SILVERBEES|NIFTYBEES|JUNIORBEES|BANKBEES|"
     r"ABSLLIQUID|ABSLBAN|GROWW|MON100|MOM100|ICICINIFTY|UTINIFTETF|"
-    r"^NIFTY|^BANKNIFTY|HDFCSENSEX|SETFNIF)",
+    r"^NIFTY|^BANKNIFTY|HDFCSENSEX|SETFNIF|ADD$|GOLD|SILVER)",
     re.I,
 )
+
+# Recent errors surfaced on the board (ring buffer).
+_LAST_ERRORS: list[dict[str, Any]] = []
+_LAST_ERRORS_MAX = 25
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _looks_non_equity(symbol: str, company_name: Any = None) -> bool:
-    text = f"{symbol} {company_name or ''}"
+def _looks_non_equity(symbol: str, company_name: Any = None, isin: Any = None) -> bool:
+    """Skip ETFs/funds. Indian mutual-fund / ETF ISINs use INF*; equities use INE*."""
+    isin_s = str(isin or "").strip().upper()
+    if isin_s.startswith("INF"):
+        return True
     if _SKIP_RE.search(str(symbol or "")):
         return True
     name = str(company_name or "").upper()
-    if "ETF" in name or "EXCHANGE TRADED" in name:
+    if "ETF" in name or "EXCHANGE TRADED" in name or "MUTUAL FUND" in name:
+        return True
+    # Company name equals ticker and Unknown sector + INF already caught; also
+    # skip obvious index / gold products by name.
+    if any(tok in name for tok in (" BEES", "GOLD", "SILVER ETF", "NIFTY ETF")):
         return True
     return False
+
+
+def _note_error(symbol: str, error: Any) -> None:
+    entry = {"symbol": symbol, "error": str(error or "")[:240], "at": _now()}
+    _LAST_ERRORS.append(entry)
+    if len(_LAST_ERRORS) > _LAST_ERRORS_MAX:
+        del _LAST_ERRORS[: len(_LAST_ERRORS) - _LAST_ERRORS_MAX]
 
 
 _QUEUE_CACHE: dict[str, Any] = {"at": 0.0, "payload": None, "include_thin": None}
@@ -103,7 +122,7 @@ def queue_candidates(*, limit: int = 200, include_thin: bool = True, use_cache: 
         sym = str(m.get("symbol") or "").strip().upper()
         if not sym:
             continue
-        if _looks_non_equity(sym, m.get("company_name")):
+        if _looks_non_equity(sym, m.get("company_name"), m.get("isin")):
             skipped_non_equity += 1
             continue
         a = _annual_stats(annual_ix.get(sym) or [])
@@ -111,6 +130,9 @@ def queue_candidates(*, limit: int = 200, include_thin: bool = True, use_cache: 
         years = int(a["years"])
         quarters = int(q["quarters"])
         klass = _classify(years, quarters)
+        isin = str(m.get("isin") or "")
+        # Prefer real equities (INE*) over unknowns when ranking EMPTY.
+        equity_rank = 0 if isin.upper().startswith("INE") else 1
         row = {
             "symbol": sym,
             "company_name": m.get("company_name"),
@@ -120,6 +142,7 @@ def queue_candidates(*, limit: int = 200, include_thin: bool = True, use_cache: 
             "annual_years": years,
             "quarters": quarters,
             "priority": 1 if klass == CLASS_EMPTY else 2 if klass == CLASS_MINIMAL else 3,
+            "equity_rank": equity_rank,
         }
         if klass == CLASS_EMPTY:
             empty.append(row)
@@ -132,7 +155,15 @@ def queue_candidates(*, limit: int = 200, include_thin: bool = True, use_cache: 
             thin.append(row)
 
     ranked = empty + minimal + thin
-    ranked.sort(key=lambda r: (r["priority"], r["annual_years"], r["quarters"], r["symbol"]))
+    ranked.sort(
+        key=lambda r: (
+            r["priority"],
+            r.get("equity_rank", 1),
+            r["annual_years"],
+            r["quarters"],
+            r["symbol"],
+        )
+    )
     cap = max(1, min(int(limit), 5000))
     payload = {
         "ok": True,
@@ -193,6 +224,10 @@ def fill_company(symbol: str, *, actor: str = "yahoo_fill") -> dict[str, Any]:
     annual_n = int((out or {}).get("annual_periods") or 0)
     quarterly_n = int((out or {}).get("quarterly_periods") or 0)
     filled = bool((out or {}).get("ok")) and (annual_n + quarterly_n) > 0
+    err = (out or {}).get("error")
+    if err:
+        _note_error(ticker, err)
+    blocked = bool(err) and "yahoo_fundamentals_blocked" in str(err)
     return {
         "ok": bool((out or {}).get("ok")),
         "filled": filled,
@@ -211,7 +246,8 @@ def fill_company(symbol: str, *, actor: str = "yahoo_fill") -> dict[str, Any]:
             "annual_years": (after.get("annual") or {}).get("years"),
             "quarters": (after.get("quarterly") or {}).get("quarters"),
         },
-        "error": (out or {}).get("error"),
+        "error": err,
+        "yahoo_fundamentals_blocked": blocked,
         "engine": ENGINE_CODE,
         "version": PROGRAMME_VERSION,
     }
@@ -235,11 +271,14 @@ def run_batch(
         queue_meta = q
 
     results: list[dict[str, Any]] = []
-    filled = failed = skipped = 0
+    filled = failed = skipped = blocked = 0
+    # Explicit one-shot runs ignore a prior Pause; the background loop still respects stop.
+    respect_stop = symbols is None
     for i, sym in enumerate(todo):
-        with _LOCK:
-            if _RUNTIME.get("stopped"):
-                break
+        if respect_stop:
+            with _LOCK:
+                if _RUNTIME.get("stopped"):
+                    break
         try:
             out = fill_company(sym, actor=actor)
             results.append(out)
@@ -249,8 +288,11 @@ def run_batch(
                 skipped += 1  # Yahoo ok but empty payload
             else:
                 failed += 1
+                if out.get("yahoo_fundamentals_blocked"):
+                    blocked += 1
         except Exception as exc:
             failed += 1
+            _note_error(sym, exc)
             results.append({"ok": False, "filled": False, "symbol": sym, "error": str(exc)[:200]})
         with _LOCK:
             _RUNTIME["processed"] = int(_RUNTIME.get("processed") or 0) + 1
@@ -259,7 +301,11 @@ def run_batch(
             _RUNTIME["skipped"] = int(_RUNTIME.get("skipped") or 0) + (
                 1 if results[-1].get("ok") and not results[-1].get("filled") else 0
             )
+            _RUNTIME["blocked"] = int(_RUNTIME.get("blocked") or 0) + (
+                1 if results[-1].get("yahoo_fundamentals_blocked") else 0
+            )
             _RUNTIME["last_tick"] = _now()
+            _RUNTIME["last_error"] = results[-1].get("error")
             _RUNTIME["ticks"] = int(_RUNTIME.get("ticks") or 0) + 1
         if pause > 0 and i < len(todo) - 1:
             time.sleep(pause)
@@ -269,6 +315,7 @@ def run_batch(
         "filled": filled,
         "failed": failed,
         "skipped_empty_yahoo": skipped,
+        "yahoo_fundamentals_blocked": blocked,
         "at": _now(),
     }
     with _LOCK:
@@ -288,20 +335,81 @@ def run_batch(
             "plain_english": queue_meta.get("plain_english") if isinstance(queue_meta, dict) else None,
         },
         "results": results[:80],
+        "last_errors": list(_LAST_ERRORS)[-10:],
         "plain_english": (
-            f"Yahoo batch: {filled} filled, {failed} failed, {skipped} empty Yahoo. "
-            f"Yahoo ceiling ≈4–5 annual years — CapIQ still required for 10y depth."
+            f"Yahoo batch: {filled} filled, {failed} failed"
+            + (f" ({blocked} fundamentals-blocked)" if blocked else "")
+            + f", {skipped} empty Yahoo. "
+            + (
+                "Render/cloud IPs often get empty Yahoo fundamentals — prices still work. "
+                if blocked
+                else ""
+            )
+            + "Yahoo ceiling ≈4–5 annual years — CapIQ still required for 10y depth."
         ),
         "note": (
-            "Yahoo is the fast fill for EMPTY/thin names. It will not produce COMPLETE_10Y."
+            "Yahoo is the fast fill for EMPTY/thin names. It will not produce COMPLETE_10Y. "
+            "If every symbol fails with fundamentals_empty_chart_ok, Yahoo is blocking this host."
         ),
     }
+
+
+def probe(symbol: str = "RELIANCE") -> dict[str, Any]:
+    """One-symbol Yahoo connectivity probe for ops / admin."""
+    from institutional_warehouse.backfill.sources import yahoo_history
+
+    ticker = str(symbol or "RELIANCE").strip().upper()
+    started = time.monotonic()
+    payload = yahoo_history.fetch_statements(ticker)
+    elapsed_ms = int((time.monotonic() - started) * 1000)
+    err = str(payload.get("error") or "")
+    return {
+        "ok": bool(payload.get("ok")),
+        "symbol": ticker,
+        "annual_periods": len(payload.get("annual") or []),
+        "quarterly_periods": len(payload.get("quarterly") or []),
+        "error": err or None,
+        "yahoo_fundamentals_blocked": "yahoo_fundamentals_blocked" in err,
+        "transport": payload.get("transport"),
+        "elapsed_ms": elapsed_ms,
+        "curl_cffi": _curl_cffi_available(),
+        "diagnosis": (
+            "Yahoo fundamentals blocked on this host (chart/prices may still work). "
+            "Need residential egress, CapIQ, or Upstox statement payloads."
+            if "yahoo_fundamentals_blocked" in err
+            else (
+                "Yahoo returned statements."
+                if payload.get("ok")
+                else "Yahoo returned no statements for this symbol."
+            )
+        ),
+        "programme": PROGRAMME_CODE,
+        "version": PROGRAMME_VERSION,
+    }
+
+
+def _curl_cffi_available() -> bool:
+    try:
+        import curl_cffi  # noqa: F401
+
+        return True
+    except Exception:
+        return False
 
 
 def status() -> dict[str, Any]:
     with _LOCK:
         rt = dict(_RUNTIME)
     q = queue_candidates(limit=25, include_thin=True)
+    blocked_n = int(rt.get("blocked") or 0)
+    failed_n = int(rt.get("failed") or 0)
+    diagnosis = None
+    if failed_n and blocked_n >= max(1, failed_n // 2):
+        diagnosis = (
+            "Yahoo fundamentals appear blocked on this host "
+            "(empty statements while prices/chart still work). "
+            "Pause Yahoo fill; use CapIQ/Upstox or run Yahoo from a non-datacenter egress."
+        )
     return {
         "ok": True,
         "programme": PROGRAMME_CODE,
@@ -310,12 +418,18 @@ def status() -> dict[str, Any]:
         "source": "yahoo_finance_statements",
         "runtime": rt,
         "queue_preview": q,
+        "last_errors": list(_LAST_ERRORS)[-10:],
+        "curl_cffi": _curl_cffi_available(),
+        "diagnosis": diagnosis,
         "yahoo_ceiling": {"annual_years": "≈4–5", "quarters": "≈4–6"},
         "plain_english": (
             f"Yahoo fill is {rt.get('status')}. "
             f"Processed {rt.get('processed') or 0}, filled {rt.get('filled') or 0}, "
-            f"failed {rt.get('failed') or 0}. "
-            f"{(q.get('plain_english') or '')}"
+            f"failed {rt.get('failed') or 0}"
+            + (f" (blocked {blocked_n})" if blocked_n else "")
+            + ". "
+            + (diagnosis + " " if diagnosis else "")
+            + f"{(q.get('plain_english') or '')}"
         ),
     }
 
@@ -339,13 +453,19 @@ def board() -> dict[str, Any]:
             "processed": (st.get("runtime") or {}).get("processed"),
             "filled": (st.get("runtime") or {}).get("filled"),
             "failed": (st.get("runtime") or {}).get("failed"),
+            "blocked": (st.get("runtime") or {}).get("blocked"),
         },
+        "last_errors": st.get("last_errors"),
+        "diagnosis": st.get("diagnosis"),
+        "curl_cffi": st.get("curl_cffi"),
         "yahoo_ceiling": st.get("yahoo_ceiling"),
         "plain_english": st.get("plain_english"),
         "what_this_does": (
             "Pulls annual + quarterly statements from Yahoo Finance into the warehouse "
             "for EMPTY and thin companies, then harvests share counts. Fast. "
-            "Does not import vendor PE/PB/EV. Will not reach 10-year COMPLETE depth alone."
+            "Does not import vendor PE/PB/EV. Will not reach 10-year COMPLETE depth alone. "
+            "Skips INF* fund ISINs. If Render blocks Yahoo fundamentals, every symbol fails "
+            "with fundamentals_empty_chart_ok — pause and switch source."
         ),
     }
 
@@ -404,8 +524,10 @@ def start(
         _RUNTIME["filled"] = 0
         _RUNTIME["failed"] = 0
         _RUNTIME["skipped"] = 0
+        _RUNTIME["blocked"] = 0
         _RUNTIME["ticks"] = 0
         _RUNTIME["started_at"] = _now()
+        _LAST_ERRORS.clear()
     t = threading.Thread(
         target=_loop,
         kwargs={

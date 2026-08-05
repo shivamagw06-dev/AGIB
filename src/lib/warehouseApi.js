@@ -303,6 +303,12 @@ export const getYahooFillBoard = () =>
   warehouseFetch('/yahoo-fill/board', { timeoutMs: 180_000 });
 export const getYahooFillQueue = (limit = 200, includeThin = true) =>
   warehouseFetch(`/yahoo-fill/queue${qs({ limit, include_thin: includeThin })}`, { timeoutMs: 180_000 });
+export const getYahooFillProbe = (symbol = 'RELIANCE') =>
+  warehouseFetch(`/yahoo-fill/probe${qs({ symbol })}`, { timeoutMs: 120_000 });
+export const getUpstoxFillQueue = (limit = 200, includeThin = true) =>
+  warehouseFetch(`/upstox-fill/queue${qs({ limit, include_thin: includeThin })}`, { timeoutMs: 180_000 });
+export const getUpstoxFillBoard = () =>
+  warehouseFetch('/upstox-fill/board', { timeoutMs: 180_000 });
 export const postYahooFillStart = (body = {}) =>
   warehouseFetch('/yahoo-fill/start', { method: 'POST', body });
 export const postYahooFillStop = () =>
