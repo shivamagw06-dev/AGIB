@@ -8347,6 +8347,7 @@ export default function createIntelligenceRouter() {
   router.get('/warehouse/yahoo-fill/status', warehouseGet('/v1/warehouse/yahoo-fill/status', 180_000));
   router.get('/warehouse/yahoo-fill/board', warehouseGet('/v1/warehouse/yahoo-fill/board', 180_000));
   router.get('/warehouse/yahoo-fill/queue', warehouseGet('/v1/warehouse/yahoo-fill/queue', 180_000));
+  router.get('/warehouse/yahoo-fill/probe', warehouseGet('/v1/warehouse/yahoo-fill/probe', 120_000));
   router.post('/warehouse/yahoo-fill/start', warehousePost('/v1/warehouse/yahoo-fill/start'));
   router.post('/warehouse/yahoo-fill/stop', warehousePost('/v1/warehouse/yahoo-fill/stop'));
   router.post('/warehouse/yahoo-fill/resume', warehousePost('/v1/warehouse/yahoo-fill/resume'));

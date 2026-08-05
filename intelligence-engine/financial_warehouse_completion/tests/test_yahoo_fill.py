@@ -15,7 +15,8 @@ from financial_warehouse_completion.yahoo_fill import (
 def test_skips_etf_like_symbols():
     assert _looks_non_equity("ABSLBANETF") is True
     assert _looks_non_equity("NIFTYBEES") is True
-    assert _looks_non_equity("RELIANCE") is False
+    assert _looks_non_equity("RELIANCE", isin="INE002A01018") is False
+    assert _looks_non_equity("ABSL10BANK", isin="INF209KC1670") is True
     assert _looks_non_equity("FOO", "Some Index ETF Fund") is True
 
 
@@ -24,7 +25,7 @@ def test_queue_candidates_priority(monkeypatch):
     masters = [
         {"symbol": "EMPTY1", "company_name": "Empty Co", "sector": "IT"},
         {"symbol": "THIN1", "company_name": "Thin Co", "sector": "Banks"},
-        {"symbol": "ETF1", "company_name": "Nifty ETF", "sector": "Unknown"},
+        {"symbol": "ETF1", "company_name": "Nifty ETF", "sector": "Unknown", "isin": "INF209KC9999"},
         {"symbol": "OK1", "company_name": "Ok Co", "sector": "IT"},
     ]
     annual = [

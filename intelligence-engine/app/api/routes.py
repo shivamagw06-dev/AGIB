@@ -18936,6 +18936,13 @@ async def warehouse_yahoo_fill_queue(limit: int = 200, include_thin: bool = True
     return yahoo_fill_queue(limit=limit, include_thin=include_thin)
 
 
+@router.get("/warehouse/yahoo-fill/probe")
+async def warehouse_yahoo_fill_probe(symbol: str = "RELIANCE"):
+    from financial_warehouse_completion import yahoo_fill_probe
+
+    return yahoo_fill_probe(symbol)
+
+
 @router.post("/warehouse/yahoo-fill/start")
 async def warehouse_yahoo_fill_start(
     payload: dict[str, Any] = Body(default_factory=dict),

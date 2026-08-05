@@ -37,6 +37,7 @@ def health() -> dict[str, Any]:
             "/v1/warehouse/yahoo-fill/status",
             "/v1/warehouse/yahoo-fill/board",
             "/v1/warehouse/yahoo-fill/queue",
+            "/v1/warehouse/yahoo-fill/probe",
             "/v1/warehouse/yahoo-fill/start",
             "/v1/warehouse/yahoo-fill/run",
             "/v1/warehouse/yahoo-fill/stop",
@@ -232,3 +233,7 @@ def yahoo_fill_run(
 
 def yahoo_fill_company(symbol: str, actor: str = "yahoo_fill") -> dict[str, Any]:
     return yahoo_fill.fill_company(symbol, actor=actor)
+
+
+def yahoo_fill_probe(symbol: str = "RELIANCE") -> dict[str, Any]:
+    return yahoo_fill.probe(symbol)
