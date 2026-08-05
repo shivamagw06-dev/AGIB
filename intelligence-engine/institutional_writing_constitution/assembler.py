@@ -1,4 +1,4 @@
-"""Deterministic writing scaffold — six-section IRE hierarchy."""
+"""Deterministic writing scaffold — narrative IRE hierarchy with template support."""
 
 from __future__ import annotations
 
@@ -7,12 +7,14 @@ from typing import Any
 from institutional_writing_constitution.schema import (
     EVIDENCE_OBSERVATIONS_MAX,
     EVIDENCE_OBSERVATIONS_MIN,
+    EVIDENCE_PHRASE_TEMPLATES,
     EXECUTIVE_SUMMARY_MAX_WORDS,
     QUESTIONS_MAX,
     QUESTIONS_MIN,
     RESPONSE_HIERARCHY,
     SECTION_LABELS,
 )
+from institutional_writing_constitution.templates import DEFAULT_TEMPLATE, template_sections
 
 
 def _word_count(text: str) -> int:
@@ -50,62 +52,80 @@ def _unknowns(pack: dict[str, Any]) -> list[str]:
     return out[:5]
 
 
-def _investment_meaning_bullets(pack: dict[str, Any], company: str) -> list[str]:
-    """Explain why facts matter — not repeat them."""
+def _what_matters_most_bullets(pack: dict[str, Any], company: str) -> list[str]:
+    """Portfolio-manager focus — what should I pay attention to?"""
     bullets: list[str] = []
-    thesis = pack.get("investment_thesis") or {}
-    if thesis.get("current_thesis"):
+    rc = pack.get("response_constitution") or {}
+    if rc.get("direct_answer"):
         bullets.append(
-            f"The central investment debate on {company} centres on whether "
-            f"{str(thesis.get('current_thesis')).lower().replace(company.lower(), 'the franchise')} "
-            "continues to justify institutional attention."
+            "The immediate focus is whether recent developments change the investment case "
+            "or merely confirm what institutional investors already assumed."
         )
     quality = (pack.get("knowledge_quality") or {}).get("metrics") or {}
     if quality.get("evidence_coverage", 0) >= 50:
         bullets.append(
-            "Current institutional evidence coverage supports a structured view, "
-            "though gaps remain in areas that could shift the thesis."
+            f"For {company}, the highest-signal areas are business quality durability, "
+            "earnings trajectory versus expectations, and whether valuation already prices the thesis."
         )
     else:
         bullets.append(
-            "Material evidence gaps remain; investment meaning should be treated as "
-            "directional until fuller institutional knowledge is compiled."
+            "Material evidence gaps remain — treat directional conclusions cautiously until "
+            "institutional knowledge is fully compiled."
         )
-    rc = pack.get("response_constitution") or {}
-    if rc.get("direct_answer"):
-        bullets.append(
-            "The most immediate conclusion is that recent developments warrant "
-            "interpretation through business quality and valuation, not headline reaction."
-        )
+    bullets.append(
+        "Institutional investors would likely focus on what could change earnings power "
+        "over the next 12–18 months, not headline noise."
+    )
     return bullets[:4]
 
 
+def _investment_debate_narrative(pack: dict[str, Any], company: str) -> dict[str, Any]:
+    """The central investment debate — what great research notes lead with."""
+    thesis = pack.get("investment_thesis") or {}
+    debate_topic = str(thesis.get("current_thesis") or "business quality versus valuation").lower()
+    paragraphs = [
+        "The investment debate has shifted.",
+        f"Few investors question {company}'s underlying franchise quality at a headline level.",
+        (
+            f"The real debate is whether {debate_topic.replace(company.lower(), 'the franchise')} "
+            "can sustain institutional attention while justifying today's market expectations."
+        ),
+        "Current evidence supports the quality of the franchise.",
+        "Future returns depend more on earnings execution than on discovering a better business.",
+    ]
+    return {
+        "label": SECTION_LABELS["investment_debate"],
+        "narrative": paragraphs,
+        "text": " ".join(paragraphs),
+    }
+
+
 def _evidence_observations(assertions: list[dict[str, Any]]) -> list[str]:
+    """Varied institutional phrasing — not repetitive 'Evidence suggests...'."""
     observations: list[str] = []
-    for a in assertions[:EVIDENCE_OBSERVATIONS_MAX]:
+    templates = EVIDENCE_PHRASE_TEMPLATES
+    for i, a in enumerate(assertions[:EVIDENCE_OBSERVATIONS_MAX]):
         stmt = str(a.get("statement") or "").strip()
         if not stmt:
             continue
+        prefix = templates[i % len(templates)]
         conf = a.get("confidence")
-        prefix = "Evidence suggests"
+        line = f"{prefix} {stmt.rstrip('.')}."
         if conf is not None:
-            observations.append(f"{prefix} {stmt.rstrip('.')}. (confidence: {conf}%)")
-        else:
-            observations.append(f"{prefix} {stmt.rstrip('.')}.")
+            line = f"{line} (confidence: {conf}%)"
+        observations.append(line)
     if not observations:
         placeholders = (
-            "Evidence suggests institutional assertions are not yet compiled for this entity.",
-            "Evidence suggests further validation is required before drawing firm conclusions.",
-            "Evidence suggests monitoring should focus on thesis drivers once knowledge objects are populated.",
+            ("Current evidence indicates", "institutional assertions are not yet compiled for this entity"),
+            ("Available evidence does not currently support", "drawing firm conclusions without fuller knowledge compilation"),
+            ("Operating trends indicate", "monitoring should focus on thesis drivers once knowledge objects are populated"),
         )
-        observations.extend(placeholders[:EVIDENCE_OBSERVATIONS_MIN])
-    while len(observations) < EVIDENCE_OBSERVATIONS_MIN and assertions:
-        observations.append("Evidence suggests further validation is required on remaining institutional claims.")
-        break
+        for prefix, rest in placeholders[:EVIDENCE_OBSERVATIONS_MIN]:
+            observations.append(f"{prefix} {rest}.")
     return observations[:EVIDENCE_OBSERVATIONS_MAX]
 
 
-def _what_could_change_view(pack: dict[str, Any], company: str) -> list[str]:
+def _key_uncertainties(pack: dict[str, Any], company: str) -> list[str]:
     items: list[str] = []
     thesis = pack.get("investment_thesis") or {}
     for inv in (thesis.get("invalidation_conditions") or [])[:3]:
@@ -125,7 +145,7 @@ def _research_conclusion(pack: dict[str, Any], company: str) -> dict[str, Any]:
     supported = _supported_assertions(pack)
     unknowns = _unknowns(pack)
     return {
-        "label": "Research Conclusion",
+        "label": SECTION_LABELS["research_conclusion"],
         "current_evidence_indicates": (
             f"Current evidence indicates {company} warrants continued institutional research "
             f"with {len(supported)} supported institutional assertion(s) and {len(unknowns)} open unknown(s)."
@@ -155,11 +175,8 @@ def _questions_before_you_decide(company: str, ticker: str | None) -> list[str]:
     ][:QUESTIONS_MAX]
 
 
-def assemble_writing_sections(pack: dict[str, Any], *, company: str, ticker: str | None = None) -> dict[str, Any]:
-    """Build six-section writing hierarchy from knowledge + constitution packs."""
+def _executive_summary(pack: dict[str, Any], company: str) -> dict[str, Any]:
     rc = pack.get("response_constitution") or {}
-    assertions = _supported_assertions(pack)
-
     exec_src = (
         rc.get("direct_answer")
         or pack.get("executive")
@@ -167,43 +184,192 @@ def assemble_writing_sections(pack: dict[str, Any], *, company: str, ticker: str
         or f"{company} — institutional research summary pending fuller evidence compilation."
     )
     executive = _truncate_words(str(exec_src), EXECUTIVE_SUMMARY_MAX_WORDS)
-
-    sections: dict[str, Any] = {
-        "executive_summary": {
-            "label": SECTION_LABELS["executive_summary"],
-            "text": executive,
-            "word_count": _word_count(executive),
-            "max_words": EXECUTIVE_SUMMARY_MAX_WORDS,
-        },
-        "investment_meaning": {
-            "label": SECTION_LABELS["investment_meaning"],
-            "bullets": _investment_meaning_bullets(pack, company),
-            "guidance": "Explain why an investor should care — never repeat raw facts.",
-        },
-        "what_evidence_suggests": {
-            "label": SECTION_LABELS["what_evidence_suggests"],
-            "observations": _evidence_observations(assertions),
-            "min_observations": EVIDENCE_OBSERVATIONS_MIN,
-            "assertion_backed": bool(assertions),
-        },
-        "what_could_change_view": {
-            "label": SECTION_LABELS["what_could_change_view"],
-            "invalidation_scenarios": _what_could_change_view(pack, company),
-        },
-        "research_conclusion": _research_conclusion(pack, company),
-        "questions_before_you_decide": {
-            "label": SECTION_LABELS["questions_before_you_decide"],
-            "questions": _questions_before_you_decide(company, ticker)[:QUESTIONS_MAX],
-            "min_questions": QUESTIONS_MIN,
-        },
+    return {
+        "label": SECTION_LABELS["executive_summary"],
+        "text": executive,
+        "word_count": _word_count(executive),
+        "max_words": EXECUTIVE_SUMMARY_MAX_WORDS,
     }
-    return {k: sections[k] for k in RESPONSE_HIERARCHY}
+
+
+# --- Template-specific section builders ---
+
+def _what_changed(pack: dict[str, Any], company: str) -> dict[str, Any]:
+    rc = pack.get("response_constitution") or {}
+    return {
+        "label": SECTION_LABELS["what_changed"],
+        "bullets": [
+            rc.get("direct_answer") or f"Recent results at {company} warrant interpretation against prior expectations.",
+            "Management commentary and segment trends are the primary signals for what genuinely changed.",
+        ],
+    }
+
+
+def _what_didnt_change(pack: dict[str, Any], company: str) -> dict[str, Any]:
+    thesis = pack.get("investment_thesis") or {}
+    return {
+        "label": SECTION_LABELS["what_didnt_change"],
+        "bullets": [
+            f"The core franchise characteristics of {company} appear intact unless evidence suggests otherwise.",
+            str(thesis.get("current_thesis") or "Long-term competitive positioning remains the anchor for institutional views."),
+        ],
+    }
+
+
+def _market_implications(pack: dict[str, Any], company: str) -> dict[str, Any]:
+    return {
+        "label": SECTION_LABELS["market_implications"],
+        "bullets": [
+            "Market expectations may re-rate the business if results confirm or contradict the prevailing narrative.",
+            f"For {company}, the implication is whether today's print changes the earnings trajectory investors are underwriting.",
+        ],
+    }
+
+
+def _monitoring(pack: dict[str, Any], company: str) -> dict[str, Any]:
+    return {
+        "label": SECTION_LABELS["monitoring"],
+        "bullets": [
+            f"Track order intake, margin trajectory, and management guidance revisions for {company}.",
+            "Watch for evidence that would confirm or invalidate the current institutional thesis.",
+        ],
+    }
+
+
+def _current_expectations(pack: dict[str, Any], company: str) -> dict[str, Any]:
+    return {
+        "label": SECTION_LABELS["current_expectations"],
+        "bullets": [
+            f"Market expectations on {company} embed assumptions about growth, margins, and capital returns.",
+            "The investment question is whether current pricing leaves room for positive surprise.",
+        ],
+    }
+
+
+def _historical_context(pack: dict[str, Any], company: str) -> dict[str, Any]:
+    return {
+        "label": SECTION_LABELS["historical_context"],
+        "bullets": [
+            f"Historical valuation and earnings multiples provide context for whether {company} trades at a premium or discount.",
+            "Institutional investors compare today's setup against prior cycle peaks and troughs.",
+        ],
+    }
+
+
+def _business_comparison(pack: dict[str, Any], company: str) -> dict[str, Any]:
+    return {
+        "label": SECTION_LABELS["business_comparison"],
+        "bullets": [
+            f"Business model durability and competitive positioning differentiate {company} from peers.",
+            "Compare franchise quality, not just financial metrics, when assessing relative attractiveness.",
+        ],
+    }
+
+
+def _financial_comparison(pack: dict[str, Any], company: str) -> dict[str, Any]:
+    return {
+        "label": SECTION_LABELS["financial_comparison"],
+        "bullets": [
+            "Growth, margins, return on capital, and cash conversion are the primary financial comparison axes.",
+            "Normalize for one-offs before drawing conclusions on relative financial strength.",
+        ],
+    }
+
+
+def _competitive_position(pack: dict[str, Any], company: str) -> dict[str, Any]:
+    return {
+        "label": SECTION_LABELS["competitive_position"],
+        "bullets": [
+            f"{company}'s competitive position depends on pricing power, share trends, and capital allocation discipline.",
+            "Peer leadership is sustained only when advantages compound over time.",
+        ],
+    }
+
+
+def _primary_risks(pack: dict[str, Any], company: str) -> dict[str, Any]:
+    return {
+        "label": SECTION_LABELS["primary_risks"],
+        "bullets": _key_uncertainties(pack, company)[:4],
+    }
+
+
+def _probability(pack: dict[str, Any], company: str) -> dict[str, Any]:
+    return {
+        "label": SECTION_LABELS["probability"],
+        "bullets": [
+            "Institutional investing is probabilistic — risks should be weighted by likelihood and impact.",
+            f"For {company}, the highest-probability risks are those tied to earnings power and competitive dynamics.",
+        ],
+    }
+
+
+_SECTION_BUILDERS = {
+    "executive_summary": lambda p, c, t, a: _executive_summary(p, c),
+    "what_matters_most": lambda p, c, t, a: {
+        "label": SECTION_LABELS["what_matters_most"],
+        "bullets": _what_matters_most_bullets(p, c),
+        "guidance": "If I'm a portfolio manager, what should I focus on?",
+    },
+    "investment_debate": lambda p, c, t, a: _investment_debate_narrative(p, c),
+    "supporting_evidence": lambda p, c, t, a: {
+        "label": SECTION_LABELS["supporting_evidence"],
+        "observations": _evidence_observations(a),
+        "min_observations": EVIDENCE_OBSERVATIONS_MIN,
+        "assertion_backed": bool(a),
+    },
+    "key_uncertainties": lambda p, c, t, a: {
+        "label": SECTION_LABELS["key_uncertainties"],
+        "items": _key_uncertainties(p, c),
+    },
+    "research_conclusion": lambda p, c, t, a: _research_conclusion(p, c),
+    "questions_before_you_decide": lambda p, c, t, a: {
+        "label": SECTION_LABELS["questions_before_you_decide"],
+        "questions": _questions_before_you_decide(c, t)[:QUESTIONS_MAX],
+        "min_questions": QUESTIONS_MIN,
+    },
+    "what_changed": lambda p, c, t, a: _what_changed(p, c),
+    "what_didnt_change": lambda p, c, t, a: _what_didnt_change(p, c),
+    "market_implications": lambda p, c, t, a: _market_implications(p, c),
+    "monitoring": lambda p, c, t, a: _monitoring(p, c),
+    "current_expectations": lambda p, c, t, a: _current_expectations(p, c),
+    "historical_context": lambda p, c, t, a: _historical_context(p, c),
+    "business_comparison": lambda p, c, t, a: _business_comparison(p, c),
+    "financial_comparison": lambda p, c, t, a: _financial_comparison(p, c),
+    "competitive_position": lambda p, c, t, a: _competitive_position(p, c),
+    "primary_risks": lambda p, c, t, a: _primary_risks(p, c),
+    "probability": lambda p, c, t, a: _probability(p, c),
+    "trade_offs": lambda p, c, t, a: {
+        "label": SECTION_LABELS["trade_offs"],
+        "items": _key_uncertainties(p, c),
+    },
+}
+
+
+def assemble_writing_sections(
+    pack: dict[str, Any],
+    *,
+    company: str,
+    ticker: str | None = None,
+    template_id: str | None = None,
+    section_order: list[str] | None = None,
+) -> dict[str, Any]:
+    """Build template-aware writing hierarchy from knowledge + constitution packs."""
+    assertions = _supported_assertions(pack)
+    order = section_order or list(template_sections(template_id or DEFAULT_TEMPLATE))
+
+    sections: dict[str, Any] = {}
+    for key in order:
+        builder = _SECTION_BUILDERS.get(key)
+        if builder:
+            sections[key] = builder(pack, company, ticker, assertions)
+
+    return sections
 
 
 def infer_answer_length(query: str) -> str:
     q = (query or "").lower()
     if any(w in q for w in ("deep dive", "comprehensive", "full research", "detailed")):
         return "deep_research"
-    if any(w in q for w in ("compare", "explain", "analyze", "analyse", "should i", "thesis")):
+    if any(w in q for w in ("compare", "explain", "analyze", "analyse", "should i", "thesis", "invest")):
         return "research_request"
     return "simple_question"
