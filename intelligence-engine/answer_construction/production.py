@@ -462,6 +462,19 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
     except Exception:
         out.setdefault("institutional_knowledge_runtime", {"enabled": False, "bypassed": True})
 
+    # Institutional Writing Constitution v1.0 — IRE communication layer (how AGI explains).
+    try:
+        from institutional_writing_constitution import apply_institutional_writing_constitution
+
+        out = apply_institutional_writing_constitution(
+            out,
+            query=str(kwargs.get("query") or ""),
+            ticker=kwargs.get("ticker"),
+            company=kwargs.get("company"),
+        )
+    except Exception:
+        out.setdefault("institutional_writing_constitution", {"enabled": False, "bypassed": True})
+
     return out
 
 
@@ -485,6 +498,7 @@ def quality_gates() -> dict[str, Any]:
             "research_workflow_framework_v1": True,
             "institutional_knowledge_factory_v1": True,
             "institutional_knowledge_runtime_v1": True,
+            "institutional_writing_constitution_v1": True,
         },
         "flags": flags_dict(),
     }
