@@ -23,6 +23,12 @@ EDITORIAL_RULES: tuple[dict[str, Any], ...] = (
     {"id": "ER-051", "rule": "Maintain institutional tone without becoming formulaic.", "category": "diversity"},
     {"id": "ER-060", "rule": "Avoid marketing language, hype, and recommendation leakage.", "category": "tone"},
     {"id": "ER-061", "rule": "Prefer: The central investment debate, Current evidence indicates, The primary uncertainty.", "category": "style"},
+    {"id": "ER-070", "rule": "Never answer the literal question only — answer the underlying investment question.", "category": "principles"},
+    {"id": "ER-071", "rule": "Never explain facts without implications.", "category": "principles"},
+    {"id": "ER-072", "rule": "Never present valuation without expectations.", "category": "principles"},
+    {"id": "ER-073", "rule": "Never discuss risk without monitoring.", "category": "principles"},
+    {"id": "ER-074", "rule": "Never conclude without uncertainty.", "category": "principles"},
+    {"id": "ER-075", "rule": "Never summarize without teaching.", "category": "principles"},
 )
 
 

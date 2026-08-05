@@ -14,6 +14,7 @@ from editorial_excellence.schema import (
 )
 from editorial_excellence.scorecard import quality_gates, score_editorial
 from editorial_excellence.workspace import build_review_workspace
+from institutional_investor_curriculum.schema import CURRICULUM_NAME, CURRICULUM_VERSION
 from institutional_writing_benchmark.schema import TARGET_BENCHMARK_COUNT
 
 

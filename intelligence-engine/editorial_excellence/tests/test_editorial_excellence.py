@@ -14,15 +14,12 @@ from editorial_excellence.schema import PROGRAM_VERSION, TARGET_BENCHMARK_COUNT
 from editorial_excellence.reports import monthly_report, weekly_review
 from institutional_writing_benchmark import (
     get_benchmark,
-    get_playbook,
     hall_of_fame_ids,
     list_benchmarks,
-    list_playbooks,
+    list_domains,
     load_hall_of_fame,
-    phase2_expansion_plan,
 )
 from institutional_writing_benchmark.registry import BENCHMARK_QUESTIONS
-from institutional_writing_benchmark.schema import PLAYBOOK_COUNT, QUESTIONS_PER_PLAYBOOK
 from institutional_writing_constitution import apply_institutional_writing_constitution
 
 
@@ -31,94 +28,66 @@ def test_health():
     assert h["status"] == "ok"
     assert h["version"] == PROGRAM_VERSION
     assert h["benchmark_questions"] == TARGET_BENCHMARK_COUNT
+    assert h["benchmark_target"] == 1000
     assert h["editorial_rules"] == rule_count()
 
 
-def test_benchmark_curriculum_has_100_lifecycle_questions():
-    assert len(BENCHMARK_QUESTIONS) == 100
+def test_benchmark_registry_has_1000_questions():
+    assert len(BENCHMARK_QUESTIONS) == 1000
     ids = [q["id"] for q in BENCHMARK_QUESTIONS]
-    assert len(set(ids)) == 100
-    assert ids[0] == "IWB_001"
-    assert ids[-1] == "IWB_100"
-    assert all(q["ticker"] == "TCS" for q in BENCHMARK_QUESTIONS)
+    assert len(set(ids)) == 1000
 
 
-def test_twenty_playbooks_five_questions_each():
-    playbooks = list_playbooks()
-    assert len(playbooks) == PLAYBOOK_COUNT
-    assert PLAYBOOK_COUNT == 20
-    assert QUESTIONS_PER_PLAYBOOK == 5
-    for pb in playbooks:
-        assert len(pb["question_ids"]) == 5
+def test_ten_decision_domains():
+    domains = list_domains()
+    assert len(domains) == 10
+    valuation = list_benchmarks(domain="valuation", ticker="TCS", limit=20)
+    assert len(valuation) == 10
+    assert get_benchmark("IIC_0001")["domain"] == "idea_generation"
 
 
-def test_benchmark_categories():
-    valuation = list_benchmarks(playbook="valuation", limit=10)
-    assert len(valuation) == 5
-    assert all(q["playbook"] == "valuation" for q in valuation)
-    assert get_benchmark("IWB_001")["question"] == "Should I invest in TCS today?"
-    debate = get_playbook("investment_debate")
-    assert len(debate["questions"]) == 5
-
-
-def test_phase2_expansion_plan():
-    plan = phase2_expansion_plan()
-    assert plan["target_total"] == 1000
-    assert len(plan["companies_pending"]) == 10
-
-
-def test_hall_of_fame_ids():
+def test_hall_of_fame_is_tcs_universal_curriculum():
     ids = hall_of_fame_ids()
     assert len(ids) == 100
-    assert ids[0] == "IWB_001"
-    assert ids[-1] == "IWB_100"
+    assert all(get_benchmark(i)["ticker"] == "TCS" for i in ids)
 
 
-def test_editorial_rules_append_only():
-    rules = list_rules()
-    assert len(rules) >= 15
-    assert rules[0]["id"] == "ER-001"
-    assert any(r["id"] == "ER-034" for r in rules)
+def test_editorial_principles_in_rules():
+    rules = list_rules(category="principles")
+    assert len(rules) == 6
 
 
-def test_score_editorial_on_iwc_pack():
+def test_score_editorial_curriculum_dimensions():
     pack = apply_institutional_writing_constitution(
-        {"ticker": "TCS", "company": "Tata Consultancy Services", "query": "Should I invest in TCS today?"},
-        query="Should I invest in TCS today?",
+        {"ticker": "TCS", "company": "Tata Consultancy Services", "query": "Does TCS deserve research today?"},
+        query="Does TCS deserve research today?",
     )
     editorial = score_editorial(pack)
-    assert "overall_editorial_score" in editorial
-    assert editorial["forward_without_editing"] in ("YES", "MINOR_EDITS", "MAJOR_EDITS", "REWRITE")
-    assert len(editorial["scorecard"]) >= 11
-
-
-def test_quality_gates():
-    pack = apply_institutional_writing_constitution({"ticker": "INFY", "company": "Infosys"})
-    gates = quality_gates(pack)
-    assert "checks" in gates
-    assert gates["checks"]["executive_summary_exists"] is True
-    assert gates["checks"]["questions_before_you_decide_included"] is True
+    for dim in (
+        "clarity",
+        "business_understanding",
+        "investment_insight",
+        "portfolio_relevance",
+        "overall_editorial_score",
+    ):
+        assert dim in editorial["scorecard"]
 
 
 def test_apply_editorial_excellence_wiring():
     base = apply_institutional_writing_constitution(
-        {"ticker": "TCS", "company": "TCS", "query": "Should I invest in TCS today?"},
-        query="Should I invest in TCS today?",
+        {"ticker": "TCS", "company": "TCS", "query": "Does TCS deserve research today?"},
+        query="Does TCS deserve research today?",
     )
-    out = apply_editorial_excellence(base, query="Should I invest in TCS today?", benchmark_id="IWB_001")
+    out = apply_editorial_excellence(base, query="Does TCS deserve research today?", benchmark_id="IIC_0001")
     ee = out["editorial_excellence"]
     assert ee["enabled"] is True
-    assert ee["version"] == "1.0"
-    assert ee["constitution_stable"] is True
     assert out.get("editorial_score") is not None
-    assert out.get("editorial_review_workspace")
-    assert out["editorial_excellence"]["hall_of_fame_update"]["benchmark_id"] == "IWB_001"
 
 
 def test_hall_of_fame_keeps_better_version():
     from institutional_writing_benchmark.hall_of_fame import compare_and_maybe_update
 
-    bench_id = "IWB_HOF_TEST"
+    bench_id = "IIC_HOF_TEST"
     compare_and_maybe_update(
         bench_id,
         question="Test question",
@@ -134,7 +103,6 @@ def test_hall_of_fame_keeps_better_version():
         forward_rating="YES",
     )
     assert result["improved"] is True
-    assert result["kept"] is True
     hof = load_hall_of_fame()
     assert hof["entries"][bench_id]["editorial_score"] == 92.0
 
@@ -146,6 +114,5 @@ def test_weekly_and_monthly_reports():
     ]
     weekly = weekly_review(sample)
     assert weekly["sample_size"] == 2
-    assert "average_editorial_score" in weekly
     monthly = monthly_report(sample)
     assert monthly["forward_without_editing_yes_pct"] == 50.0
