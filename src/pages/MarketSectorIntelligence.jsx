@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, ArrowLeft, RefreshCw, TrendingUp } from 'lucide-react';
 import { getMiDashboard, getMiSector } from '@/lib/intelligenceApi';
 import useMarketIntelligence from '@/hooks/useMarketIntelligence';
+import useMarketSnapshot from '@/hooks/useMarketSnapshot';
 import './marketSectorIntelligence.css';
 
 const HEATMAP_CLASS = {
@@ -46,6 +47,54 @@ function Stat({ label, value, hint }) {
   );
 }
 
+/** Index cards for MSI overview — prefer live snapshot quotes; else AGI sentiment labels. */
+function buildIndexCards(snapshotItems = [], indexSentiments = [], pulseIndices = []) {
+  const live = (Array.isArray(snapshotItems) ? snapshotItems : [])
+    .filter((row) => row && (row.name || row.symbol) && Number(row.price || row.ltp || row.value) > 0)
+    .slice(0, 5)
+    .map((row) => {
+      const change = row.percentChange ?? row.change_pct ?? row.changePct;
+      return {
+        key: row.name || row.symbol,
+        label: row.name || row.symbol,
+        value: row.price ?? row.ltp ?? row.value,
+        hint: change != null && change !== '' ? `${fmt(Number(change))}%` : 'Live quote',
+      };
+    });
+  if (live.length) return live;
+
+  const sentiments = (Array.isArray(indexSentiments) && indexSentiments.length
+    ? indexSentiments
+    : Array.isArray(pulseIndices)
+      ? pulseIndices
+      : [])
+    .filter((row) => row && (row.label || row.name || row.symbol || row.key))
+    .slice(0, 5)
+    .map((row) => {
+      const label = row.label || row.name || row.symbol || row.key;
+      const quote = row.value ?? row.ltp ?? row.price;
+      if (quote != null && quote !== '') {
+        const change = row.change_pct ?? row.percentChange;
+        return {
+          key: row.key || label,
+          label,
+          value: quote,
+          hint:
+            change != null && change !== ''
+              ? `${fmt(Number(change))}%`
+              : row.sentiment || 'Index',
+        };
+      }
+      return {
+        key: row.key || label,
+        label,
+        value: row.sentiment || 'Pending',
+        hint: row.strength || 'AGI index signal',
+      };
+    });
+  return sentiments;
+}
+
 function Section({ title, subtitle, children }) {
   return (
     <section className="msi-section">
@@ -59,7 +108,8 @@ function Section({ title, subtitle, children }) {
 }
 
 export default function MarketSectorIntelligence() {
-  const { indexSentiments = [], pulse, loading: pulseLoading } = useMarketIntelligence();
+  const { indexSentiments = [], pulse } = useMarketIntelligence();
+  const { items: snapshotItems = [] } = useMarketSnapshot();
   const [pack, setPack] = useState(null);
   const [sectorPack, setSectorPack] = useState(null);
   const [selectedSector, setSelectedSector] = useState(null);
@@ -104,6 +154,10 @@ export default function MarketSectorIntelligence() {
   const sectors = pack?.sectors || [];
   const opps = pack?.opportunities?.cards || [];
   const priorities = pack?.research_priorities || [];
+  const indexCards = useMemo(
+    () => buildIndexCards(snapshotItems, indexSentiments, pulse?.indices || []),
+    [snapshotItems, indexSentiments, pulse],
+  );
 
   return (
     <div className="msi-root">
@@ -132,13 +186,13 @@ export default function MarketSectorIntelligence() {
               subtitle={`Constitution v${pack.constitution || '2.0'} · Valuation as of ${overview.valuation_date || '—'} · ${overview.companies || 0} companies · PE coverage ${overview.coverage?.pct != null ? overview.coverage.pct : '—'}%`}
             >
               <div className="msi-index-row">
-                {(indexSentiments.length ? indexSentiments : pulse?.indices || []).length ? (
-                  (indexSentiments.length ? indexSentiments : pulse?.indices || []).slice(0, 5).map((idx) => (
+                {indexCards.length ? (
+                  indexCards.map((idx) => (
                     <Stat
-                      key={idx.name || idx.symbol}
-                      label={idx.name || idx.symbol}
-                      value={idx.value ?? idx.ltp ?? '—'}
-                      hint={idx.sentiment || idx.change_pct != null ? `${fmt(idx.change_pct)}%` : 'Live gateway'}
+                      key={idx.key}
+                      label={idx.label}
+                      value={fmt(idx.value)}
+                      hint={idx.hint}
                     />
                   ))
                 ) : (
@@ -269,16 +323,16 @@ export default function MarketSectorIntelligence() {
                       label="FII net"
                       value={
                         flows.latest_values_available === false
-                          ? 'Latest unavailable'
-                          : fmtFlow(flows.fii_net_buy, flows.fii_net_sell)
+                          ? 'Awaiting EOD print'
+                          : fmtFlow(flows.fii_net_buy ?? flows.fii_net, flows.fii_net_sell)
                       }
                     />
                     <Stat
                       label="DII net"
                       value={
                         flows.latest_values_available === false
-                          ? 'Latest unavailable'
-                          : fmtFlow(flows.dii_net_buy, flows.dii_net_sell)
+                          ? 'Awaiting EOD print'
+                          : fmtFlow(flows.dii_net_buy ?? flows.dii_net, flows.dii_net_sell)
                       }
                     />
                     <Stat
@@ -288,6 +342,12 @@ export default function MarketSectorIntelligence() {
                     <Stat label="5D trend" value={fmt(flows.trend_5d)} />
                     <Stat label="20D trend" value={fmt(flows.trend_20d)} />
                   </div>
+                  {flows.latest_values_available === false ? (
+                    <p className="msi-hint">
+                      Flow history exists through {flows.latest_date || 'recent sessions'}, but net FII/DII
+                      values are still null in warehouse (Upstox EOD often lands after 18:05 IST).
+                    </p>
+                  ) : null}
                   {flows.explanation ? <p className="msi-note">{flows.explanation}</p> : null}
                 </>
               ) : (
