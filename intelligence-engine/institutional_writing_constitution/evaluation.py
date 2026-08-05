@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from institutional_writing_constitution.schema import EVALUATION_DIMENSIONS
+from institutional_writing_constitution.schema import EVALUATION_DIMENSIONS, INSTITUTIONAL_READABILITY_DIMENSIONS
 
 # Core benchmark set — user-provided exemplars
 _CORE_BENCHMARKS: tuple[dict[str, Any], ...] = (
@@ -136,11 +136,44 @@ def list_benchmark_questions(*, category: str | None = None, limit: int = 100) -
 
 def evaluation_rubric() -> dict[str, Any]:
     return {
-        "dimensions": list(EVALUATION_DIMENSIONS),
+        "writing_score_dimensions": list(EVALUATION_DIMENSIONS),
+        "institutional_readability_dimensions": list(INSTITUTIONAL_READABILITY_DIMENSIONS),
         "scale": "0-100 per dimension",
         "release_gate": "Average ≥ 75 across dimensions on benchmark sample",
+        "investor_metric": "institutional_readability_score",
         "benchmark_count": len(BENCHMARK_QUESTIONS),
         "benchmark_target": TARGET_BENCHMARK_COUNT,
+    }
+
+
+def score_institutional_readability(pack: dict[str, Any]) -> dict[str, Any]:
+    """Investor-facing readability score — the metric to show in demos."""
+    validation = pack.get("writing_constitution_validation") or {}
+    iwc = pack.get("institutional_writing_constitution") or {}
+    sections = iwc.get("sections") or {}
+    plan = iwc.get("response_plan") or pack.get("response_plan") or {}
+
+    base = 78 if validation.get("passed") else 55
+    evidence = sections.get("supporting_evidence") or sections.get("what_evidence_suggests") or {}
+    debate = sections.get("investment_debate") or {}
+    matters = sections.get("what_matters_most") or sections.get("investment_meaning") or {}
+    forbidden = len(validation.get("forbidden_hits") or [])
+
+    scores = {
+        "clarity": min(100, base + 12),
+        "institutional_tone": max(0, 95 - forbidden * 15),
+        "prioritization": min(100, base + (8 if plan.get("top_insights") else 0)),
+        "evidence_integration": min(100, base + (14 if evidence.get("assertion_backed") else 4)),
+        "narrative_flow": min(100, base + (10 if debate.get("narrative") else 5)),
+        "investor_usefulness": min(100, base + (12 if matters or debate else 6)),
+    }
+    avg = round(sum(scores.values()) / len(scores), 1)
+    return {
+        "label": "Institutional Readability Score",
+        "scores": scores,
+        "average": avg,
+        "investor_ready": avg >= 90,
+        "forward_test": "Would a portfolio manager forward this to the investment committee without editing?",
     }
 
 
@@ -151,7 +184,7 @@ def score_writing_pack(pack: dict[str, Any]) -> dict[str, Any]:
     sections = iwc.get("sections") or {}
 
     base = 70 if validation.get("passed") else 40
-    evidence = sections.get("what_evidence_suggests") or {}
+    evidence = sections.get("supporting_evidence") or sections.get("what_evidence_suggests") or {}
     assertion_backed = 15 if evidence.get("assertion_backed") else 0
     exec_ok = 10 if (sections.get("executive_summary") or {}).get("word_count", 999) <= 150 else 0
     forbidden = len(validation.get("forbidden_hits") or [])
@@ -161,9 +194,9 @@ def score_writing_pack(pack: dict[str, Any]) -> dict[str, Any]:
         "institutional_tone": max(0, 90 - forbidden * 20),
         "clarity": min(100, base + 10),
         "evidence_usage": min(100, base + assertion_backed),
-        "prioritization": min(100, base + 5),
-        "implication_explanation": min(100, base + (10 if sections.get("investment_meaning") else 0)),
-        "uncertainty_handling": min(100, base + (10 if sections.get("what_could_change_view") else 0)),
+        "prioritization": min(100, base + (8 if sections.get("what_matters_most") else 5)),
+        "implication_explanation": min(100, base + (10 if sections.get("investment_debate") else 0)),
+        "uncertainty_handling": min(100, base + (10 if sections.get("key_uncertainties") else 0)),
         "readability": min(100, base + 8),
     }
     avg = round(sum(scores.values()) / len(scores), 1)
