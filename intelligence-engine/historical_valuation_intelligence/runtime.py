@@ -343,12 +343,19 @@ def run_weekly_stats(*, batch: int = 40) -> dict[str, Any]:
         done += 1
         with _STATE_LOCK:
             _RUNTIME["counters"]["stats_refreshed"] += 1
-    sector = persist.persist_sector_medians(metric="pe")
+    # Persist primary metrics used by MSI sector lenses (not PE alone).
+    sector_packs = {}
+    for metric in ("pe", "pb", "ev_ebitda"):
+        try:
+            sector_packs[metric] = persist.persist_sector_medians(metric=metric)
+        except Exception as exc:  # noqa: BLE001
+            sector_packs[metric] = {"ok": False, "error": str(exc)[:160]}
     return {
         "ok": True,
         "mode": "weekly",
         "companies": done,
-        "sector_medians": sector,
+        "sector_medians": sector_packs.get("pe"),
+        "sector_medians_by_metric": sector_packs,
         "engine": ENGINE_CODE,
         "version": VERSION,
     }

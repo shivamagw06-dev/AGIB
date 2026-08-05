@@ -72,6 +72,48 @@ def test_sufficient_history_ranks_current(monkeypatch):
     assert cheap["historical_percentile"] <= 20
 
 
+def test_contaminated_near_zero_history_rejected(monkeypatch):
+    """Garbage PE medians (~0.0002) must not paint the heatmap dark red."""
+    values = [0.0001 + i * 0.00001 for i in range(30)]
+    points = [{"period": f"2025-01-{(i % 28) + 1:02d}", "value": v} for i, v in enumerate(values)]
+    monkeypatch.setattr(
+        "historical_valuation_intelligence.sector_percentile.load_sector_median_series",
+        lambda sector, metric="pe", limit=5000: {
+            "ok": True,
+            "sector": sector,
+            "values": values,
+            "points": points,
+            "first_observation": points[0]["period"],
+            "last_observation": points[-1]["period"],
+            "source": "test",
+        },
+    )
+    out = sector_historical_percentile("Health Care", current_median=39.5, metric="pe")
+    assert out["status"] == "DATA_QUALITY_FAIL"
+    assert out["historical_percentile"] is None
+
+
+def test_current_vs_history_ratio_reject(monkeypatch):
+    values = [1.2 + i * 0.02 for i in range(30)]  # ~1.2–1.8 EV/EBITDA history
+    points = [{"period": f"2025-02-{(i % 28) + 1:02d}", "value": v} for i, v in enumerate(values)]
+    monkeypatch.setattr(
+        "historical_valuation_intelligence.sector_percentile.load_sector_median_series",
+        lambda sector, metric="ev_ebitda", limit=5000: {
+            "ok": True,
+            "sector": sector,
+            "values": values,
+            "points": points,
+            "first_observation": points[0]["period"],
+            "last_observation": points[-1]["period"],
+            "source": "test",
+        },
+    )
+    # 16.7 / ~1.5 ≈ 11× → contaminated vs 8× gate
+    out = sector_historical_percentile("Industrials", current_median=16.7, metric="ev_ebitda")
+    assert out["status"] == "DATA_QUALITY_FAIL"
+    assert out["historical_percentile"] is None
+
+
 def test_sector_table_does_not_use_peer_median_as_historical(monkeypatch):
     """Peer percentiles at ~50 must not become heatmap historical_percentile."""
 

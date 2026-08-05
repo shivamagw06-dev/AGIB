@@ -98,6 +98,14 @@ def persist_sector_medians(
         if not prev or str(row.get("date") or "") > str(prev.get("date") or ""):
             latest[sym] = row
 
+    # Institutional bounds — do not persist near-zero / absurd multiples.
+    sane = {
+        "pe": (2.0, 250.0),
+        "pb": (0.05, 60.0),
+        "ev_ebitda": (1.0, 100.0),
+        "ev_sales": (0.2, 80.0),
+    }.get(str(metric or "pe").lower(), (0.0, float("inf")))
+
     buckets: dict[str, list[float]] = defaultdict(list)
     for sym, row in latest.items():
         val = row.get(metric)
@@ -105,7 +113,7 @@ def persist_sector_medians(
             num = float(val) if val is not None else None
         except (TypeError, ValueError):
             num = None
-        if num is None or num <= 0:
+        if num is None or not (sane[0] <= num <= sane[1]):
             continue
         sector = str((masters.get(sym) or {}).get("sector") or "Unclassified")
         buckets[sector].append(num)

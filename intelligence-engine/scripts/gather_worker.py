@@ -154,6 +154,19 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001
         log.warning("gather_worker_hvie_runtime_failed", extra={"error": str(exc)[:200]})
 
+    # Seed sector median history for MSI heatmap (pe/pb/ev_ebitda) — weekly job
+    # alone left historical_sector_medians nearly empty in production.
+    try:
+        from historical_valuation_intelligence import persist as hvie_persist
+
+        median_boot = {
+            m: hvie_persist.persist_sector_medians(metric=m, actor="gather_worker")
+            for m in ("pe", "pb", "ev_ebitda")
+        }
+        log.info("gather_worker_hvie_sector_medians", extra={"metrics": list(median_boot)})
+    except Exception as exc:  # noqa: BLE001
+        log.warning("gather_worker_hvie_sector_medians_failed", extra={"error": str(exc)[:200]})
+
     stopping = {"flag": False}
 
     def _handle_stop(signum, _frame):  # noqa: ANN001

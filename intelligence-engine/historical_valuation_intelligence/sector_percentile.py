@@ -20,9 +20,30 @@ from historical_valuation_intelligence.statistics import _num, _percentile_of
 # Institutional floor — below this, return Unavailable (never invent 50).
 MIN_SECTOR_HISTORY_OBS = 24
 
+# Same institutional bounds as market_intelligence_engine.universe — near-zero
+# PE/EV multiples from broken reconstructions must not form sector history.
+_SANE_METRIC = {
+    "pe": (2.0, 250.0),
+    "pb": (0.05, 60.0),
+    "ev_ebitda": (1.0, 100.0),
+    "ev_sales": (0.2, 80.0),
+    "roe": (-80.0, 120.0),
+}
+
+# If current / historical_median is outside this band, history is contaminated.
+_MAX_CURRENT_VS_HIST_RATIO = 8.0
+
 # One-pass reconstruction cache: metric → {sector → points}.
 # Cleared only for tests via clear_reconstruction_cache().
 _RECON_CACHE: dict[str, dict[str, list[dict[str, Any]]]] = {}
+
+
+def _sane_metric(metric: str, value: Any) -> Optional[float]:
+    n = _num(value)
+    if n is None:
+        return None
+    low, high = _SANE_METRIC.get(str(metric or "pe").lower(), (float("-inf"), float("inf")))
+    return n if low <= n <= high else None
 
 
 def clear_reconstruction_cache() -> None:
@@ -136,6 +157,64 @@ def sector_historical_percentile(
     except Exception:
         pass
 
+    # Contaminated history (e.g. PE series median ≈ 0.0002) produces absurd
+    # premiums / dark-red heatmaps — refuse rather than publish garbage.
+    sane_hist = _sane_metric(metric, hist_median)
+    if hist_median is not None and sane_hist is None:
+        return {
+            "ok": True,
+            "sector": series.get("sector") or sector,
+            "metric": metric,
+            "historical_percentile": None,
+            "current_median": current,
+            "historical_median": None,
+            "historical_min": round(min(values), 4),
+            "historical_max": round(max(values), 4),
+            "observation_count": obs,
+            "first_observation": series.get("first_observation"),
+            "last_observation": series.get("last_observation"),
+            "sufficient": False,
+            "status": "DATA_QUALITY_FAIL",
+            "reason": (
+                f"Historical {metric} median {hist_median} is outside institutional "
+                f"bounds {_SANE_METRIC.get(str(metric).lower())}; series discarded."
+            ),
+            "source": series.get("source"),
+            "engine": ENGINE_CODE,
+            "version": VERSION,
+        }
+    if (
+        current is not None
+        and hist_median is not None
+        and hist_median > 0
+        and (
+            current / hist_median > _MAX_CURRENT_VS_HIST_RATIO
+            or hist_median / current > _MAX_CURRENT_VS_HIST_RATIO
+        )
+    ):
+        return {
+            "ok": True,
+            "sector": series.get("sector") or sector,
+            "metric": metric,
+            "historical_percentile": None,
+            "current_median": current,
+            "historical_median": round(hist_median, 4),
+            "historical_min": round(min(values), 4),
+            "historical_max": round(max(values), 4),
+            "observation_count": obs,
+            "first_observation": series.get("first_observation"),
+            "last_observation": series.get("last_observation"),
+            "sufficient": False,
+            "status": "DATA_QUALITY_FAIL",
+            "reason": (
+                f"Current {metric} {current} vs historical median {round(hist_median, 4)} "
+                f"differs by more than {_MAX_CURRENT_VS_HIST_RATIO:.0f}× — history contaminated."
+            ),
+            "source": series.get("source"),
+            "engine": ENGINE_CODE,
+            "version": VERSION,
+        }
+
     return {
         "ok": True,
         "sector": series.get("sector") or sector,
@@ -215,8 +294,8 @@ def _from_persisted_medians(sector: str, *, metric: str, limit: int) -> list[dic
     seen: set[str] = set()
     for r in sorted(rows, key=lambda x: str(x.get("as_of") or "")):
         period = str(r.get("as_of") or "")[:10]
-        val = _num(r.get("median_value"))
-        if not period or val is None or val <= 0 or period in seen:
+        val = _sane_metric(metric, r.get("median_value"))
+        if not period or val is None or period in seen:
             continue
         seen.add(period)
         points.append({"period": period, "value": val, "company_count": r.get("company_count")})
@@ -266,8 +345,9 @@ def _reconstruct_all_sectors(*, metric: str) -> dict[str, list[dict[str, Any]]]:
         if not sector:
             continue
         period = str(r.get("date") or r.get("as_of") or "")[:10]
-        val = _num(r.get(metric_key) if metric_key in r else r.get(metric))
-        if not period or val is None or val <= 0:
+        raw = r.get(metric_key) if metric_key in r else r.get(metric)
+        val = _sane_metric(metric_key, raw)
+        if not period or val is None:
             continue
         by_sector_date[sector.lower()][period].append(val)
 

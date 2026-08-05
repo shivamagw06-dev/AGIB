@@ -143,12 +143,72 @@ def dashboard(*, universe_limit: int = 5000) -> dict[str, Any]:
     return pack
 
 
+_SECTOR_ALIASES = {
+    "it": "Information Technology",
+    "tech": "Information Technology",
+    "technology": "Information Technology",
+    "information technology": "Information Technology",
+    "bfsi": "Financials",
+    "banks": "Financials",
+    "banking": "Financials",
+    "financial": "Financials",
+    "financials": "Financials",
+    "pharma": "Health Care",
+    "healthcare": "Health Care",
+    "health care": "Health Care",
+    "fmcg": "Consumer Staples",
+    "staples": "Consumer Staples",
+    "consumer staples": "Consumer Staples",
+    "discretionary": "Consumer Discretionary",
+    "consumer discretionary": "Consumer Discretionary",
+    "auto": "Consumer Discretionary",
+    "metals": "Materials",
+    "materials": "Materials",
+    "energy": "Energy",
+    "oil": "Energy",
+    "utilities": "Utilities",
+    "realty": "Real Estate",
+    "real estate": "Real Estate",
+    "telecom": "Communication Services",
+    "communication": "Communication Services",
+    "communication services": "Communication Services",
+    "industrials": "Industrials",
+    "infra": "Industrials",
+}
+
+
+def _resolve_sector_name(sector: str, available: list[str]) -> str:
+    raw = str(sector or "").strip()
+    if not raw:
+        return raw
+    by_lower = {str(s).strip().lower(): str(s).strip() for s in available if s}
+    if raw in available:
+        return raw
+    if raw.lower() in by_lower:
+        return by_lower[raw.lower()]
+    alias = _SECTOR_ALIASES.get(raw.lower())
+    if alias and alias in by_lower.values():
+        return alias
+    if alias and alias.lower() in by_lower:
+        return by_lower[alias.lower()]
+    # Prefix / contains soft match
+    for name in available:
+        if raw.lower() in str(name).lower() or str(name).lower() in raw.lower():
+            return str(name)
+    return raw
+
+
 def sector_detail(sector: str, *, universe_limit: int = 5000) -> dict[str, Any]:
     uni = universe.load_universe(limit=universe_limit)
-    name = str(sector or "").strip()
+    available = sorted({
+        str(r.get("sector") or "").strip()
+        for r in (uni.get("rows") or [])
+        if str(r.get("sector") or "").strip()
+    })
+    name = _resolve_sector_name(str(sector or "").strip(), available)
     members = [r for r in (uni.get("rows") or []) if str(r.get("sector") or "") == name]
     if not members:
-        return {"ok": False, "error": "sector_not_found", "sector": name}
+        return {"ok": False, "error": "sector_not_found", "sector": name, "requested": sector}
 
     from valuation_terminal.sector_lens import lens_for
 
