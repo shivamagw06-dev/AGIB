@@ -26,6 +26,9 @@ export FAA_BACKGROUND_COLLECTOR=false
 export CONTINUOUS_HISTORICAL_BACKFILL=false
 # Keep KF live collectors off in HTTP; sidecar/worker owns backfill.
 export KF_HD_LIVE_COLLECTORS=false
+# Live fetch for on-demand FAA + correct health reporting (collector stays off).
+# Respect explicit false from the dashboard; default true when unset.
+export FAA_LIVE_FETCH="${FAA_LIVE_FETCH:-true}"
 
 if [[ "${AGI_GATHER_SIDECAR:-true}" != "false" && "${AGI_GATHER_SIDECAR:-true}" != "0" ]]; then
   # Delay + nice: let uvicorn finish boot and stay responsive before gather
@@ -38,6 +41,7 @@ if [[ "${AGI_GATHER_SIDECAR:-true}" != "false" && "${AGI_GATHER_SIDECAR:-true}" 
     export AGI_GATHER_FORCE=true
     export CONTINUOUS_GATHER_LEARN=true
     export FAA_BACKGROUND_COLLECTOR=true
+    export FAA_LIVE_FETCH=true
     export CONTINUOUS_HISTORICAL_BACKFILL=true
     export CONTINUOUS_BACKFILL_UNTIL_COMPLETE=true
     export KF_HD_LIVE_COLLECTORS=true
@@ -60,5 +64,5 @@ else
   echo "[start_engine] AGI_GATHER_SIDECAR=false — HTTP only (use agib-intelligence-worker)"
 fi
 
-echo "[start_engine] launching uvicorn on port ${PORT:-8100}"
+echo "[start_engine] launching uvicorn on port ${PORT:-8100} (FAA_LIVE_FETCH=${FAA_LIVE_FETCH})"
 exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8100}"

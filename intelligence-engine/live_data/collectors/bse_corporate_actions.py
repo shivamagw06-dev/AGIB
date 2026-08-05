@@ -24,12 +24,15 @@ OFFICIAL = "BSE India"
 SAMPLES = Path(__file__).resolve().parents[1] / "samples"
 
 # Public BSE surfaces — HTML landing, CSV-ish exports, and JSON APIs.
+# When BSE API returns SPA/WAF shells, NSE corporate-actions JSON is used as
+# a transparent exchange fallback (same economic events; source tagged).
 def _bse_urls() -> list[str]:
     today = datetime.utcnow().date()
     start = (today - timedelta(days=120)).strftime("%Y%m%d")
-    end = today.strftime("%Y%m%d")
     fdate = (today - timedelta(days=120)).strftime("%d/%m/%Y")
     tdate = today.strftime("%d/%m/%Y")
+    nse_from = (today - timedelta(days=60)).strftime("%d-%m-%Y")
+    nse_to = today.strftime("%d-%m-%Y")
     qs = urlencode(
         {
             "Fdate": fdate,
@@ -47,16 +50,51 @@ def _bse_urls() -> list[str]:
         f"https://api.bseindia.com/BseIndiaAPI/api/Corpact/w?{qs}",
         "https://www.bseindia.com/corporates/corporate_act.aspx",
         "https://www.bseindia.com/corporates/corporates_act.html",
+        # NSE exchange fallback — official JSON (BSE API often returns WAF HTML).
+        (
+            "https://www.nseindia.com/api/corporates-corporateActions?"
+            + urlencode({"index": "equities", "from_date": nse_from, "to_date": nse_to})
+        ),
+        "https://www.nseindia.com/api/corporates-corporateActions?index=equities",
         f"https://www.bseindia.com/download/BhavCopy/Equity/EQ_ISINCODE_{start}.ZIP",  # may 404; ignored
     ]
 
 
+# Browser-like headers — BSE API returns HTTP 403 for bot-style UAs.
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; AGIB-LIDI/1.0; +https://agib.local)",
-    "Accept": "text/html,application/json,text/csv,*/*",
-    "Referer": "https://www.bseindia.com/",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json,text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.bseindia.com/corporates/corporate_act.aspx",
     "Origin": "https://www.bseindia.com",
+    "Connection": "keep-alive",
 }
+
+
+def _bse_session_opener():
+    """Cookie jar via BSE homepage — required for api.bseindia.com (avoids 403)."""
+    import http.cookiejar
+    import urllib.request
+
+    jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    try:
+        http_get(
+            "https://www.bseindia.com/",
+            headers={
+                "User-Agent": HEADERS["User-Agent"],
+                "Accept": "text/html,*/*",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+            timeout=15,
+            opener=opener,
+        )
+    except Exception:
+        pass
+    return opener
 
 NAME_MAP = {
     "INFOSYS LTD": "INFY",
@@ -136,16 +174,40 @@ def collect_bse_corporate_actions(
             def _fetch() -> tuple[bytes, str]:
                 nonlocal url_used
                 last = None
+                opener = _bse_session_opener()
+                # NSE endpoints need an NSE cookie jar (separate from BSE).
+                nse_opener = None
                 for url in _bse_urls():
                     if url.endswith(".ZIP"):
                         continue  # reserved for future bhav-style exports
                     try:
-                        data = http_get(url, headers=HEADERS, timeout=30)
-                        # Prefer payloads that look tabular / actionable
+                        use_opener = opener
+                        headers = HEADERS
+                        if "nseindia.com" in url:
+                            if nse_opener is None:
+                                from live_data.collectors.base import nse_session_opener
+
+                                nse_opener = nse_session_opener()
+                            use_opener = nse_opener
+                            headers = {
+                                "User-Agent": HEADERS["User-Agent"],
+                                "Accept": "application/json,text/plain,*/*",
+                                "Accept-Language": "en-US,en;q=0.9",
+                                "Referer": (
+                                    "https://www.nseindia.com/companies-listing/"
+                                    "corporate-filings-actions"
+                                ),
+                            }
+                        data = http_get(url, headers=headers, timeout=30, opener=use_opener)
                         lower = data[:8000].lower()
-                        if b"<html" in lower and b"security" not in lower and b"purpose" not in lower and b"ex date" not in lower:
-                            # Still keep as HTML candidate for table parser
-                            if b"<table" not in lower and b"corp" not in lower:
+                        # Accept JSON arrays/objects immediately (BSE or NSE).
+                        stripped = data.lstrip()[:1]
+                        if stripped in (b"{", b"["):
+                            url_used = url
+                            return data, url
+                        # Reject tiny WAF/error HTML shells from api.bseindia.com
+                        if b"<!doctype html" in lower or b"<html" in lower:
+                            if b"<table" not in lower and b"ex date" not in lower and b"purpose" not in lower:
                                 last = RuntimeError("bse_actions_html_without_tabular_export")
                                 continue
                         url_used = url
@@ -158,6 +220,8 @@ def collect_bse_corporate_actions(
                 policy = {"max_attempts": 1, "backoff_seconds": [0]} if allow_recorded_sample else DEFAULT_RETRY
                 raw, url_used = run_with_retry(_fetch, retry_policy=policy)
                 text = raw.decode("utf-8", errors="replace")
+                if url_used and "nseindia.com" in str(url_used):
+                    mode = "live_nse_fallback"
             except Exception as live_exc:
                 if allow_recorded_sample:
                     sample = SAMPLES / "bse_corporate_actions.csv"
@@ -330,13 +394,38 @@ def _parse_actions_json(obj: Any) -> tuple[list[dict[str, Any]], str | None]:
             lower.get("securityname")
             or lower.get("scrip_name")
             or lower.get("longname")
+            or lower.get("comp")  # NSE corporates-corporateActions
+            or lower.get("company")
             or lower.get("name")
             or ""
         ).strip()
-        purpose = str(lower.get("purpose") or lower.get("particular") or lower.get("details") or "").strip()
-        ex = str(lower.get("exdate") or lower.get("ex_date") or lower.get("exdt") or "").strip()
-        code = lower.get("securitycode") or lower.get("scrip_code") or lower.get("scripcode")
-        record = str(lower.get("recorddate") or lower.get("record_date") or "").strip()
+        purpose = str(
+            lower.get("purpose")
+            or lower.get("particular")
+            or lower.get("details")
+            or lower.get("subject")  # NSE
+            or lower.get("desc")
+            or ""
+        ).strip()
+        ex = str(
+            lower.get("exdate")
+            or lower.get("ex_date")
+            or lower.get("exdt")
+            or ""
+        ).strip()
+        code = (
+            lower.get("securitycode")
+            or lower.get("scrip_code")
+            or lower.get("scripcode")
+            or lower.get("symbol")
+            or lower.get("isin")
+        )
+        record = str(
+            lower.get("recorddate")
+            or lower.get("record_date")
+            or lower.get("recdate")  # NSE
+            or ""
+        ).strip()
         if not purpose and not ex:
             continue
         ed = _parse_date(ex)

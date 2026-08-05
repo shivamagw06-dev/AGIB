@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 from app.core.config import Settings, get_settings
+
+
+def _env_bool(name: str) -> bool | None:
+    raw = os.environ.get(name)
+    if raw is None or not str(raw).strip():
+        return None
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
 
 
 @dataclass(frozen=True)
@@ -25,15 +33,29 @@ class FaaFlags:
     @classmethod
     def from_settings(cls, settings: Settings | None = None) -> "FaaFlags":
         s = settings or get_settings()
+        # Prefer process env over cached Settings — start_engine / gather_worker
+        # may export FAA_LIVE_FETCH after Settings was first constructed.
+        env_live = _env_bool("FAA_LIVE_FETCH")
+        live_fetch = (
+            env_live
+            if env_live is not None
+            else bool(getattr(s, "faa_live_fetch", False))
+        )
+        env_playwright = _env_bool("FAA_PLAYWRIGHT")
+        playwright = (
+            env_playwright
+            if env_playwright is not None
+            else bool(getattr(s, "faa_playwright", False))
+        )
         return cls(
             faa=bool(getattr(s, "faa", True)),
             faa_discovery=bool(getattr(s, "faa_discovery", True)),
             faa_fetch=bool(getattr(s, "faa_fetch", True)),
             faa_processing=bool(getattr(s, "faa_processing", True)),
             faa_index=bool(getattr(s, "faa_index", True)),
-            faa_live_fetch=bool(getattr(s, "faa_live_fetch", False)),
+            faa_live_fetch=live_fetch,
             faa_search_api=bool(getattr(s, "faa_search_api", True)),
-            faa_playwright=bool(getattr(s, "faa_playwright", False)),
+            faa_playwright=playwright,
             faa_pdf=bool(getattr(s, "faa_pdf", True)),
             faa_notify_fre=bool(getattr(s, "faa_notify_fre", True)),
             faa_scheduler=bool(getattr(s, "faa_scheduler", True)),

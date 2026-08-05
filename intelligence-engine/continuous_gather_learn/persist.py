@@ -169,3 +169,44 @@ def count_knowledge_extracts() -> int:
     with _LOCK:
         root = store_root() / "knowledge"
         return len([p for p in root.glob("*.json") if p.is_file()])
+
+
+def write_gather_heartbeat(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Sidecar/worker heartbeat so HTTP health can see gather is alive on shared disk."""
+    with _LOCK:
+        body = {
+            "role": os.getenv("AGI_ROLE") or "gather_worker",
+            "pid": os.getpid(),
+            "beat_at": _now(),
+            "unix_ts": time.time(),
+            "CONTINUOUS_GATHER_LEARN": os.getenv("CONTINUOUS_GATHER_LEARN"),
+            "FAA_BACKGROUND_COLLECTOR": os.getenv("FAA_BACKGROUND_COLLECTOR"),
+            "FAA_LIVE_FETCH": os.getenv("FAA_LIVE_FETCH"),
+            "CONTINUOUS_LIDI": os.getenv("CONTINUOUS_LIDI"),
+            "CONTINUOUS_HISTORICAL_BACKFILL": os.getenv("CONTINUOUS_HISTORICAL_BACKFILL"),
+            "KF_HD_LIVE_COLLECTORS": os.getenv("KF_HD_LIVE_COLLECTORS"),
+            **(payload or {}),
+        }
+        _write_json(store_root() / "metrics" / "gather_heartbeat.json", body)
+        return body
+
+
+def read_gather_heartbeat(*, max_age_sec: float = 180.0) -> dict[str, Any]:
+    """Return gather heartbeat; mark fresh when beat is within max_age_sec."""
+    with _LOCK:
+        row = _read_json(store_root() / "metrics" / "gather_heartbeat.json", {}) or {}
+    if not isinstance(row, dict) or not row:
+        return {"fresh": False, "present": False}
+    try:
+        ts = float(row.get("unix_ts") or 0)
+    except (TypeError, ValueError):
+        ts = 0.0
+    age = (time.time() - ts) if ts else None
+    fresh = bool(age is not None and age >= 0 and age <= float(max_age_sec))
+    return {
+        **row,
+        "present": True,
+        "fresh": fresh,
+        "age_sec": round(age, 1) if age is not None else None,
+        "max_age_sec": float(max_age_sec),
+    }

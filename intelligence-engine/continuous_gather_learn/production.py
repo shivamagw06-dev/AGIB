@@ -14,17 +14,34 @@ VERSION = "cgl-v1.0.0"
 
 
 def health() -> dict[str, Any]:
+    """HTTP health: in-process CGL is off by design; sidecar heartbeat shows effective gather."""
+    enabled = is_enabled()
+    heartbeat = cgl_persist.read_gather_heartbeat()
+    sidecar_fresh = bool(heartbeat.get("fresh"))
+    if enabled:
+        status = "ok"
+    elif sidecar_fresh:
+        status = "ok_via_sidecar"
+    else:
+        status = "disabled"
     return {
-        "status": "ok" if is_enabled() else "disabled",
+        "status": status,
         "programme": PROGRAMME,
         "version": VERSION,
-        "enabled": is_enabled(),
+        "enabled": enabled,
+        "effective_gather": bool(enabled or sidecar_fresh),
+        "http_process_gather": enabled,
+        "gather_sidecar": heartbeat,
         "ask_isolated": True,
         "ml_retrain": False,
         "learning_mode": "structured_knowledge_and_forecast_calibration",
         "store_root": str(cgl_persist.store_root()),
         "flags": flags_dict(),
         "background": last_status(),
+        "note": (
+            "HTTP keeps CONTINUOUS_GATHER_LEARN=false so Ask stays responsive; "
+            "gather runs in sidecar/worker. Prefer status=ok_via_sidecar + gather_sidecar.fresh."
+        ),
         "components": [
             "LIDI",
             "Knowledge Factory Historical Depth",
@@ -51,8 +68,11 @@ def dashboard() -> dict[str, Any]:
         except Exception:
             coverage = {}
     docs = (coverage.get("documents") or {}) if isinstance(coverage, dict) else {}
+    heartbeat = cgl_persist.read_gather_heartbeat()
     return {
         "enabled": is_enabled(),
+        "effective_gather": bool(is_enabled() or heartbeat.get("fresh")),
+        "gather_sidecar": heartbeat,
         "programme": PROGRAMME,
         "version": VERSION,
         "current_slot": select_slot(),
