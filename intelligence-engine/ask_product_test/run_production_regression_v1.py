@@ -60,7 +60,7 @@ from ask_product_test.agi_core_v1_0 import (  # noqa: E402
     RELEASE_GATE_TARGETS,
     baseline_manifest,
 )
-from ask_product_test.harness import _artifacts_dir  # noqa: E402
+from ask_product_test.harness import _artifacts_dir, mirror_artifact_dirs  # noqa: E402
 
 SUITE_MODULES: Dict[str, str] = {
     "founder_evaluation_v2": "ask_product_test.run_founder_evaluation_v2",
@@ -283,10 +283,7 @@ def main() -> int:
     os.environ.setdefault("ASK_TEST_MODE", "inprocess")
     art = _art()
     os.environ.setdefault("ASK_TEST_ARTIFACTS", str(art))
-    # Also mirror into /workspace/artifacts when that tree exists (cloud agents).
-    ws = Path("/workspace/artifacts")
-    if Path("/workspace").exists():
-        ws.mkdir(parents=True, exist_ok=True)
+    mirror_artifact_dirs()  # optional cloud-agent mirrors; never raises
 
     quick = os.environ.get("PROD_REGRESSION_QUICK", "").strip() in {"1", "true", "yes"}
     skip_afi = os.environ.get("PROD_REGRESSION_SKIP_AFI", "").strip() in {"1", "true", "yes"}
@@ -372,8 +369,11 @@ def main() -> int:
     }
     text = json.dumps(report, indent=2, default=str) + "\n"
     (art / "production_regression_v1.json").write_text(text, encoding="utf-8")
-    if Path("/workspace").exists():
-        (ws / "production_regression_v1.json").write_text(text, encoding="utf-8")
+    for mirror in mirror_artifact_dirs()[1:]:
+        try:
+            (mirror / "production_regression_v1.json").write_text(text, encoding="utf-8")
+        except OSError:
+            pass
     print(
         f"\n[production_regression_v1] {report['passed_suites']}/{report['total_suites']} "
         f"decision={report['release_decision']} agi_core_v1_ready={report['agi_core_v1_ready']} "

@@ -19,6 +19,7 @@ if str(ROOT) not in sys.path:
 
 os.environ.setdefault("IKT_STORE_ROOT", str(ROOT / "data" / "institutional_knowledge_tables"))
 
+from ask_product_test.harness import write_artifact  # noqa: E402
 from ask_product_test.ii_integration_acceptance_v1 import (  # noqa: E402
     II_INTEGRATION_CASES,
     evaluate_ii_integration_case,
@@ -94,11 +95,7 @@ def main() -> int:
         ),
         "questions": rows,
     }
-    out = Path("/workspace/artifacts")
-    out.mkdir(parents=True, exist_ok=True)
-    (out / "ii_integration_acceptance_v1.json").write_text(
-        json.dumps(report, indent=2) + "\n", encoding="utf-8"
-    )
+    write_artifact("ii_integration_acceptance_v1.json", report)
     print(
         f"\n[ii_integration_v1] {passed}/{len(rows)} ({rate}%) decision={report['release_decision']}",
         flush=True,

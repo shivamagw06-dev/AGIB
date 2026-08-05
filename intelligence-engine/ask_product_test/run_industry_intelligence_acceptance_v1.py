@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from ask_product_test.harness import write_artifact  # noqa: E402
 from ask_product_test.industry_intelligence_acceptance_v1 import (
     II_ACCEPTANCE_200,
     evaluate_ii_case,
@@ -80,11 +81,7 @@ def main() -> int:
         "release_decision": "PASS" if rate >= 100.0 else "FAIL",
         "questions": rows,
     }
-    out = Path("/workspace/artifacts")
-    out.mkdir(parents=True, exist_ok=True)
-    (out / "industry_intelligence_acceptance_v1.json").write_text(
-        json.dumps(report, indent=2) + "\n", encoding="utf-8"
-    )
+    write_artifact("industry_intelligence_acceptance_v1.json", report)
     print(
         f"\n[ii_acceptance_v1] {passed}/{len(rows)} ({rate}%) "
         f"decision={report['release_decision']}",

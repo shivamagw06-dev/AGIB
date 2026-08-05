@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from ask_product_test.golden_business_20 import GOLDEN_BUSINESS_20, evaluate_golden_business_case
-from ask_product_test.harness import AskProductHarness, _artifacts_dir
+from ask_product_test.harness import AskProductHarness, _artifacts_dir, write_artifact
 
 
 def _ts() -> str:
@@ -28,9 +28,6 @@ def main() -> int:
     cooldown = float(os.environ.get("ASK_TEST_CASE_COOLDOWN_SEC", "0") or "0")
     h = AskProductHarness(latency_budget_ms=latency)
     out_dir = _artifacts_dir()
-    ws = Path("/workspace/artifacts")
-    ws.mkdir(parents=True, exist_ok=True)
-
     print(f"[golden_business_20] mode={h.mode} cases={len(GOLDEN_BUSINESS_20)}", flush=True)
     results: List[Dict[str, Any]] = []
     for i, case in enumerate(GOLDEN_BUSINESS_20, 1):
@@ -68,9 +65,7 @@ def main() -> int:
         "release_decision": "PASS" if passed == len(results) else "FAIL",
         "questions": results,
     }
-    text = json.dumps(report, indent=2) + "\n"
-    (ws / "golden_business_20.json").write_text(text, encoding="utf-8")
-    (out_dir / "golden_business_20.json").write_text(text, encoding="utf-8")
+    write_artifact("golden_business_20.json", report)
     print(
         f"\n[golden_business_20] {passed}/{len(results)} decision={report['release_decision']}",
         flush=True,

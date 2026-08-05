@@ -24,8 +24,7 @@ os.environ.setdefault("IKT_STORE_ROOT", str(ROOT / "data" / "institutional_knowl
 os.environ.setdefault("VALUATION_CONSENSUS_ROOT", str(ROOT / "data" / "valuation_consensus"))
 
 from ask_product_test.core_platform_acceptance_v1 import run  # noqa: E402
-
-ARTIFACTS = Path("/workspace/artifacts")
+from ask_product_test.harness import write_artifact, _artifacts_dir  # noqa: E402
 
 SECTION_TITLES = {
     "A_company_identity": "A — Company Identity",
@@ -179,15 +178,10 @@ def main() -> int:
         f"({report['overall_score']}%) decision={report['decision']}"
     )
 
-    try:
-        ARTIFACTS.mkdir(parents=True, exist_ok=True)
-        (ARTIFACTS / "core_platform_acceptance_v1.json").write_text(
-            json.dumps(report, indent=2, default=str), encoding="utf-8"
-        )
-        (ARTIFACTS / "core_platform_acceptance_v1.md").write_text(_markdown(report), encoding="utf-8")
-        (ARTIFACTS / "core_platform_acceptance_v1.html").write_text(_html(report), encoding="utf-8")
-    except Exception:
-        pass
+    art_dir = _artifacts_dir()
+    write_artifact("core_platform_acceptance_v1.json", report)
+    (art_dir / "core_platform_acceptance_v1.md").write_text(_markdown(report), encoding="utf-8")
+    (art_dir / "core_platform_acceptance_v1.html").write_text(_html(report), encoding="utf-8")
 
     return 0 if report["decision"] == "PASS" else 1
 

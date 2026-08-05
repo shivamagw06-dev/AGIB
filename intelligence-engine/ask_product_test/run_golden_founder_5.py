@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from ask_product_test.golden_founder_5 import GOLDEN_FOUNDER_5, evaluate_payload
-from ask_product_test.harness import AskProductHarness, _artifacts_dir
+from ask_product_test.harness import AskProductHarness, _artifacts_dir, write_artifact
 
 
 def _ts() -> str:
@@ -90,15 +90,7 @@ def main() -> int:
         "results": results,
     }
     path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    try:
-        ws = Path("/workspace/artifacts")
-        ws.mkdir(parents=True, exist_ok=True)
-        (ws / path.name).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-        (ws / "golden_founder_5_latest.json").write_text(
-            json.dumps(report, indent=2) + "\n", encoding="utf-8"
-        )
-    except Exception:
-        pass
+    write_artifact("golden_founder_5_latest.json", report)
     print(
         f"\n[golden_founder_5] {passed}/{len(results)} avg_score={avg_score}/30 "
         f"hard_fail_flags={list(hard_fail_union)} release_block={release_block} → {path}",
