@@ -19,7 +19,8 @@ def test_health():
     h = health()
     assert h["status"] == "ok"
     assert h["writers_llm_allowed"] is False
-    assert h["pipeline_steps"] == 11
+    assert h["incremental_pipeline_steps"] == 11
+    assert h["compile_pipeline_steps"] == 12
 
 
 def test_normalize_source():

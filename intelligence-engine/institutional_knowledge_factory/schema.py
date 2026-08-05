@@ -5,9 +5,14 @@ from __future__ import annotations
 from typing import Any
 
 IKF_VERSION = "ikf-v1.0.0"
-PROGRAMME = "AGI Institutional Knowledge Factory — Knowledge Production Layer"
-MODULE_CODE = "IKF"
+KPE_VERSION = IKF_VERSION  # Knowledge Production Engine alias
+PROGRAMME = "AGI Knowledge Production Engine — Compile + Incremental Modes"
+MODULE_CODE = "KPE"
+LEGACY_MODULE_CODE = "IKF"
 
+EXECUTION_MODES: tuple[str, ...] = ("compile", "incremental")
+
+# Incremental mode pipeline (live evidence ingestion)
 PIPELINE_STEPS: tuple[str, ...] = (
     "collect",
     "normalize",
@@ -20,6 +25,22 @@ PIPELINE_STEPS: tuple[str, ...] = (
     "update_monitoring",
     "version_decision_memory",
     "notify_research_workflows",
+)
+
+# Compile mode pipeline (historical / backfill)
+COMPILE_PIPELINE_STEPS: tuple[str, ...] = (
+    "collect",
+    "normalize",
+    "merge",
+    "resolve_duplicates",
+    "resolve_contradictions",
+    "identify_assertions",
+    "score_assertions",
+    "link_evidence",
+    "generate_company_dna",
+    "generate_monitoring",
+    "generate_thesis",
+    "update_knowledge_object",
 )
 
 SOURCE_TYPES: tuple[str, ...] = (

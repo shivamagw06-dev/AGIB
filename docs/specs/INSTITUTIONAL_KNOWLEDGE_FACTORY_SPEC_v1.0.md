@@ -1,18 +1,100 @@
-# AGI Institutional Knowledge Factory (IKF) v1.0
+# AGI Knowledge Production Engine (KPE) v1.0
 
 **Document type:** Engineering Specification  
 **Layer:** Knowledge Production Layer  
 **Status:** Core Intelligence System  
+**Architecture Freeze:** v1.0 — see `docs/ARCHITECTURE_FREEZE_v1.0.md`
+
+> **Note:** IKF is the legacy module name. KPE (Knowledge Production Engine) is the canonical name. IKC (Compiler) is **Compile Mode** — not a separate system.
 
 ---
 
 ## Mission
 
-The **Institutional Knowledge Factory (IKF)** continuously transforms raw financial information into validated institutional knowledge.
+The **Knowledge Production Engine (KPE)** continuously transforms raw and existing financial intelligence into validated institutional knowledge.
 
 AGI does not become smarter because it has more data. AGI becomes smarter because it continuously converts evidence into institutional knowledge.
 
-IKF is the permanent knowledge production system.
+---
+
+## Two execution modes — one engine
+
+| Mode | Function | When |
+|------|----------|------|
+| **Compile** | `compile_company()` | First population, rebuild, migration, repair |
+| **Incremental** | `process_evidence()` | Earnings, filings, news, live updates |
+
+There is **one production engine**. Not separate Factory and Compiler architectures.
+
+---
+
+## Compile Mode pipeline
+
+```text
+Collect → Normalize → Merge → Resolve Duplicates → Resolve Contradictions
+→ Identify Assertions → Score → Link Evidence → Generate Company DNA
+→ Generate Monitoring → Generate Thesis → Update Knowledge Object
+```
+
+Input sources: IKT, Knowledge Factory objects/packs, company seeds, evidence packs.
+
+---
+
+## Incremental Mode pipeline
+
+```text
+Collect → Normalize → Extract → Identify Claims → Validate Evidence
+→ Resolve Contradictions → Update Assertions → Update Company DNA
+→ Update Monitoring → Version Decision Memory → Notify Research Workflows
+```
+
+---
+
+## Position in architecture
+
+```text
+Evidence Sources → Evidence Graph
+  ↓
+Knowledge Production Engine (KPE)
+  ├── Compile Mode
+  └── Incremental Mode
+  ↓
+Knowledge Objects (KO)
+  ↓
+Knowledge Runtime (KR)
+  ↓
+Research Workflow → Institutional Research Engine (IRE) → Response
+```
+
+---
+
+## Public API
+
+| Method | Mode |
+|--------|------|
+| `compile_company(ticker)` | Compile |
+| `compile_universe(tickers)` | Compile |
+| `process_evidence(ticker, items)` | Incremental |
+| `calculate_maturity(iko)` | Both |
+| `calculate_knowledge_kpis(ikos)` | Compile reporting |
+| `apply_ikf()` / `apply_kpe()` | Pipeline integration |
+
+---
+
+## Persistence
+
+Compiled Knowledge Objects persist to `data/iko/<TICKER>.json`.
+
+---
+
+## What comes next (build only)
+
+1. NIFTY 50 compile milestone
+2. Evidence Graph persistence
+3. Ask powered by Knowledge Objects
+4. Namespace migration (phased aliases)
+
+*Architecture is frozen. No new specs after this.*
 
 ---
 
