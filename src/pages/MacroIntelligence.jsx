@@ -24,9 +24,9 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import { getMacroBriefing } from '@/api/marketApi';
+import { askMacroEconomist, getMacroBriefing } from '@/api/marketApi';
 import { getIntelligenceHealth, listResearchRuns } from '@/lib/intelligenceApi';
-import { getUiCopilot, getUiMacro } from '@/lib/uiApi';
+import { getUiMacro } from '@/lib/uiApi';
 import { supabase } from '@/lib/supabaseClient';
 import { mapArticleForCard } from '@/lib/articleUtils';
 
@@ -129,9 +129,17 @@ export default function MacroIntelligence() {
   const [askOpen, setAskOpen] = useState(false);
   const [askQuery, setAskQuery] = useState('');
   const [askAnswer, setAskAnswer] = useState(null);
+  const [askLoading, setAskLoading] = useState(false);
   const [nodePanel, setNodePanel] = useState(null);
   const [briefExpanded, setBriefExpanded] = useState(false);
   const [uiMacro, setUiMacro] = useState(null);
+  const [indiaOverlay, setIndiaOverlay] = useState('');
+  const [researchNotes, setResearchNotes] = useState('');
+
+  useEffect(() => {
+    setIndiaOverlay(window.localStorage.getItem('agi-macro-india-overlay') || '');
+    setResearchNotes(window.localStorage.getItem('agi-macro-research-notes') || '');
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -217,48 +225,25 @@ export default function MacroIntelligence() {
     const q = String(query || askQuery).trim();
     if (!q) return;
     setAskQuery(q);
-    const lower = q.toLowerCase();
-    let evidence = brief.whyReached || [];
-    let implications = brief.sectorImpact;
-    let related = (brief.institutionalQuestions || []).slice(0, 3);
-    if (/bank|rate|fed|yield/i.test(lower)) {
-      evidence = [
-        { title: 'Rates transmission', explanation: brief.evidence?.interestRates?.evidence || brief.debate?.verdict },
-        { title: 'Market impact', explanation: brief.evidence?.interestRates?.marketImpact },
-      ].filter((item) => item.explanation);
-    } else if (/oil|inflat|cpi/i.test(lower)) {
-      evidence = [
-        { title: 'Inflation channel', explanation: brief.evidence?.inflation?.evidence },
-        { title: 'Commodities', explanation: brief.evidence?.commodities?.evidence },
-      ].filter((item) => item.explanation);
-    } else if (/monsoon|food|rural/i.test(lower)) {
-      evidence = [{ title: 'Weather channel', explanation: snapshot.weather?.implication }];
-    }
-
-    // Always hydrate from UI copilot context (page + knowledge + committee + house view)
-    let copilot = null;
-    try {
-      copilot = await getUiCopilot({ page: 'macro', question: q });
-    } catch {
-      copilot = null;
-    }
-    const ctx = copilot?.context || {};
-    const ctxEvidence = [
-      ...(Array.isArray(ctx.latest_news) ? ctx.latest_news.map((n) => ({ title: n.title, explanation: n.snippet })) : []),
-      ...(ctx.house_view ? [{ title: 'Current house view', explanation: ctx.house_view.thesis || ctx.house_view.summary || ctx.house_view.current_view }] : []),
-    ].filter((item) => item.title || item.explanation);
-
-    setAskAnswer({
-      query: q,
-      response: brief.executiveThesis,
-      evidence: [...evidence, ...ctxEvidence].slice(0, 8),
-      implications,
-      related,
-      outlook: brief.outlook || uiMacro?.current_regime?.label,
-      regime: uiMacro?.current_regime?.label,
-      contextLoaded: Boolean(copilot),
-    });
     setAskOpen(true);
+    setAskLoading(true);
+    setAskAnswer({ query: q, response: '', evidence: [], implications: null, related: [], outlook: 'Loading', source: null });
+    try {
+      const answer = await askMacroEconomist(q);
+      setAskAnswer(answer);
+    } catch {
+      setAskAnswer({
+        query: q,
+        response: brief.executiveThesis || 'Macro research is temporarily unavailable. Please retry shortly.',
+        evidence: brief.whyReached || [],
+        implications: brief.sectorImpact || null,
+        related: brief.institutionalQuestions || [],
+        outlook: brief.outlook || 'Data-dependent',
+        source: 'briefing fallback',
+      });
+    } finally {
+      setAskLoading(false);
+    }
   };
 
   const goTab = (id) => {
@@ -267,6 +252,12 @@ export default function MacroIntelligence() {
   };
 
   const intel = uiMacro?.intelligence || {};
+  const indiaCountry = (snapshot.countries || []).find((country) => country.name === 'India');
+  const indiaImpact = [
+    indiaCountry?.why,
+    snapshot.fx?.[0]?.implication,
+    snapshot.commodities?.[0]?.implication,
+  ].filter(Boolean).slice(0, 3);
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-[#101828]">
@@ -448,6 +439,11 @@ export default function MacroIntelligence() {
                             : 'Intelligence Engine offline (deterministic desk active)'}
                       </span>
                     </div>
+                    {briefing?.stale && (
+                      <div className="mt-4 rounded-xl border border-[#f4d28b] bg-[#fff8e8] px-3 py-2 text-xs text-[#8a5a00]">
+                        This macro brief is using the last verified snapshot. Check each indicator date before acting on it.
+                      </div>
+                    )}
                   </Card>
 
                   <Card className="p-5">
@@ -467,6 +463,45 @@ export default function MacroIntelligence() {
                         </div>
                       ))}
                     </div>
+                  </Card>
+                </section>
+
+                {/* India impact + private analyst workspace */}
+                <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  <Card className="p-6">
+                    <SectionTitle eyebrow="India transmission" title="How the latest macro view affects India" />
+                    <p className="text-sm leading-7 text-[#344054]">
+                      {indiaCountry?.why || 'India-specific transmission is awaiting the next verified macro refresh.'}
+                    </p>
+                    {indiaImpact.length > 1 && (
+                      <ul className="mt-4 space-y-2">
+                        {indiaImpact.slice(1).map((item) => <li key={item} className="text-xs leading-relaxed text-[#667085]">• {item}</li>)}
+                      </ul>
+                    )}
+                    <label className="mt-5 block text-[11px] font-semibold uppercase tracking-wide text-[#667085]" htmlFor="india-overlay">
+                      Your India view / override
+                    </label>
+                    <textarea
+                      id="india-overlay"
+                      value={indiaOverlay}
+                      onChange={(event) => setIndiaOverlay(event.target.value)}
+                      onBlur={() => window.localStorage.setItem('agi-macro-india-overlay', indiaOverlay)}
+                      placeholder="Add your interpretation, conviction, or condition that would change the view…"
+                      className="mt-2 min-h-28 w-full rounded-xl border border-[#d0d5dd] bg-white p-3 text-sm text-[#101828] outline-none focus:border-[#3b6ea5] focus:ring-2 focus:ring-[#3b6ea5]/20"
+                    />
+                    <p className="mt-2 text-[11px] text-[#98a2b3]">Private browser note — it never changes AGI’s automated macro evidence.</p>
+                  </Card>
+
+                  <Card className="p-6">
+                    <SectionTitle eyebrow="Analyst workspace" title="My research notes" />
+                    <textarea
+                      value={researchNotes}
+                      onChange={(event) => setResearchNotes(event.target.value)}
+                      onBlur={() => window.localStorage.setItem('agi-macro-research-notes', researchNotes)}
+                      placeholder="Write your macro thesis, questions for the research desk, upcoming catalysts, and sources to verify…"
+                      className="min-h-60 w-full rounded-xl border border-[#d0d5dd] bg-white p-3 text-sm leading-6 text-[#101828] outline-none focus:border-[#3b6ea5] focus:ring-2 focus:ring-[#3b6ea5]/20"
+                    />
+                    <p className="mt-2 text-[11px] text-[#98a2b3]">Saved automatically in this browser. It is separate from published research and automated data.</p>
                   </Card>
                 </section>
 
@@ -874,8 +909,9 @@ export default function MacroIntelligence() {
             </div>
             <div className="mt-4 rounded-xl bg-[#f8fafc] p-4">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-[#3b6ea5]">AI response</p>
-              <p className="mt-2 text-sm leading-7 text-[#344054]">{askAnswer.response}</p>
+              <p className="mt-2 text-sm leading-7 text-[#344054]">{askLoading ? 'AGI Economist is analysing the current macro evidence…' : askAnswer.response}</p>
               <div className="mt-3"><Badge tone={statusTone(askAnswer.outlook)}>{askAnswer.outlook}</Badge></div>
+              {!askLoading && askAnswer.source && <p className="mt-2 text-[11px] text-[#667085]">Answer source: {askAnswer.source}</p>}
             </div>
             <div className="mt-5">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-[#667085]">Evidence</p>

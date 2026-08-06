@@ -693,15 +693,32 @@ export async function askMacroEconomist(query) {
       { title: 'Rates transmission', explanation: brief.evidence?.interestRates?.evidence || brief.debate?.verdict },
       { title: 'Market impact', explanation: brief.evidence?.interestRates?.marketImpact },
     ].filter((item) => item.explanation);
+    deterministic.response = [
+      'Higher US yields tighten global financial conditions for India through the dollar, foreign flows and the cost of capital.',
+      'The immediate transmission is usually pressure on INR and imported inflation; that can reduce RBI’s room to ease even when domestic growth remains firm.',
+      'Banks and NBFCs should be judged through funding costs, deposit growth and credit quality; rate-sensitive sectors such as real estate and autos are more exposed if domestic policy stays cautious.',
+      brief.evidence?.interestRates?.marketImpact || 'AGI therefore treats the impact as selective rather than a blanket risk-off signal.',
+    ].filter(Boolean).join(' ');
   } else if (/oil|inflat|cpi|commodity/i.test(lower)) {
     deterministic.evidence = [
       { title: 'Inflation channel', explanation: brief.evidence?.inflation?.evidence },
       { title: 'Commodities', explanation: brief.evidence?.commodities?.evidence },
     ].filter((item) => item.explanation);
+    deterministic.response = [
+      'For India, oil, food and the rupee are the fastest channels from global macro conditions into inflation and policy expectations.',
+      'Higher oil can pressure the current account, fuel costs and margins for airlines, chemicals and transport; easing oil improves the inflation backdrop and supports rate-sensitive demand.',
+      'The key question is whether the move is persistent enough to change RBI’s policy room rather than a short-lived commodity fluctuation.',
+      snapshot.weather?.implication,
+    ].filter(Boolean).join(' ');
   } else if (/monsoon|food|rural|weather/i.test(lower)) {
     deterministic.evidence = [
       { title: 'Weather channel', explanation: snapshot.weather?.implication },
     ].filter((item) => item.explanation);
+    deterministic.response = [
+      'Monsoon conditions affect India primarily through food inflation, rural incomes and agricultural output.',
+      snapshot.weather?.implication,
+      'A supportive season can improve rural-demand visibility and give policymakers more confidence on food inflation; local anomalies can still create category-specific pressure.',
+    ].filter(Boolean).join(' ');
   }
 
   const apiKey = (process.env.OPENAI_API_KEY || '').trim();
