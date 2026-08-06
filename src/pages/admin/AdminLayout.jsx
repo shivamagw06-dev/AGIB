@@ -64,6 +64,7 @@ const navItems = [
   { to: '/admin/data-warehouse', label: 'Data Warehouse', icon: Database },
   { to: '/admin/financial-warehouse', label: 'Financial Warehouse', icon: Database },
   { to: '/admin/financial-coverage', label: 'Financial Coverage', icon: CalendarRange },
+  { to: '/admin/company-financials', label: 'Company Financials', icon: FileSpreadsheet },
   { to: '/admin/historical-coverage', label: 'Historical Coverage', icon: CalendarRange },
   { to: '/admin/upstox-bootstrap', label: 'Upstox Bootstrap', icon: Database },
   { to: '/admin/upstox-fundamentals', label: 'Upstox Fundamentals', icon: Building2 },
