@@ -129,6 +129,8 @@ def recalc_statement_derivations(*, actor: str = "system", entity: Optional[str]
                     "statement_type": row.get("statement_type"),
                     "statement_frequency": row.get("statement_frequency"),
                     key: row.get(key),
+                    # Preserve the vendor source when storing calculated fields.
+                    "source": row.get("source"),
                     "free_cash_flow": fcf,
                     "book_value": book,
                 }
