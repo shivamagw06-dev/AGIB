@@ -91,6 +91,13 @@ def warehouse_universe(monkeypatch):
                         "as_of": "2026-08-04",
                         "value_score": 72.0,
                         "quality_score": 80.0,
+                        "growth_score": 70.0,
+                        "momentum_score": 76.0,
+                        "technical_score": 78.0,
+                        "trend_score": 75.0,
+                        "momentum_12_1_pct": 18.5,
+                        "volume_ratio_20d": 1.3,
+                        "consensus_score": 60.0,
                         "opportunity_score": 75.0,
                         "strategy_agreement": 3,
                     }
@@ -171,6 +178,22 @@ def test_scan_sources_are_warehouse(warehouse_universe):
     assert out["ok"] is True
     assert out["sources"]["consensus"] == "warehouse.consensus"
     assert out["universe_meta"]["source"] == "warehouse+market_intelligence"
+
+
+def test_alpha_and_technical_screens_expose_evidence(warehouse_universe):
+    from hedge_fund_lab.scanner import scan
+
+    alpha = scan("alpha", limit=5)
+    technical = scan("technical", limit=5)
+
+    assert alpha["ok"] is True
+    assert alpha["count"] == 1
+    assert alpha["results"][0]["ticker"] == "AAA"
+    assert alpha["results"][0]["factor_agreement"] >= 3
+    assert "technical" in alpha["results"][0]["factor_scores"]
+    assert technical["ok"] is True
+    assert technical["count"] == 1
+    assert technical["results"][0]["momentum_12_1_pct"] == pytest.approx(18.5)
 
 
 def test_health_reports_live_feed(warehouse_universe):
