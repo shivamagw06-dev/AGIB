@@ -10101,11 +10101,15 @@ async def hedge_fund_lab_scan(strategy: str, limit: int = 20, sector: str | None
 
 
 @router.get("/hedge-fund-lab/terminal")
-async def hedge_fund_lab_terminal(limit: int = 1000):
-    """Regime, live opportunities, overlap, research queue and market dashboard."""
+async def hedge_fund_lab_terminal(limit: int = 12):
+    """Regime, live opportunities, overlap, research queue and market dashboard.
+
+    Default limit is intentionally small (12) so the page can open quickly.
+    Larger limits re-scan the full warehouse universe and can take minutes.
+    """
     from hedge_fund_lab.terminal import overview
 
-    return overview(limit=limit)
+    return overview(limit=max(1, min(int(limit or 12), 50)))
 
 
 @router.get("/hedge-fund-lab/opportunity/{ticker}")

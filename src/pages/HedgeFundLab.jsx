@@ -33,17 +33,27 @@ function ExposureLab() {
   const [longBook, setLongBook] = useState(70);
   const [shortBook, setShortBook] = useState(40);
   const [out, setOut] = useState(null);
+  const [touched, setTouched] = useState(false);
 
   useEffect(() => {
+    // Do not compete with terminal/strategies on first paint.
+    if (!touched) return undefined;
+    let live = true;
     hflCalculate('exposure', { capital, long: longBook, short: shortBook })
-      .then(setOut)
-      .catch(() => setOut(null));
-  }, [capital, longBook, shortBook]);
+      .then((res) => { if (live) setOut(res); })
+      .catch(() => { if (live) setOut(null); });
+    return () => { live = false; };
+  }, [capital, longBook, shortBook, touched]);
+
+  const touch = (setter) => (value) => {
+    setTouched(true);
+    setter(value);
+  };
 
   const sliders = [
-    ['Capital (₹ Cr)', capital, setCapital, 10, 500, 10],
-    ['Long book (₹ Cr)', longBook, setLongBook, 0, 500, 5],
-    ['Short book (₹ Cr)', shortBook, setShortBook, 0, 500, 5],
+    ['Capital (₹ Cr)', capital, touch(setCapital), 10, 500, 10],
+    ['Long book (₹ Cr)', longBook, touch(setLongBook), 0, 500, 5],
+    ['Short book (₹ Cr)', shortBook, touch(setShortBook), 0, 500, 5],
   ];
 
   return (
@@ -99,7 +109,9 @@ function ExposureLab() {
               </div>
             </>
           ) : (
-            <p className="hfl-hint">Adjust the sliders to compute exposure.</p>
+            <p className="hfl-hint">
+              {touched ? 'Computing exposure…' : 'Adjust the sliders to compute exposure.'}
+            </p>
           )}
         </div>
       </div>
@@ -117,10 +129,16 @@ function ExpectancyLab() {
     cost_per_trade_pct: 0.05,
   });
   const [out, setOut] = useState(null);
+  const [touched, setTouched] = useState(false);
 
   useEffect(() => {
-    hflCalculate('expectancy', inputs).then(setOut).catch(() => setOut(null));
-  }, [inputs]);
+    if (!touched) return undefined;
+    let live = true;
+    hflCalculate('expectancy', inputs)
+      .then((res) => { if (live) setOut(res); })
+      .catch(() => { if (live) setOut(null); });
+    return () => { live = false; };
+  }, [inputs, touched]);
 
   const fields = [
     ['hit_rate_pct', 'Hit rate %', 20, 80, 1],
@@ -145,7 +163,10 @@ function ExpectancyLab() {
                 max={max}
                 step={step}
                 value={inputs[key]}
-                onChange={(e) => setInputs((s) => ({ ...s, [key]: Number(e.target.value) }))}
+                onChange={(e) => {
+                  setTouched(true);
+                  setInputs((s) => ({ ...s, [key]: Number(e.target.value) }));
+                }}
               />
             </label>
           ))}
@@ -176,7 +197,9 @@ function ExpectancyLab() {
               <p className="hfl-hint">{out.note}</p>
             </>
           ) : (
-            <p className="hfl-hint">Set the trade statistics to compute expectancy.</p>
+            <p className="hfl-hint">
+              {touched ? 'Computing expectancy…' : 'Set the trade statistics to compute expectancy.'}
+            </p>
           )}
         </div>
       </div>
@@ -189,10 +212,21 @@ function PairLab() {
   const [mean, setMean] = useState(1.8);
   const [std, setStd] = useState(0.25);
   const [out, setOut] = useState(null);
+  const [touched, setTouched] = useState(false);
 
   useEffect(() => {
-    hflCalculate('pair_signal', { spread, mean, std }).then(setOut).catch(() => setOut(null));
-  }, [spread, mean, std]);
+    if (!touched) return undefined;
+    let live = true;
+    hflCalculate('pair_signal', { spread, mean, std })
+      .then((res) => { if (live) setOut(res); })
+      .catch(() => { if (live) setOut(null); });
+    return () => { live = false; };
+  }, [spread, mean, std, touched]);
+
+  const touch = (setter) => (value) => {
+    setTouched(true);
+    setter(value);
+  };
 
   const z = out?.z_score ?? 0;
   const pos = Math.max(0, Math.min(100, ((z + 4) / 8) * 100));
@@ -203,9 +237,9 @@ function PairLab() {
       <div className="hfl-lab-grid">
         <div className="hfl-controls">
           {[
-            ['Current spread', spread, setSpread, 0, 5, 0.05],
-            ['Historical mean', mean, setMean, 0, 5, 0.05],
-            ['Std deviation', std, setStd, 0.05, 1.5, 0.05],
+            ['Current spread', spread, touch(setSpread), 0, 5, 0.05],
+            ['Historical mean', mean, touch(setMean), 0, 5, 0.05],
+            ['Std deviation', std, touch(setStd), 0.05, 1.5, 0.05],
           ].map(([label, value, setter, min, max, step]) => (
             <label key={label}>
               <span>{label}<b>{value}</b></span>
@@ -234,7 +268,9 @@ function PairLab() {
               <p className="hfl-hint">{out.action}</p>
             </>
           ) : (
-            <p className="hfl-hint">Move the spread to see the signal.</p>
+            <p className="hfl-hint">
+              {touched ? 'Computing signal…' : 'Move the spread to see the signal.'}
+            </p>
           )}
         </div>
       </div>
@@ -250,21 +286,42 @@ export function HedgeFundLabSections() {
   const [selected, setSelected] = useState(null);
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState('');
+  const [libraryLoading, setLibraryLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getHflStrategies(), getHflCompare()])
-      .then(([s, c]) => {
-        setStrategies(s?.strategies || []);
-        setRows(c?.rows || []);
-        if (s?.strategies?.length) setSelected(s.strategies[0].id);
-      })
-      .catch((err) => setError(err?.message || 'Failed to load the strategy lab'));
+    let live = true;
+    // Stagger after first paint so terminal gets the first engine slot.
+    const timer = window.setTimeout(() => {
+      Promise.all([getHflStrategies(), getHflCompare()])
+        .then(([s, c]) => {
+          if (!live) return;
+          setStrategies(s?.strategies || []);
+          setRows(c?.rows || []);
+          if (s?.strategies?.length) setSelected(s.strategies[0].id);
+          setError('');
+        })
+        .catch((err) => {
+          if (!live) return;
+          setError(err?.message || 'Failed to load the strategy lab');
+        })
+        .finally(() => {
+          if (live) setLibraryLoading(false);
+        });
+    }, 250);
+    return () => {
+      live = false;
+      window.clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
-    if (!selected) return;
+    if (!selected) return undefined;
+    let live = true;
     setDetail(null);
-    getHflStrategy(selected).then(setDetail).catch(() => setDetail(null));
+    getHflStrategy(selected)
+      .then((res) => { if (live) setDetail(res); })
+      .catch(() => { if (live) setDetail(null); });
+    return () => { live = false; };
   }, [selected]);
 
   const agi = detail?.agi_intelligence;
@@ -283,6 +340,7 @@ export function HedgeFundLabSections() {
         <HedgeFundTerminal />
 
         <h2 className="hfl-section-title">Strategy library — how these strategies work</h2>
+        {libraryLoading ? <p className="hfl-hint">Loading strategy library…</p> : null}
 
         <section className="hfl-cards">
           {strategies.map((s) => (

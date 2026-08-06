@@ -2235,81 +2235,86 @@ export default function createIntelligenceRouter() {
   });
   router.get('/hedge-fund-lab/strategies', async (_req, res) => {
     try {
-      const r = await engineFetch('/v1/hedge-fund-lab/strategies', { timeoutMs: 120_000 });
+      const r = await engineFetch('/v1/hedge-fund-lab/strategies', { timeoutMs: 25_000 });
       res.status(r.status).json(r.data);
     } catch (err) {
-      res.status(502).json({ error: err.message || 'hedge-fund-lab strategies failed' });
+      res.status(504).json({ error: err.message || 'hedge-fund-lab strategies failed', timeout: true });
     }
   });
   router.get('/hedge-fund-lab/compare', async (_req, res) => {
     try {
-      const r = await engineFetch('/v1/hedge-fund-lab/compare', { timeoutMs: 120_000 });
+      const r = await engineFetch('/v1/hedge-fund-lab/compare', { timeoutMs: 25_000 });
       res.status(r.status).json(r.data);
     } catch (err) {
-      res.status(502).json({ error: err.message || 'hedge-fund-lab compare failed' });
+      res.status(504).json({ error: err.message || 'hedge-fund-lab compare failed', timeout: true });
     }
   });
   router.get('/hedge-fund-lab/regime', async (_req, res) => {
     try {
-      const r = await engineFetch('/v1/hedge-fund-lab/regime', { timeoutMs: 120_000 });
+      const r = await engineFetch('/v1/hedge-fund-lab/regime', { timeoutMs: 25_000 });
       res.status(r.status).json(r.data);
     } catch (err) {
-      res.status(502).json({ error: err.message || 'hedge-fund-lab regime failed' });
+      res.status(504).json({ error: err.message || 'hedge-fund-lab regime failed', timeout: true });
     }
   });
   router.get('/hedge-fund-lab/daily-monitor', kfGet('/v1/hedge-fund-lab/daily-monitor'));
   router.get('/hedge-fund-lab/terminal', async (req, res) => {
     try {
-      const qs = new URLSearchParams(req.query || {}).toString();
+      // Cap default scan size so cold/open paths stay interactive.
+      const query = { ...(req.query || {}) };
+      if (query.limit == null || query.limit === '') query.limit = '12';
+      const qs = new URLSearchParams(query).toString();
       const r = await engineFetch(
         `/v1/hedge-fund-lab/terminal${qs ? `?${qs}` : ''}`,
-        { timeoutMs: 180_000 },
+        { timeoutMs: 45_000 },
       );
       res.status(r.status).json(r.data);
     } catch (err) {
-      res.status(502).json({ error: err.message || 'hedge-fund-lab terminal failed' });
+      res.status(504).json({ error: err.message || 'hedge-fund-lab terminal failed', timeout: true });
     }
   });
   router.get('/hedge-fund-lab/opportunity/:ticker', async (req, res) => {
     try {
       const r = await engineFetch(`/v1/hedge-fund-lab/opportunity/${encodeURIComponent(req.params.ticker)}`, {
-        timeoutMs: 120_000,
+        timeoutMs: 30_000,
       });
       res.status(r.status).json(r.data);
     } catch (err) {
-      res.status(502).json({ error: err.message || 'hedge-fund-lab opportunity failed' });
+      res.status(504).json({ error: err.message || 'hedge-fund-lab opportunity failed', timeout: true });
     }
   });
   router.get('/hedge-fund-lab/scan/:strategy', async (req, res) => {
     try {
-      const qs = new URLSearchParams(req.query || {}).toString();
+      const query = { ...(req.query || {}) };
+      if (query.limit == null || query.limit === '') query.limit = '15';
+      const qs = new URLSearchParams(query).toString();
       const r = await engineFetch(
         `/v1/hedge-fund-lab/scan/${encodeURIComponent(req.params.strategy)}${qs ? `?${qs}` : ''}`,
-        { timeoutMs: 180_000 },
+        { timeoutMs: 45_000 },
       );
       res.status(r.status).json(r.data);
     } catch (err) {
-      res.status(502).json({ error: err.message || 'hedge-fund-lab scan failed' });
+      res.status(504).json({ error: err.message || 'hedge-fund-lab scan failed', timeout: true });
     }
   });
   router.get('/hedge-fund-lab/strategy/:id', async (req, res) => {
     try {
       const r = await engineFetch(`/v1/hedge-fund-lab/strategy/${encodeURIComponent(req.params.id)}`, {
-        timeoutMs: 90_000,
+        timeoutMs: 25_000,
       });
       res.status(r.status).json(r.data);
     } catch (err) {
-      res.status(502).json({ error: err.message || 'hedge-fund-lab strategy failed' });
+      res.status(504).json({ error: err.message || 'hedge-fund-lab strategy failed', timeout: true });
     }
   });
   router.post('/hedge-fund-lab/calculate/:kind', async (req, res) => {
     try {
       const r = await engineFetch(`/v1/hedge-fund-lab/calculate/${encodeURIComponent(req.params.kind)}`, {
-        method: 'POST', body: req.body || {}, timeoutMs: 90_000,
+        method: 'POST', body: req.body || {}, timeoutMs: 20_000,
       });
       res.status(r.status).json(r.data);
     } catch (err) {
-      res.status(502).json({ error: err.message || 'hedge-fund-lab calculate failed' });
+      res.status(504).json({ error: err.message || 'hedge-fund-lab calculate failed', timeout: true });
     }
   });
   router.post('/hedge-fund-lab/backtest/:strategyId', async (req, res) => {

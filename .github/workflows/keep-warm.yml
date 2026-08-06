@@ -38,3 +38,16 @@ jobs:
           if [ "$code" != "200" ]; then
             echo "::warning::agib-intelligence-engine health check returned $code"
           fi
+
+      - name: Warm Hedge Fund Lab + UI dashboard proxies
+        run: |
+          # Keep the public desks that users open most from cold-starting.
+          for url in \
+            "https://finance-news-backend-19i5.onrender.com/api/intelligence/hedge-fund-lab/health" \
+            "https://finance-news-backend-19i5.onrender.com/api/intelligence/hedge-fund-lab/terminal?limit=12" \
+            "https://finance-news-backend-19i5.onrender.com/api/ui/dashboard" \
+            "https://finance-news-backend-19i5.onrender.com/api/market/briefing"
+          do
+            code=$(curl -sS -o /tmp/warm.json -w '%{http_code}' --max-time 45 "$url" || echo 000)
+            echo "$url -> $code"
+          done

@@ -3254,36 +3254,46 @@ export const getMiSector = (sector) =>
 export const getHflHealth = () =>
   intelligenceFetch('/hedge-fund-lab/health', { timeoutMs: 45_000 });
 export const getHflStrategies = () =>
-  intelligenceFetch('/hedge-fund-lab/strategies', { timeoutMs: 120_000 });
+  intelligenceFetch('/hedge-fund-lab/strategies', { timeoutMs: 20_000 });
 export const getHflCompare = () =>
-  intelligenceFetch('/hedge-fund-lab/compare', { timeoutMs: 120_000 });
+  intelligenceFetch('/hedge-fund-lab/compare', { timeoutMs: 20_000 });
 export const getHflStrategy = (id) =>
-  intelligenceFetch(`/hedge-fund-lab/strategy/${encodeURIComponent(id)}`, { timeoutMs: 90_000 });
+  intelligenceFetch(`/hedge-fund-lab/strategy/${encodeURIComponent(id)}`, { timeoutMs: 20_000 });
 export const hflCalculate = (kind, payload) =>
   intelligenceFetch(`/hedge-fund-lab/calculate/${encodeURIComponent(kind)}`, {
     method: 'POST',
     body: payload,
-    timeoutMs: 90_000,
+    timeoutMs: 15_000,
   });
 export const hflBacktest = (strategyId, payload = {}) =>
   intelligenceFetch(`/hedge-fund-lab/backtest/${encodeURIComponent(strategyId)}`, {
-    method: 'POST', body: payload, timeoutMs: 180_000,
+    method: 'POST', body: payload, timeoutMs: 120_000,
   });
 export const getHflRegime = () =>
-  intelligenceFetch('/hedge-fund-lab/regime', { timeoutMs: 120_000 });
-export const getHflTerminal = () =>
-  intelligenceFetch('/hedge-fund-lab/terminal', { timeoutMs: 180_000 });
+  intelligenceFetch('/hedge-fund-lab/regime', { timeoutMs: 20_000 });
+export const getHflTerminal = (params = {}) => {
+  const qs = new URLSearchParams({
+    limit: String(params.limit ?? 12),
+    ...Object.fromEntries(
+      Object.entries(params)
+        .filter(([k, v]) => k !== 'limit' && v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)]),
+    ),
+  }).toString();
+  return intelligenceFetch(`/hedge-fund-lab/terminal?${qs}`, { timeoutMs: 25_000 });
+};
 export const getHflOpportunity = (ticker) =>
-  intelligenceFetch(`/hedge-fund-lab/opportunity/${encodeURIComponent(ticker)}`, { timeoutMs: 120_000 });
+  intelligenceFetch(`/hedge-fund-lab/opportunity/${encodeURIComponent(ticker)}`, { timeoutMs: 20_000 });
 export const getHflScan = (strategy, params = {}) => {
   const qs = new URLSearchParams(
     Object.fromEntries(
-      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+      Object.entries({ limit: 15, ...params })
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
         .map(([k, v]) => [k, String(v)])
     )
   ).toString();
   return intelligenceFetch(
     `/hedge-fund-lab/scan/${encodeURIComponent(strategy)}${qs ? `?${qs}` : ''}`,
-    { timeoutMs: 180_000 },
+    { timeoutMs: 25_000 },
   );
 };
