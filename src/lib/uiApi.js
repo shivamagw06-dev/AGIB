@@ -78,16 +78,21 @@ export async function postUiSearch(question, ticker) {
     return await uiFetch('/search', {
       method: 'POST',
       body: { question, ticker },
+      timeoutMs: 25_000,
     });
   } catch (err) {
     const msg = String(err?.message || '');
-    const retryable = /503|502|research_desk_unavailable|timed out|unavailable/i.test(msg);
+    // A browser timeout already gave the desk a full 25 seconds. Retrying it
+    // automatically doubles the visitor wait and leaves an apparently frozen
+    // Ask page. Network/5xx failures can still receive one wake-and-retry.
+    const retryable = /503|502|research_desk_unavailable|unavailable/i.test(msg) && !/timed out/i.test(msg);
     if (!retryable) throw err;
     // One wake/retry — give the engine a moment after the gateway wake probe.
     await new Promise((r) => setTimeout(r, 2500));
     return uiFetch('/search', {
       method: 'POST',
       body: { question, ticker },
+      timeoutMs: 25_000,
     });
   }
 }
