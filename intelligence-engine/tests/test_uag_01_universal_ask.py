@@ -84,6 +84,17 @@ def test_comparison_uses_verified_warehouse_facts(monkeypatch):
     assert "Source: upstox" in response["direct_answer"]
 
 
+def test_statement_rank_prefers_upstox_consolidated_and_newer_period():
+    from institutional_orchestrator.object_registry import _preferred_statement
+
+    selected = _preferred_statement([
+        {"source": "yahoo", "statement_type": "CONSOLIDATED", "fiscal_period": "FY26Q4", "pat": 1},
+        {"source": "upstox", "statement_type": "STANDALONE", "fiscal_period": "FY26Q4", "pat": 2},
+        {"source": "upstox", "statement_type": "CONSOLIDATED", "fiscal_period": "FY26Q3", "pat": 3},
+    ], {})
+    assert selected["pat"] == 3
+
+
 def test_registry_route_discovery():
     hits = match_routes("Show committee deferred decisions and policy violations")
     types = {h.object_type for h in hits}

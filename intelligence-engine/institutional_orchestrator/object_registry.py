@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
@@ -27,6 +28,30 @@ class ObjectRegistration:
 
 
 _REGISTRY: dict[str, ObjectRegistration] = {}
+
+
+def _statement_rank(row: dict[str, Any]) -> tuple[int, int, int, str]:
+    """Choose a like-for-like current statement without mixing providers.
+
+    The warehouse may retain historical imports from several vendors.  Ask
+    should prefer a consolidated Upstox statement, then the newest fiscal
+    period and source update, rather than whichever row happens to sort first.
+    """
+    source = str(row.get("source") or "").lower()
+    source_rank = 0 if "upstox" in source else 1
+    statement_rank = 0 if str(row.get("statement_type") or "").upper() == "CONSOLIDATED" else 1
+    period = str(row.get("fiscal_period") or row.get("fiscal_year") or "")
+    numbers = [int(n) for n in re.findall(r"\d+", period)]
+    year = numbers[0] if numbers else 0
+    if year and year < 100:
+        year += 2000
+    quarter = numbers[1] if len(numbers) > 1 else 0
+    return (source_rank, statement_rank, -(year * 10 + quarter), str(row.get("last_updated") or ""))
+
+
+def _preferred_statement(rows: list[dict[str, Any]], fallback: dict[str, Any]) -> dict[str, Any]:
+    usable = [row for row in rows if any(row.get(key) is not None for key in ("pat", "eps", "revenue"))]
+    return min(usable, key=_statement_rank) if usable else fallback
 
 
 def reset_registry_for_tests() -> None:
@@ -232,15 +257,21 @@ def _retrieve_comparison_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
             "soft_missing": True,
         }
     try:
-        from institutional_warehouse.production import read_company
+        from institutional_warehouse.production import read_company, read_table
 
         companies: list[dict[str, Any]] = []
         for symbol in symbols:
             record = read_company(symbol)
             if not record.get("ok"):
                 continue
-            annual = record.get("latest_annual") or {}
-            quarter = record.get("latest_quarter") or {}
+            annual = _preferred_statement(
+                read_table("financials_annual", entity=symbol, limit=30),
+                record.get("latest_annual") or {},
+            )
+            quarter = _preferred_statement(
+                read_table("financials_quarterly", entity=symbol, limit=40),
+                record.get("latest_quarter") or {},
+            )
             valuation = record.get("valuation") or {}
             source_rows = [row for row in (quarter, annual, valuation) if row]
             companies.append(
