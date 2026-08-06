@@ -59,7 +59,6 @@ const HedgeFundPage = React.lazy(() => import('@/pages/HedgeFundPage'));
 const PrivateEquityPage = React.lazy(() => import('@/pages/PrivateEquityPage'));
 const PrivateEquityFirmPage = React.lazy(() => import('@/pages/PrivateEquityFirmPage'));
 const IntelligenceEntityPage = React.lazy(() => import('@/pages/IntelligenceEntityPage'));
-const GlobalMarketsPage = React.lazy(() => import('@/pages/GlobalMarketsPage'));
 const EconomicsPage = React.lazy(() => import('@/pages/EconomicsPage'));
 
 function RouteFallback({ label = 'Loading…' }) {
@@ -184,7 +183,7 @@ function PublicRoutes() {
       <Route path="/sections/markets" element={<Navigate replace to="/markets" />} />
       <Route path="/market-intelligence" element={<MarketIntelligence />} />
       <Route path="/market-sector-intelligence" element={<MarketSectorIntelligence />} />
-      <Route path="/macro-intelligence" element={<MacroIntelligence />} />
+      <Route path="/macro-intelligence" element={<Navigate replace to="/global-markets" />} />
       <Route path="/hedge-fund" element={<HedgeFundPage />} />
       <Route path="/hedge-fund/strategy-lab" element={<Navigate replace to="/hedge-fund" />} />
       <Route path="/private-markets" element={<PrivateEquityPage />} />
@@ -192,9 +191,9 @@ function PublicRoutes() {
       <Route path="/private-markets/entities/:slug" element={<IntelligenceEntityPage />} />
       <Route path="/private-equity" element={<Navigate replace to="/private-markets" />} />
       <Route path="/private-equity/firms/:slug" element={<PrivateEquityFirmPage />} />
-      <Route path="/global-markets" element={<GlobalMarketsPage />} />
+      <Route path="/global-markets" element={<MacroIntelligence />} />
       <Route path="/economics" element={<EconomicsPage />} />
-      <Route path="/global" element={<MacroIntelligence />} />
+      <Route path="/global" element={<Navigate replace to="/global-markets" />} />
       <Route path="/global-intelligence" element={<Navigate replace to="/global-markets" />} />
       <Route path="/economy" element={<Navigate replace to="/economics" />} />
       <Route path="/pre-market" element={<PreMarketIntelligence />} />
