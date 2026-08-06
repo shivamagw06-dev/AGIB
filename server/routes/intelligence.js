@@ -127,6 +127,13 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Company Financials admin view. Keep the intelligence-engine private behind
+  // the Node gateway, consistent with the rest of the browser-facing API.
+  router.get(
+    '/company/statements/:symbol',
+    proxyGet((req) => `/v1/company/statements/${encodeURIComponent(req.params.symbol)}`),
+  );
+
   router.post('/research/runs', proxyPost('/v1/research/runs'));
   router.get('/research/runs', async (req, res) => {
     try {
