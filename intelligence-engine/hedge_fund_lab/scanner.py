@@ -7,6 +7,7 @@ no price target of AGI's own.
 
 from __future__ import annotations
 
+import os
 import statistics as stats
 from typing import Any, Optional
 
@@ -120,14 +121,26 @@ def _factors_by_symbol(*, limit: int = 8000) -> dict[str, dict[str, Any]]:
 
 
 def _return_1y_by_symbol(*, limit: int = 200000) -> dict[str, Optional[float]]:
-    """Approximate one-year price return from warehouse daily_market_history."""
+    """Optional 1Y price returns from daily_market_history.
+
+    Default is OFF. Scanning up to 200k history rows on every cold universe
+    build made Hedge Fund / Market Intelligence opens multi-minute and could
+    tip the Render box into 502s. Scanners already fall back to consensus
+    ``return_1y`` when this map is empty. Set HFL_LOAD_PRICE_RETURNS=1 to
+    re-enable the expensive path.
+    """
+    flag = (os.getenv("HFL_LOAD_PRICE_RETURNS") or "").strip().lower()
+    if flag not in ("1", "true", "yes", "on"):
+        return {}
     try:
         from institutional_warehouse import store
     except Exception:
         return {}
     by_sym: dict[str, list[tuple[str, float]]] = {}
+    # Hard-cap even when enabled — never read the whole history table in-request.
+    capped = max(1000, min(int(limit or 200000), 40_000))
     try:
-        for row in store.all_rows("daily_market_history", limit=limit) or []:
+        for row in store.all_rows("daily_market_history", limit=capped) or []:
             sym = str(row.get("symbol") or "").upper()
             close = _num(row.get("close") or row.get("adj_close"))
             day = str(row.get("date") or "")
@@ -349,7 +362,8 @@ def _universe_from_legacy() -> list[dict[str, Any]]:
 
 
 _UNIVERSE_CACHE: dict[str, Any] = {"at": 0.0, "rows": None}
-_UNIVERSE_TTL_SEC = 120.0
+# Keep the joined universe warm across page opens + keep-warm pings.
+_UNIVERSE_TTL_SEC = 300.0
 
 
 def _universe() -> list[dict[str, Any]]:

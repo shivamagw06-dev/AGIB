@@ -5,11 +5,16 @@
  * fundamentals belong to Upstox/the warehouse; during-market price freshness
  * belongs to Groww. Quotes are committed to the existing append-only daily
  * market history table, retaining the latest version and provenance.
+ *
+ * Keep this light: never rebuild a large terminal scan here. Page opens and
+ * keep-warm share the same engine process — a limit=60 terminal + warehouse
+ * import was competing with user traffic and causing 502s.
  */
 import { getLTP, getOHLC, isGrowwConfigured } from '../providers/groww.js';
 
 let timer = null;
 let lastRun = null;
+let inFlight = null;
 
 function engineConfig() {
   let baseUrl = String(process.env.AGIB_INTELLIGENCE_ENGINE_URL || process.env.INTELLIGENCE_ENGINE_URL || '').replace(/\/$/, '');
@@ -26,17 +31,17 @@ function marketOpen(now = new Date()) {
   return minute >= 9 * 60 + 15 && minute <= 15 * 60 + 30;
 }
 
-async function engineFetch(path, { method = 'GET', body } = {}) {
+async function engineFetch(path, { method = 'GET', body, timeoutMs = 45_000 } = {}) {
   const { baseUrl, token } = engineConfig();
   if (!baseUrl || !token) throw new Error('intelligence_engine_not_configured');
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-AGI-Intelligence-Token': token },
     body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(120_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.error || `engine_http_${response.status}`);
+  if (!response.ok) throw new Error(data?.error || data?.detail || `engine_http_${response.status}`);
   return data;
 }
 
@@ -51,7 +56,8 @@ function symbolsFromTerminal(pack) {
     if (row.long_leg?.ticker) symbols.add(String(row.long_leg.ticker).toUpperCase());
     if (row.short_leg?.ticker) symbols.add(String(row.short_leg.ticker).toUpperCase());
   }
-  return [...symbols].filter(Boolean).slice(0, Number(process.env.HEDGE_FUND_LIVE_QUOTE_LIMIT || 50));
+  // Prefer a small candidate set — Groww rate limits and engine load both matter.
+  return [...symbols].filter(Boolean).slice(0, Number(process.env.HEDGE_FUND_LIVE_QUOTE_LIMIT || 25));
 }
 
 function quoteValue(map, key) {
@@ -69,44 +75,76 @@ function ohlcValue(map, key) {
 async function commitQuotes(rows) {
   if (!rows.length) return { ok: true, written: 0 };
   const staged = await engineFetch('/v1/warehouse/tab/daily_market_history/import', {
-    method: 'POST', body: { rows, actor: 'hedge_fund_groww_quotes', source: 'groww' },
+    method: 'POST',
+    body: { rows, actor: 'hedge_fund_groww_quotes', source: 'groww' },
+    timeoutMs: 60_000,
   });
   if (!staged.import_id) throw new Error(staged.error || 'quote_stage_failed');
   return engineFetch(`/v1/warehouse/import/${staged.import_id}/commit`, {
-    method: 'POST', body: { actor: 'hedge_fund_groww_quotes' },
+    method: 'POST',
+    body: { actor: 'hedge_fund_groww_quotes' },
+    timeoutMs: 60_000,
   });
 }
 
 export async function refreshHedgeFundLiveQuotes({ force = false } = {}) {
   if (!isGrowwConfigured()) return { ok: false, skipped: true, reason: 'groww_not_configured' };
   if (!force && !marketOpen()) return { ok: true, skipped: true, reason: 'market_closed' };
-  const terminal = await engineFetch('/v1/hedge-fund-lab/terminal?limit=60');
-  const symbols = symbolsFromTerminal(terminal);
-  if (!symbols.length) return { ok: true, skipped: true, reason: 'no_research_candidates' };
-  const keys = symbols.map((symbol) => `NSE_${symbol}`);
-  const [ltp, ohlc] = await Promise.all([getLTP(keys), getOHLC(keys)]);
-  const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-  const rows = symbols.map((symbol) => {
-    const key = `NSE_${symbol}`;
-    const candle = ohlcValue(ohlc, key);
-    const close = Number(quoteValue(ltp, key) ?? candle.close);
-    if (!Number.isFinite(close) || close <= 0) return null;
-    return { symbol, date, open: Number(candle.open) || null, high: Number(candle.high) || null,
-      low: Number(candle.low) || null, close, volume: Number(candle.volume) || null,
-      source: 'groww', import_time: new Date().toISOString() };
-  }).filter(Boolean);
-  const committed = await commitQuotes(rows);
-  return { ok: true, candidates: symbols.length, quotes: rows.length, committed };
+  if (inFlight) return { ok: true, skipped: true, reason: 'refresh_in_flight' };
+
+  inFlight = (async () => {
+    // Reuse the same small terminal the page uses (cached server-side).
+    // Never request limit=60 here — that forced a second full scanner rebuild.
+    const terminal = await engineFetch('/v1/hedge-fund-lab/terminal?limit=12', { timeoutMs: 45_000 });
+    const symbols = symbolsFromTerminal(terminal);
+    if (!symbols.length) return { ok: true, skipped: true, reason: 'no_research_candidates' };
+    const keys = symbols.map((symbol) => `NSE_${symbol}`);
+    const [ltp, ohlc] = await Promise.all([getLTP(keys), getOHLC(keys)]);
+    const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    const rows = symbols.map((symbol) => {
+      const key = `NSE_${symbol}`;
+      const candle = ohlcValue(ohlc, key);
+      const close = Number(quoteValue(ltp, key) ?? candle.close);
+      if (!Number.isFinite(close) || close <= 0) return null;
+      return {
+        symbol,
+        date,
+        open: Number(candle.open) || null,
+        high: Number(candle.high) || null,
+        low: Number(candle.low) || null,
+        close,
+        volume: Number(candle.volume) || null,
+        source: 'groww',
+        import_time: new Date().toISOString(),
+      };
+    }).filter(Boolean);
+    const committed = await commitQuotes(rows);
+    return { ok: true, candidates: symbols.length, quotes: rows.length, committed };
+  })();
+
+  try {
+    return await inFlight;
+  } finally {
+    inFlight = null;
+  }
 }
 
 export function startHedgeFundLiveQuoteScheduler() {
   if (timer || String(process.env.HEDGE_FUND_LIVE_QUOTES || 'true').toLowerCase() === 'false') return;
-  const intervalMs = Math.max(60_000, Number(process.env.HEDGE_FUND_LIVE_QUOTE_INTERVAL_MS || 300_000));
+  // Default 10 minutes — do not compete with page opens every minute.
+  const intervalMs = Math.max(120_000, Number(process.env.HEDGE_FUND_LIVE_QUOTE_INTERVAL_MS || 600_000));
   const tick = () => refreshHedgeFundLiveQuotes().then((result) => { lastRun = { at: new Date().toISOString(), ...result }; })
     .catch((error) => { lastRun = { at: new Date().toISOString(), ok: false, error: error.message }; });
-  setTimeout(tick, 60_000); timer = setInterval(tick, intervalMs); timer.unref?.();
+  // Wait 5 minutes after boot so deploy/keep-warm traffic settles first.
+  const initialDelayMs = Math.max(60_000, Number(process.env.HEDGE_FUND_LIVE_QUOTE_INITIAL_DELAY_MS || 300_000));
+  setTimeout(tick, initialDelayMs); timer = setInterval(tick, intervalMs); timer.unref?.();
 }
 
 export function getHedgeFundLiveQuoteStatus() {
-  return { enabled: Boolean(timer), intervalMs: Number(process.env.HEDGE_FUND_LIVE_QUOTE_INTERVAL_MS || 300_000), marketOpen: marketOpen(), lastRun };
+  return {
+    enabled: Boolean(timer),
+    intervalMs: Number(process.env.HEDGE_FUND_LIVE_QUOTE_INTERVAL_MS || 600_000),
+    marketOpen: marketOpen(),
+    lastRun,
+  };
 }

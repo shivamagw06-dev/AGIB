@@ -392,11 +392,22 @@ def regime(universe: Optional[list[dict[str, Any]]] = None) -> dict[str, Any]:
 # The terminal overview — everything the page needs in one call
 # ---------------------------------------------------------------------------
 _OVERVIEW_CACHE: dict[str, Any] = {"key": None, "at": 0.0, "payload": None}
-_OVERVIEW_TTL_SEC = 90.0
+_OVERVIEW_TTL_SEC = 180.0
+_OVERVIEW_LOCK = None
+
+
+def _overview_lock():
+    """Lazy lock so concurrent terminal requests share one cold build."""
+    global _OVERVIEW_LOCK
+    if _OVERVIEW_LOCK is None:
+        import threading
+
+        _OVERVIEW_LOCK = threading.Lock()
+    return _OVERVIEW_LOCK
 
 
 def overview(limit: int = 12) -> dict[str, Any]:
-    """Build the hedge-fund terminal. Cached briefly so cold opens don't recompute."""
+    """Build the hedge-fund terminal. Cached + single-flight on cold miss."""
     import time
 
     capped = max(1, min(int(limit or 12), 50))
@@ -412,6 +423,22 @@ def overview(limit: int = 12) -> dict[str, Any]:
         out["cache"] = {"hit": True, "ttl_sec": _OVERVIEW_TTL_SEC}
         return out
 
+    with _overview_lock():
+        # Re-check after waiting — another request may have filled the cache.
+        now = time.time()
+        cached = _OVERVIEW_CACHE.get("payload")
+        if (
+            cached
+            and _OVERVIEW_CACHE.get("key") == cache_key
+            and (now - float(_OVERVIEW_CACHE.get("at") or 0.0)) < _OVERVIEW_TTL_SEC
+        ):
+            out = dict(cached)
+            out["cache"] = {"hit": True, "ttl_sec": _OVERVIEW_TTL_SEC, "single_flight": True}
+            return out
+        return _overview_uncached(capped, cache_key, now)
+
+
+def _overview_uncached(capped: int, cache_key: str, now: float) -> dict[str, Any]:
     run = run_all(limit=capped)
     if not run.get("ok"):
         return {"ok": False, "error": run.get("error") or "universe_empty", "cache": {"hit": False}}
