@@ -150,8 +150,11 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
-      // if you see large bundles, consider manualChunks or dynamic imports
-      chunkSizeWarningLimit: 700, // optional: raise the warning threshold if you want fewer warnings
+      // Route-level React.lazy splits keep the homepage entry smaller.
+      // Avoid aggressive manualChunks here — forcing charts/editor into shared
+      // vendor files can accidentally suck react/jsx-runtime into those chunks
+      // and modulepreload them on every page.
+      chunkSizeWarningLimit: 700,
       rollupOptions: {
         external: [
           // keep these external if you bundle them separately or want to exclude them

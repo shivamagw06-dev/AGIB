@@ -1,179 +1,191 @@
+import React, { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import RequireAdmin from '@/components/admin/RequireAdmin';
 import AdminLayout from '@/pages/admin/AdminLayout';
-import AdminDashboard from '@/pages/admin/Dashboard';
-import ArticleEditor from '@/pages/admin/ArticleEditor';
-import CategoryManager from '@/pages/admin/CategoryManager';
-import KnowledgeFoundation from '@/pages/admin/KnowledgeFoundation';
-import OpenIntelligence from '@/pages/admin/OpenIntelligence';
-import Evidence from '@/pages/admin/Evidence';
-import InvestmentIntelligence from '@/pages/admin/InvestmentIntelligence';
-import Forecasting from '@/pages/admin/Forecasting';
-import Events from '@/pages/admin/Events';
-import ContextAssembly from '@/pages/admin/ContextAssembly';
-import IntelligenceBus from '@/pages/admin/IntelligenceBus';
-import Valuation from '@/pages/admin/Valuation';
-import Models from '@/pages/admin/Models';
-import FinanceAcademy from '@/pages/admin/FinanceAcademy';
-import LiveEvidence from '@/pages/admin/LiveEvidence';
-import CompanyDossiers from '@/pages/admin/CompanyDossiers';
-import YahooProvider from '@/pages/admin/YahooProvider';
-import DataQuality from '@/pages/admin/DataQuality';
-import EvidenceCompletion from '@/pages/admin/EvidenceCompletion';
-import CompanyAnalysis from '@/pages/admin/CompanyAnalysis';
-import CompanyMonitor from '@/pages/admin/CompanyMonitor';
-import InvestmentOfficeAdmin from '@/pages/admin/InvestmentOffice';
-import MissionControl from '@/pages/admin/MissionControl';
-import InstitutionalStack from '@/pages/admin/InstitutionalStack';
-import ReleaseHealth from '@/pages/admin/ReleaseHealth';
-import AccountingIntelligence from '@/pages/admin/AccountingIntelligence';
-import FinancialStatementsEngine from '@/pages/admin/FinancialStatementsEngine';
-import FinancialKnowledgeBase from '@/pages/admin/FinancialKnowledgeBase';
-import PortfolioIntelligence from '@/pages/admin/PortfolioIntelligence';
-import CausalIntelligence from '@/pages/admin/CausalIntelligence';
-import ForecastIntelligence from '@/pages/admin/ForecastIntelligence';
-import KnowledgeGraph from '@/pages/admin/KnowledgeGraph';
-import InstitutionalMemory from '@/pages/admin/InstitutionalMemory';
-import SimulationLab from '@/pages/admin/SimulationLab';
-import DecisionEngineV2 from '@/pages/admin/DecisionEngineV2';
-import InstitutionalIntelligence from '@/pages/admin/InstitutionalIntelligence';
-import IntelligenceMap from '@/pages/admin/IntelligenceMap';
-import IntentIntelligence from '@/pages/admin/IntentIntelligence';
-import EntityResolution from '@/pages/admin/EntityResolution';
-import ResearchPlanner from '@/pages/admin/ResearchPlanner';
-import AnalystRouter from '@/pages/admin/AnalystRouter';
-import ContextIntelligence from '@/pages/admin/ContextIntelligence';
-import LayerRouter from '@/pages/admin/LayerRouter';
-import AcquisitionPlanner from '@/pages/admin/AcquisitionPlanner';
-import BlueprintEngine from '@/pages/admin/BlueprintEngine';
-import ValidationEngine from '@/pages/admin/ValidationEngine';
-import ResearchExecution from '@/pages/admin/ResearchExecution';
-import HypothesisEngine from '@/pages/admin/HypothesisEngine';
-import ResearchQuestions from '@/pages/admin/ResearchQuestions';
-import HypothesisTesting from '@/pages/admin/HypothesisTesting';
-import BeliefEngine from '@/pages/admin/BeliefEngine';
-import ThesisConstruction from '@/pages/admin/ThesisConstruction';
-import InstitutionalDebate from '@/pages/admin/InstitutionalDebate';
-import DecisionReadiness from '@/pages/admin/DecisionReadiness';
-import ReasoningAudit from '@/pages/admin/ReasoningAudit';
-import KnowledgeOperations from '@/pages/admin/KnowledgeOperations';
-import ValuationIntelligence from '@/pages/admin/ValuationIntelligence';
-import ValuationTerminal from '@/pages/admin/ValuationTerminal';
-import DataWarehouse from '@/pages/admin/DataWarehouse';
-import HistoricalCoverage from '@/pages/admin/HistoricalCoverage';
-import UpstoxBootstrap from '@/pages/admin/UpstoxBootstrap';
-import UpstoxFundamentals from '@/pages/admin/UpstoxFundamentals';
-import ValuationPolicy from '@/pages/admin/ValuationPolicy';
-import HistoricalValuation from '@/pages/admin/HistoricalValuation';
-import HvieRuntime from '@/pages/admin/HvieRuntime';
-import FinancialWarehouse from '@/pages/admin/FinancialWarehouse';
-import FinancialCoverage from '@/pages/admin/FinancialCoverage';
-import ResearchIntelligence from '@/pages/admin/ResearchIntelligence';
-import ForecastRuntime from '@/pages/admin/ForecastRuntime';
-import MacroRuntime from '@/pages/admin/MacroRuntime';
-import IfacComposer from '@/pages/admin/IfacComposer';
-import AskProductQuality from '@/pages/admin/AskProductQuality';
-import KulDashboard from '@/pages/admin/KulDashboard';
-import IntelligenceCmsRoutes from '@/pages/admin/intelligence/IntelligenceCmsRoutes';
+
+const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'));
+const ArticleEditor = lazy(() => import('@/pages/admin/ArticleEditor'));
+const CategoryManager = lazy(() => import('@/pages/admin/CategoryManager'));
+const KnowledgeFoundation = lazy(() => import('@/pages/admin/KnowledgeFoundation'));
+const OpenIntelligence = lazy(() => import('@/pages/admin/OpenIntelligence'));
+const Evidence = lazy(() => import('@/pages/admin/Evidence'));
+const InvestmentIntelligence = lazy(() => import('@/pages/admin/InvestmentIntelligence'));
+const Forecasting = lazy(() => import('@/pages/admin/Forecasting'));
+const Events = lazy(() => import('@/pages/admin/Events'));
+const ContextAssembly = lazy(() => import('@/pages/admin/ContextAssembly'));
+const IntelligenceBus = lazy(() => import('@/pages/admin/IntelligenceBus'));
+const Valuation = lazy(() => import('@/pages/admin/Valuation'));
+const Models = lazy(() => import('@/pages/admin/Models'));
+const FinanceAcademy = lazy(() => import('@/pages/admin/FinanceAcademy'));
+const LiveEvidence = lazy(() => import('@/pages/admin/LiveEvidence'));
+const CompanyDossiers = lazy(() => import('@/pages/admin/CompanyDossiers'));
+const YahooProvider = lazy(() => import('@/pages/admin/YahooProvider'));
+const DataQuality = lazy(() => import('@/pages/admin/DataQuality'));
+const EvidenceCompletion = lazy(() => import('@/pages/admin/EvidenceCompletion'));
+const CompanyAnalysis = lazy(() => import('@/pages/admin/CompanyAnalysis'));
+const CompanyMonitor = lazy(() => import('@/pages/admin/CompanyMonitor'));
+const InvestmentOfficeAdmin = lazy(() => import('@/pages/admin/InvestmentOffice'));
+const MissionControl = lazy(() => import('@/pages/admin/MissionControl'));
+const InstitutionalStack = lazy(() => import('@/pages/admin/InstitutionalStack'));
+const ReleaseHealth = lazy(() => import('@/pages/admin/ReleaseHealth'));
+const AccountingIntelligence = lazy(() => import('@/pages/admin/AccountingIntelligence'));
+const FinancialStatementsEngine = lazy(() => import('@/pages/admin/FinancialStatementsEngine'));
+const FinancialKnowledgeBase = lazy(() => import('@/pages/admin/FinancialKnowledgeBase'));
+const PortfolioIntelligence = lazy(() => import('@/pages/admin/PortfolioIntelligence'));
+const CausalIntelligence = lazy(() => import('@/pages/admin/CausalIntelligence'));
+const ForecastIntelligence = lazy(() => import('@/pages/admin/ForecastIntelligence'));
+const KnowledgeGraph = lazy(() => import('@/pages/admin/KnowledgeGraph'));
+const InstitutionalMemory = lazy(() => import('@/pages/admin/InstitutionalMemory'));
+const SimulationLab = lazy(() => import('@/pages/admin/SimulationLab'));
+const DecisionEngineV2 = lazy(() => import('@/pages/admin/DecisionEngineV2'));
+const InstitutionalIntelligence = lazy(() => import('@/pages/admin/InstitutionalIntelligence'));
+const IntelligenceMap = lazy(() => import('@/pages/admin/IntelligenceMap'));
+const IntentIntelligence = lazy(() => import('@/pages/admin/IntentIntelligence'));
+const EntityResolution = lazy(() => import('@/pages/admin/EntityResolution'));
+const ResearchPlanner = lazy(() => import('@/pages/admin/ResearchPlanner'));
+const AnalystRouter = lazy(() => import('@/pages/admin/AnalystRouter'));
+const ContextIntelligence = lazy(() => import('@/pages/admin/ContextIntelligence'));
+const LayerRouter = lazy(() => import('@/pages/admin/LayerRouter'));
+const AcquisitionPlanner = lazy(() => import('@/pages/admin/AcquisitionPlanner'));
+const BlueprintEngine = lazy(() => import('@/pages/admin/BlueprintEngine'));
+const ValidationEngine = lazy(() => import('@/pages/admin/ValidationEngine'));
+const ResearchExecution = lazy(() => import('@/pages/admin/ResearchExecution'));
+const HypothesisEngine = lazy(() => import('@/pages/admin/HypothesisEngine'));
+const ResearchQuestions = lazy(() => import('@/pages/admin/ResearchQuestions'));
+const HypothesisTesting = lazy(() => import('@/pages/admin/HypothesisTesting'));
+const BeliefEngine = lazy(() => import('@/pages/admin/BeliefEngine'));
+const ThesisConstruction = lazy(() => import('@/pages/admin/ThesisConstruction'));
+const InstitutionalDebate = lazy(() => import('@/pages/admin/InstitutionalDebate'));
+const DecisionReadiness = lazy(() => import('@/pages/admin/DecisionReadiness'));
+const ReasoningAudit = lazy(() => import('@/pages/admin/ReasoningAudit'));
+const KnowledgeOperations = lazy(() => import('@/pages/admin/KnowledgeOperations'));
+const ValuationIntelligence = lazy(() => import('@/pages/admin/ValuationIntelligence'));
+const ValuationTerminal = lazy(() => import('@/pages/admin/ValuationTerminal'));
+const DataWarehouse = lazy(() => import('@/pages/admin/DataWarehouse'));
+const HistoricalCoverage = lazy(() => import('@/pages/admin/HistoricalCoverage'));
+const UpstoxBootstrap = lazy(() => import('@/pages/admin/UpstoxBootstrap'));
+const UpstoxFundamentals = lazy(() => import('@/pages/admin/UpstoxFundamentals'));
+const ValuationPolicy = lazy(() => import('@/pages/admin/ValuationPolicy'));
+const HistoricalValuation = lazy(() => import('@/pages/admin/HistoricalValuation'));
+const HvieRuntime = lazy(() => import('@/pages/admin/HvieRuntime'));
+const FinancialWarehouse = lazy(() => import('@/pages/admin/FinancialWarehouse'));
+const FinancialCoverage = lazy(() => import('@/pages/admin/FinancialCoverage'));
+const ResearchIntelligence = lazy(() => import('@/pages/admin/ResearchIntelligence'));
+const ForecastRuntime = lazy(() => import('@/pages/admin/ForecastRuntime'));
+const MacroRuntime = lazy(() => import('@/pages/admin/MacroRuntime'));
+const IfacComposer = lazy(() => import('@/pages/admin/IfacComposer'));
+const AskProductQuality = lazy(() => import('@/pages/admin/AskProductQuality'));
+const KulDashboard = lazy(() => import('@/pages/admin/KulDashboard'));
+const IntelligenceCmsRoutes = lazy(() => import('@/pages/admin/intelligence/IntelligenceCmsRoutes'));
+
+function AdminPageFallback() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center bg-[#0b0e14] p-8 text-center text-sm text-slate-400">
+      Loading admin…
+    </div>
+  );
+}
 
 export default function AdminRoutes() {
   return (
     <RequireAdmin>
-      <Routes>
-        {/* Full-bleed Institutional Knowledge Operations Center — not CMS chrome */}
-        <Route path="knowledge-operations" element={<KnowledgeOperations />} />
-        {/* Full-bleed Valuation Intelligence — Institutional Consensus Dashboard */}
-        <Route path="valuation-intelligence" element={<ValuationIntelligence />} />
-        {/* Full-bleed Institutional Valuation Terminal */}
-        <Route path="valuation-terminal" element={<ValuationTerminal />} />
-        {/* Full-bleed Institutional Data Warehouse — the workbook every engine reads */}
-        <Route path="data-warehouse" element={<DataWarehouse />} />
-        {/* Full-bleed Historical Coverage — how deep the warehouse actually goes */}
-        <Route path="historical-coverage" element={<HistoricalCoverage />} />
-        {/* Full-bleed Upstox full-universe valuation bootstrap (Phase 7.4d) */}
-        <Route path="upstox-bootstrap" element={<UpstoxBootstrap />} />
-        {/* Full-bleed Upstox Institutional Fundamentals Integration (Phase 7.4E) */}
-        <Route path="upstox-fundamentals" element={<UpstoxFundamentals />} />
-        {/* Full-bleed Valuation Policy & Applicability Engine (Phase 8.2A) */}
-        <Route path="valuation-policy" element={<ValuationPolicy />} />
-        {/* Full-bleed Historical Valuation Intelligence Engine (Phase 8.3) */}
-        <Route path="historical-valuation" element={<HistoricalValuation />} />
-        <Route path="hvie-runtime" element={<HvieRuntime />} />
-        {/* Full-bleed Financial Warehouse Completion (Phase 7.4F) */}
-        <Route path="financial-warehouse" element={<FinancialWarehouse />} />
-        {/* Phase 7.4F Step 0 — read-only financial coverage audit */}
-        <Route path="financial-coverage" element={<FinancialCoverage />} />
-        <Route path="research-intelligence" element={<ResearchIntelligence />} />
-        <Route path="forecast-runtime" element={<ForecastRuntime />} />
-        <Route path="macro-runtime" element={<MacroRuntime />} />
-        <Route path="ifac" element={<IfacComposer />} />
-        <Route path="aqe" element={<AskProductQuality />} />
-        <Route path="kul" element={<KulDashboard />} />
-        {/* Full-bleed Institutional Morning Office — daily investment desk */}
-        <Route path="investment-office" element={<InvestmentOfficeAdmin />} />
-        {/* Intelligence CMS — structured data modules (Valuation Monitor first) */}
-        <Route path="intelligence/*" element={<IntelligenceCmsRoutes />} />
-        <Route element={<AdminLayout />}>
-          <Route index element={<AdminDashboard />} />
-          <Route path="articles" element={<AdminDashboard />} />
-          <Route path="articles/new" element={<ArticleEditor />} />
-          <Route path="articles/edit/:slug" element={<ArticleEditor />} />
-          <Route path="categories" element={<CategoryManager />} />
-          <Route path="knowledge" element={<KnowledgeFoundation />} />
-          <Route path="open-intelligence" element={<OpenIntelligence />} />
-          <Route path="evidence" element={<Evidence />} />
-          <Route path="live-evidence" element={<LiveEvidence />} />
-          <Route path="company-dossiers" element={<CompanyDossiers />} />
-          <Route path="yahoo-provider" element={<YahooProvider />} />
-          <Route path="data-quality" element={<DataQuality />} />
-          <Route path="evidence-completion" element={<EvidenceCompletion />} />
-          <Route path="company-analysis" element={<CompanyAnalysis />} />
-          <Route path="institutional-stack" element={<InstitutionalStack />} />
-          <Route path="release-health" element={<ReleaseHealth />} />
-          <Route path="accounting-intelligence" element={<AccountingIntelligence />} />
-          <Route path="financial-statements" element={<FinancialStatementsEngine />} />
-          <Route path="financial-knowledge" element={<FinancialKnowledgeBase />} />
-          <Route path="portfolio-intelligence" element={<PortfolioIntelligence />} />
-          <Route path="causal-intelligence" element={<CausalIntelligence />} />
-          <Route path="forecast-intelligence" element={<ForecastIntelligence />} />
-          <Route path="knowledge-graph" element={<KnowledgeGraph />} />
-          <Route path="institutional-memory" element={<InstitutionalMemory />} />
-          <Route path="simulation-lab" element={<SimulationLab />} />
-          <Route path="decision-engine-v2" element={<DecisionEngineV2 />} />
-          <Route path="institutional-intelligence" element={<InstitutionalIntelligence />} />
-          <Route path="company-monitor" element={<CompanyMonitor />} />
-          <Route path="mission-control" element={<MissionControl />} />
-          <Route path="intelligence-map" element={<IntelligenceMap />} />
-          <Route path="intent-intelligence" element={<IntentIntelligence />} />
-          <Route path="entity-resolution" element={<EntityResolution />} />
-          <Route path="research-planner" element={<ResearchPlanner />} />
-          <Route path="context-intelligence" element={<ContextIntelligence />} />
-          <Route path="analyst-router" element={<AnalystRouter />} />
-          <Route path="layer-router" element={<LayerRouter />} />
-          <Route path="acquisition-planner" element={<AcquisitionPlanner />} />
-          <Route path="blueprint-engine" element={<BlueprintEngine />} />
-          <Route path="validation-engine" element={<ValidationEngine />} />
-          <Route path="research-execution" element={<ResearchExecution />} />
-          <Route path="hypothesis-engine" element={<HypothesisEngine />} />
-          <Route path="research-questions" element={<ResearchQuestions />} />
-          <Route path="hypothesis-testing" element={<HypothesisTesting />} />
-          <Route path="belief-engine" element={<BeliefEngine />} />
-          <Route path="thesis-construction" element={<ThesisConstruction />} />
-          <Route path="institutional-debate" element={<InstitutionalDebate />} />
-          <Route path="decision-readiness" element={<DecisionReadiness />} />
-          <Route path="reasoning-audit" element={<ReasoningAudit />} />
-          <Route path="system" element={<MissionControl />} />
-          <Route path="investment-intelligence" element={<InvestmentIntelligence />} />
-          <Route path="forecasting" element={<Forecasting />} />
-          <Route path="events" element={<Events />} />
-          <Route path="context" element={<ContextAssembly />} />
-          <Route path="intelligence-bus" element={<IntelligenceBus />} />
-          <Route path="valuation" element={<Valuation />} />
-          <Route path="models" element={<Models />} />
-          <Route path="academy" element={<FinanceAcademy />} />
-          <Route path="*" element={<Navigate to="/admin" replace />} />
-        </Route>
-      </Routes>
+      <Suspense fallback={<AdminPageFallback />}>
+        <Routes>
+          {/* Full-bleed Institutional Knowledge Operations Center — not CMS chrome */}
+          <Route path="knowledge-operations" element={<KnowledgeOperations />} />
+          {/* Full-bleed Valuation Intelligence — Institutional Consensus Dashboard */}
+          <Route path="valuation-intelligence" element={<ValuationIntelligence />} />
+          {/* Full-bleed Institutional Valuation Terminal */}
+          <Route path="valuation-terminal" element={<ValuationTerminal />} />
+          {/* Full-bleed Institutional Data Warehouse — the workbook every engine reads */}
+          <Route path="data-warehouse" element={<DataWarehouse />} />
+          {/* Full-bleed Historical Coverage — how deep the warehouse actually goes */}
+          <Route path="historical-coverage" element={<HistoricalCoverage />} />
+          {/* Full-bleed Upstox full-universe valuation bootstrap (Phase 7.4d) */}
+          <Route path="upstox-bootstrap" element={<UpstoxBootstrap />} />
+          {/* Full-bleed Upstox Institutional Fundamentals Integration (Phase 7.4E) */}
+          <Route path="upstox-fundamentals" element={<UpstoxFundamentals />} />
+          {/* Full-bleed Valuation Policy & Applicability Engine (Phase 8.2A) */}
+          <Route path="valuation-policy" element={<ValuationPolicy />} />
+          {/* Full-bleed Historical Valuation Intelligence Engine (Phase 8.3) */}
+          <Route path="historical-valuation" element={<HistoricalValuation />} />
+          <Route path="hvie-runtime" element={<HvieRuntime />} />
+          {/* Full-bleed Financial Warehouse Completion (Phase 7.4F) */}
+          <Route path="financial-warehouse" element={<FinancialWarehouse />} />
+          {/* Phase 7.4F Step 0 — read-only financial coverage audit */}
+          <Route path="financial-coverage" element={<FinancialCoverage />} />
+          <Route path="research-intelligence" element={<ResearchIntelligence />} />
+          <Route path="forecast-runtime" element={<ForecastRuntime />} />
+          <Route path="macro-runtime" element={<MacroRuntime />} />
+          <Route path="ifac" element={<IfacComposer />} />
+          <Route path="aqe" element={<AskProductQuality />} />
+          <Route path="kul" element={<KulDashboard />} />
+          {/* Full-bleed Institutional Morning Office — daily investment desk */}
+          <Route path="investment-office" element={<InvestmentOfficeAdmin />} />
+          {/* Intelligence CMS — structured data modules (Valuation Monitor first) */}
+          <Route path="intelligence/*" element={<IntelligenceCmsRoutes />} />
+          <Route element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="articles" element={<AdminDashboard />} />
+            <Route path="articles/new" element={<ArticleEditor />} />
+            <Route path="articles/edit/:slug" element={<ArticleEditor />} />
+            <Route path="categories" element={<CategoryManager />} />
+            <Route path="knowledge" element={<KnowledgeFoundation />} />
+            <Route path="open-intelligence" element={<OpenIntelligence />} />
+            <Route path="evidence" element={<Evidence />} />
+            <Route path="live-evidence" element={<LiveEvidence />} />
+            <Route path="company-dossiers" element={<CompanyDossiers />} />
+            <Route path="yahoo-provider" element={<YahooProvider />} />
+            <Route path="data-quality" element={<DataQuality />} />
+            <Route path="evidence-completion" element={<EvidenceCompletion />} />
+            <Route path="company-analysis" element={<CompanyAnalysis />} />
+            <Route path="institutional-stack" element={<InstitutionalStack />} />
+            <Route path="release-health" element={<ReleaseHealth />} />
+            <Route path="accounting-intelligence" element={<AccountingIntelligence />} />
+            <Route path="financial-statements" element={<FinancialStatementsEngine />} />
+            <Route path="financial-knowledge" element={<FinancialKnowledgeBase />} />
+            <Route path="portfolio-intelligence" element={<PortfolioIntelligence />} />
+            <Route path="causal-intelligence" element={<CausalIntelligence />} />
+            <Route path="forecast-intelligence" element={<ForecastIntelligence />} />
+            <Route path="knowledge-graph" element={<KnowledgeGraph />} />
+            <Route path="institutional-memory" element={<InstitutionalMemory />} />
+            <Route path="simulation-lab" element={<SimulationLab />} />
+            <Route path="decision-engine-v2" element={<DecisionEngineV2 />} />
+            <Route path="institutional-intelligence" element={<InstitutionalIntelligence />} />
+            <Route path="company-monitor" element={<CompanyMonitor />} />
+            <Route path="mission-control" element={<MissionControl />} />
+            <Route path="intelligence-map" element={<IntelligenceMap />} />
+            <Route path="intent-intelligence" element={<IntentIntelligence />} />
+            <Route path="entity-resolution" element={<EntityResolution />} />
+            <Route path="research-planner" element={<ResearchPlanner />} />
+            <Route path="context-intelligence" element={<ContextIntelligence />} />
+            <Route path="analyst-router" element={<AnalystRouter />} />
+            <Route path="layer-router" element={<LayerRouter />} />
+            <Route path="acquisition-planner" element={<AcquisitionPlanner />} />
+            <Route path="blueprint-engine" element={<BlueprintEngine />} />
+            <Route path="validation-engine" element={<ValidationEngine />} />
+            <Route path="research-execution" element={<ResearchExecution />} />
+            <Route path="hypothesis-engine" element={<HypothesisEngine />} />
+            <Route path="research-questions" element={<ResearchQuestions />} />
+            <Route path="hypothesis-testing" element={<HypothesisTesting />} />
+            <Route path="belief-engine" element={<BeliefEngine />} />
+            <Route path="thesis-construction" element={<ThesisConstruction />} />
+            <Route path="institutional-debate" element={<InstitutionalDebate />} />
+            <Route path="decision-readiness" element={<DecisionReadiness />} />
+            <Route path="reasoning-audit" element={<ReasoningAudit />} />
+            <Route path="system" element={<MissionControl />} />
+            <Route path="investment-intelligence" element={<InvestmentIntelligence />} />
+            <Route path="forecasting" element={<Forecasting />} />
+            <Route path="events" element={<Events />} />
+            <Route path="context" element={<ContextAssembly />} />
+            <Route path="intelligence-bus" element={<IntelligenceBus />} />
+            <Route path="valuation" element={<Valuation />} />
+            <Route path="models" element={<Models />} />
+            <Route path="academy" element={<FinanceAcademy />} />
+            <Route path="*" element={<Navigate to="/admin" replace />} />
+          </Route>
+        </Routes>
+      </Suspense>
     </RequireAdmin>
   );
 }

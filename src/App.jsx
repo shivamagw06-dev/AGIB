@@ -2,37 +2,37 @@
 import React, { useEffect, Suspense } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import AdminRoutes from '@/pages/admin/AdminRoutes';
-import CategoryPage from '@/pages/CategoryPage';
 import Header from "@/components/Layout/Header";
 import { MarketDataProvider } from "@/contexts/MarketDataContext";
-import ArticlesFeed from '@/components/ArticlesFeed';
-import About from '@/components/About';
-import Contact from '@/components/Contact';
 import Footer from '@/components/Footer';
-import ResearchNotes from '@/components/ResearchNotes';
-import DealTracker from '@/components/DealTracker';
 import { Toaster } from '@/components/ui/toaster';
-import ProfileEditor from '@/pages/ProfileEditor';
-import PublicProfile from '@/pages/PublicProfile';
-import LoginPage from '@/components/LoginPage';
-import ArticlePage from '@/components/ArticlePage';
-import NotFound from '@/components/NotFound';
-import Business from '@/components/Business.jsx';
-import MarketUpdates from '@/pages/MarketUpdates';
-import SectionArticlesPage from '@/pages/SectionArticlesPage';
-import Events from '@/pages/Events';
-import PrivacyPolicy from '@/pages/legal/PrivacyPolicy';
-import TermsOfService from '@/pages/legal/TermsOfService';
-import Disclaimer from '@/pages/legal/Disclaimer';
-import SebiDisclosure from '@/pages/legal/SebiDisclosure';
-import VerifyEmailPage from '@/pages/auth/VerifyEmailPage';
-import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
-import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
-import PinUnlockPage from '@/pages/auth/PinUnlockPage';
-import AccountSecurityPage from '@/pages/auth/AccountSecurityPage';
 import PinGate from '@/components/auth/PinGate';
 
+const AdminRoutes = React.lazy(() => import('@/pages/admin/AdminRoutes'));
+const CategoryPage = React.lazy(() => import('@/pages/CategoryPage'));
+const ArticlesFeed = React.lazy(() => import('@/components/ArticlesFeed'));
+const About = React.lazy(() => import('@/components/About'));
+const Contact = React.lazy(() => import('@/components/Contact'));
+const ResearchNotes = React.lazy(() => import('@/components/ResearchNotes'));
+const DealTracker = React.lazy(() => import('@/components/DealTracker'));
+const ProfileEditor = React.lazy(() => import('@/pages/ProfileEditor'));
+const PublicProfile = React.lazy(() => import('@/pages/PublicProfile'));
+const LoginPage = React.lazy(() => import('@/components/LoginPage'));
+const ArticlePage = React.lazy(() => import('@/components/ArticlePage'));
+const NotFound = React.lazy(() => import('@/components/NotFound'));
+const Business = React.lazy(() => import('@/components/Business.jsx'));
+const MarketUpdates = React.lazy(() => import('@/pages/MarketUpdates'));
+const SectionArticlesPage = React.lazy(() => import('@/pages/SectionArticlesPage'));
+const Events = React.lazy(() => import('@/pages/Events'));
+const PrivacyPolicy = React.lazy(() => import('@/pages/legal/PrivacyPolicy'));
+const TermsOfService = React.lazy(() => import('@/pages/legal/TermsOfService'));
+const Disclaimer = React.lazy(() => import('@/pages/legal/Disclaimer'));
+const SebiDisclosure = React.lazy(() => import('@/pages/legal/SebiDisclosure'));
+const VerifyEmailPage = React.lazy(() => import('@/pages/auth/VerifyEmailPage'));
+const ForgotPasswordPage = React.lazy(() => import('@/pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage = React.lazy(() => import('@/pages/auth/ResetPasswordPage'));
+const PinUnlockPage = React.lazy(() => import('@/pages/auth/PinUnlockPage'));
+const AccountSecurityPage = React.lazy(() => import('@/pages/auth/AccountSecurityPage'));
 const Opinions = React.lazy(() => import('@/components/Opinions'));
 const Markets = React.lazy(() => import('@/pages/Markets'));
 const MarketIntelligence = React.lazy(() => import('@/pages/MarketIntelligence'));
@@ -61,6 +61,10 @@ const IntelligenceEntityPage = React.lazy(() => import('@/pages/IntelligenceEnti
 const GlobalMarketsPage = React.lazy(() => import('@/pages/GlobalMarketsPage'));
 const EconomicsPage = React.lazy(() => import('@/pages/EconomicsPage'));
 
+function RouteFallback({ label = 'Loading…' }) {
+  return <div className="min-h-[40vh] p-8 text-center text-slate-600">{label}</div>;
+}
+
 function HomeLayout() {
   // Public research-terminal homepage — admin shells stay under /admin/*.
   return <ResearchTerminalHome />;
@@ -82,9 +86,11 @@ function AppShell() {
 
   if (isAdmin) {
     return (
-      <Routes>
-        <Route path="/admin/*" element={<AdminRoutes />} />
-      </Routes>
+      <Suspense fallback={<div className="min-h-screen bg-[#0b0e14] p-8 text-center text-slate-400">Loading admin…</div>}>
+        <Routes>
+          <Route path="/admin/*" element={<AdminRoutes />} />
+        </Routes>
+      </Suspense>
     );
   }
 
@@ -143,7 +149,7 @@ function AppShell() {
         <PinGate>
           <Header />
           <main>
-            <Suspense fallback={<div className="p-8 text-center text-slate-600">Loading…</div>}>
+            <Suspense fallback={<RouteFallback />}>
               <PublicRoutes />
             </Suspense>
           </main>
