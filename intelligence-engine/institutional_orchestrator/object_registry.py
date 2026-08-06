@@ -32,6 +32,15 @@ _REGISTRY: dict[str, ObjectRegistration] = {}
 
 def _period_parts(row: dict[str, Any]) -> tuple[int, int]:
     period = str(row.get("fiscal_period") or row.get("fiscal_year") or "")
+    # Warehouse vendors use both "FY27Q1" and "Q1 FY27".  Extract the
+    # labelled components instead of assuming that the first number is a year.
+    fiscal_year = re.search(r"\bFY\s*(\d{2,4})\b", period, flags=re.IGNORECASE)
+    fiscal_quarter = re.search(r"\bQ\s*([1-4])\b", period, flags=re.IGNORECASE)
+    if fiscal_year:
+        year = int(fiscal_year.group(1))
+        if year < 100:
+            year += 2000
+        return year, int(fiscal_quarter.group(1)) if fiscal_quarter else 0
     numbers = [int(n) for n in re.findall(r"\d+", period)]
     year = numbers[0] if numbers else 0
     if year and year < 100:
@@ -58,8 +67,31 @@ def _preferred_statement(rows: list[dict[str, Any]], fallback: dict[str, Any]) -
     return min(usable, key=_statement_rank) if usable else fallback
 
 
+def _pat_growth(current: dict[str, Any], prior: dict[str, Any], *, basis: str) -> dict[str, Any] | None:
+    """Return a labelled PAT growth observation without concealing its basis."""
+    try:
+        growth = (float(current["pat"]) / float(prior["pat"]) - 1.0) * 100.0
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+    return {
+        "metric": "pat_yoy_pct",
+        "value": round(growth, 2),
+        "prior_period": prior.get("fiscal_period") or prior.get("fiscal_year"),
+        "source": current.get("source"),
+        "statement_type": current.get("statement_type"),
+        "basis": basis,
+    }
+
+
 def _pat_yoy(current: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """Calculate PAT growth only against the same quarter/source/type."""
+    """Calculate PAT growth, preferring strict lineage then a disclosed same-provider pair.
+
+    Some providers expose a newly reported consolidated quarter before they
+    publish the matching quarter from the prior year.  In that case we can
+    still show the warehouse's same-provider trend, but must mark it as a
+    separate, unclassified-statement series instead of passing it off as the
+    consolidated headline's YoY growth.
+    """
     year, quarter = _period_parts(current)
     if not year or not quarter or current.get("pat") is None:
         return None
@@ -72,19 +104,33 @@ def _pat_yoy(current: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
         and str(row.get("statement_type") or "").upper() == statement_type
         and row.get("pat") not in (None, 0)
     ]
-    if not matches:
+    if matches:
+        return _pat_growth(current, min(matches, key=_statement_rank), basis="same_source_statement")
+
+    # Do not mix a current row from one source with a prior row from another.
+    # Instead find a complete current/prior pair in one provider's own series.
+    # This preserves a meaningful percentage while making the different basis
+    # explicit to the response layer.
+    candidates: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    for candidate in rows:
+        candidate_year, candidate_quarter = _period_parts(candidate)
+        if (candidate_year, candidate_quarter) != (year, quarter) or candidate.get("pat") is None:
+            continue
+        candidate_source = str(candidate.get("source") or "").lower()
+        candidate_type = str(candidate.get("statement_type") or "").upper()
+        prior_rows = [
+            row for row in rows
+            if _period_parts(row) == (year - 1, quarter)
+            and str(row.get("source") or "").lower() == candidate_source
+            and str(row.get("statement_type") or "").upper() == candidate_type
+            and row.get("pat") not in (None, 0)
+        ]
+        if prior_rows:
+            candidates.append((candidate, min(prior_rows, key=_statement_rank)))
+    if not candidates:
         return None
-    prior = min(matches, key=_statement_rank)
-    try:
-        growth = (float(current["pat"]) / float(prior["pat"]) - 1.0) * 100.0
-    except (TypeError, ValueError, ZeroDivisionError):
-        return None
-    return {
-        "metric": "pat_yoy_pct",
-        "value": round(growth, 2),
-        "prior_period": prior.get("fiscal_period") or prior.get("fiscal_year"),
-        "source": current.get("source"),
-    }
+    fallback_current, fallback_prior = min(candidates, key=lambda pair: _statement_rank(pair[0]))
+    return _pat_growth(fallback_current, fallback_prior, basis="same_provider_unclassified")
 
 
 def reset_registry_for_tests() -> None:
