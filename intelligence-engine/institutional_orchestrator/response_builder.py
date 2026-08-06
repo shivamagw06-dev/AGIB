@@ -50,11 +50,16 @@ def _comparison_answer(payloads: dict[str, Any]) -> str | None:
         pb = valuation.get("pb") or valuation.get("pb_ratio")
         trend = company.get("earnings_trend") or {}
         yoy = trend.get("value")
-        yoy_text = (
-            f"; PAT YoY {float(yoy):+.1f}% vs {trend.get('prior_period')}"
-            if yoy is not None else
-            "; PAT YoY unavailable on a like-for-like reported quarter"
-        )
+        if yoy is None:
+            yoy_text = "; PAT YoY unavailable on a like-for-like reported quarter"
+        elif trend.get("basis") == "same_provider_unclassified":
+            yoy_text = (
+                f"; PAT YoY {float(yoy):+.1f}% vs {trend.get('prior_period')} "
+                f"(same-provider {trend.get('source')} series; statement scope is unclassified and "
+                "separate from the consolidated headline)"
+            )
+        else:
+            yoy_text = f"; PAT YoY {float(yoy):+.1f}% vs {trend.get('prior_period')}"
         sources = ", ".join(company.get("sources") or []) or "institutional warehouse"
         as_of = company.get("as_of") or "not supplied"
         lines.append(
