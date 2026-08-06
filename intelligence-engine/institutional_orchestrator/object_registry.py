@@ -378,7 +378,8 @@ def _retrieve_comparison_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
             annual_rows = _statement_rows("financials_annual", symbol, 80)
             quarter_rows = _statement_rows("financials_quarterly", symbol, 12)
             valuation_rows = _statement_rows("historical_valuation", symbol, 1)
-            if not annual_rows and not quarter_rows and not valuation_rows:
+            ratio_rows = _statement_rows("sector_ratio_history", symbol, 180)
+            if not annual_rows and not quarter_rows and not valuation_rows and not ratio_rows:
                 continue
             annual_history = _annual_history(annual_rows)
             annual = annual_history[-1] if annual_history else {}
@@ -388,6 +389,13 @@ def _retrieve_comparison_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
             )
             valuation = valuation_rows[0] if valuation_rows else {}
             source_rows = [row for row in (quarter, annual, valuation) if row]
+            sources = {
+                "Capital IQ workbook" if str(row.get("statement_version") or "").startswith("capiq_workbook_")
+                else str(row.get("source"))
+                for row in source_rows if row.get("source") or row.get("statement_version")
+            }
+            if ratio_rows:
+                sources.add("Capital IQ sector-ratio workbook")
             companies.append(
                 {
                     "symbol": symbol,
@@ -395,13 +403,10 @@ def _retrieve_comparison_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
                     "annual_history": annual_history,
                     "quarter": quarter,
                     "valuation": valuation,
+                    "ratio_history": sorted(ratio_rows, key=lambda row: str(row.get("fiscal_year") or "")),
                     "provider_ratios": {},
                     "earnings_trend": _pat_yoy(quarter, quarter_rows),
-                    "sources": sorted({
-                        "Capital IQ workbook" if str(row.get("statement_version") or "").startswith("capiq_workbook_")
-                        else str(row.get("source"))
-                        for row in source_rows if row.get("source") or row.get("statement_version")
-                    }),
+                    "sources": sorted(source for source in sources if source),
                     "as_of": next(
                         (
                             row.get("effective_date") or row.get("filing_date") or row.get("last_updated")

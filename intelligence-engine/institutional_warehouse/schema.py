@@ -514,6 +514,45 @@ ANNUAL_SECTOR_RATIOS = Tab(
 )
 
 # --------------------------------------------------------------------------
+# Tab 5c — Vendor historical sector ratios (append-only source evidence)
+# --------------------------------------------------------------------------
+
+SECTOR_RATIO_HISTORY = Tab(
+    id="sector_ratio_history",
+    label="Sector Ratio History",
+    description=(
+        "Capital IQ historical company ratios. Source evidence only: values are "
+        "preserved by fiscal year and never replaced by live feeds."
+    ),
+    mode="append",
+    key=("symbol", "fiscal_year", "metric", "source_version"),
+    order_by=("fiscal_year DESC", "sector", "symbol", "metric"),
+    search_columns=("symbol", "company_name", "sector", "metric", "source_sector"),
+    icon="valuation",
+    notes=(
+        "CapIQ 2016–2025 source snapshot; values are not derived by AGI.",
+        "Live feeds append current observations elsewhere and never overwrite this history.",
+        "Loss-making or otherwise non-comparable multiples remain visible but are excluded from median calculations.",
+    ),
+    columns=(
+        _c("symbol", "NSE Symbol", TEXT, editable=False, required=True, width=130, group="Key"),
+        _c("fiscal_year", "Fiscal Year", TEXT, editable=False, required=True, width=110, group="Key"),
+        _c("metric", "Metric", TEXT, editable=False, required=True, width=140, group="Key"),
+        _c("source_version", "Source Version", TEXT, editable=False, required=True, width=180, group="Key"),
+        _c("as_of", "As Of", DATE, editable=False, required=True, width=120, group="Key"),
+        _c("company_name", "Company", TEXT, editable=False, width=240, group="Identity"),
+        _c("capiq_ticker", "CapIQ Ticker", TEXT, editable=False, width=150, group="Identity"),
+        _c("sector", "AGI Sector", TEXT, editable=False, width=170, group="Classification"),
+        _c("source_sector", "Source Sector", TEXT, editable=False, width=170, group="Classification"),
+        _c("value", "Reported Value", NUMBER, editable=False, width=130, group="Ratio", unit=UNIT_RATIO),
+        _c("definition", "Definition", TEXT, editable=False, width=300, group="Methodology"),
+        _c("median_eligibility", "Median Eligibility", TEXT, editable=False, width=165, group="Quality"),
+        _c("quality_note", "Quality Note", TEXT, editable=False, width=280, group="Quality"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
 # Tab 6 — Historical Valuation (computed daily snapshots)
 # --------------------------------------------------------------------------
 
@@ -1599,6 +1638,7 @@ TABS: tuple[Tab, ...] = (
     SHARE_COUNT_HISTORY,
     HISTORICAL_RATIOS,
     ANNUAL_SECTOR_RATIOS,
+    SECTOR_RATIO_HISTORY,
     HISTORICAL_VALUATION,
     CONSENSUS,
     RESEARCH_INTELLIGENCE,

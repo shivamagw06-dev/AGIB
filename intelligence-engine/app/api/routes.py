@@ -18948,6 +18948,23 @@ async def warehouse_import_capital_iq_workbook_run(
     )
 
 
+@router.get("/warehouse/import/sector-ratio-workbook")
+async def warehouse_import_sector_ratio_workbook_status():
+    """Preview the checked-in 10-year Capital IQ sector-ratio history."""
+    from financial_warehouse_completion.production import sector_ratio_workbook_status
+    return sector_ratio_workbook_status()
+
+
+@router.post("/warehouse/import/sector-ratio-workbook")
+async def warehouse_import_sector_ratio_workbook_run(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    """Import the authoritative CapIQ sector-ratio baseline and its medians."""
+    from financial_warehouse_completion.production import run_sector_ratio_workbook
+    return run_sector_ratio_workbook(actor=_warehouse_actor(payload or {}, x_agi_actor))
+
+
 @router.post("/warehouse/share-count/{symbol}/sync")
 async def warehouse_share_count_sync(
     symbol: str,

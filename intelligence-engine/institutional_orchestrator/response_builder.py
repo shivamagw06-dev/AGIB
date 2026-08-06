@@ -72,11 +72,42 @@ def _ten_year_summary(company: dict[str, Any]) -> str | None:
     except (TypeError, ValueError, ZeroDivisionError):
         pass
     balance_text = "; ".join(balance) if balance else "reported balance-sheet fields unavailable"
-    return (
+    ratio_text = _historical_ratio_context(company)
+    summary = (
         f"{company.get('symbol')}: annual PAT {_money(start_pat, start)} in {start.get('fiscal_year')} → "
         f"{_money(end_pat, end)} in {end.get('fiscal_year')}{cagr_text}. "
         f"Balance-sheet snapshot ({end.get('fiscal_year')}): {balance_text}."
     )
+    return f"{summary} {ratio_text}".strip()
+
+
+def _historical_ratio_context(company: dict[str, Any]) -> str:
+    """Summarise CapIQ ratio history without turning it into a recommendation."""
+    rows = [row for row in (company.get("ratio_history") or []) if row.get("value") is not None]
+    if not rows:
+        return ""
+    by_metric: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        by_metric.setdefault(str(row.get("metric") or "").lower(), []).append(row)
+    snippets: list[str] = []
+    for metric, label, percent in (
+        ("roe", "ROE", True), ("roa", "ROA", True),
+        ("debt_equity", "debt/equity", False), ("net_debt_ebitda", "net debt/EBITDA", False),
+        ("pb", "P/BV", False), ("ev_ebitda", "EV/EBITDA", False),
+    ):
+        series = sorted(by_metric.get(metric) or [], key=lambda row: str(row.get("fiscal_year") or ""))
+        if len(series) < 2:
+            continue
+        start, end = series[0], series[-1]
+        try:
+            a, b = float(start["value"]), float(end["value"])
+        except (TypeError, ValueError):
+            continue
+        fmt = (lambda value: f"{value:.1%}") if percent else (lambda value: f"{value:.2f}x")
+        snippets.append(f"{label} {fmt(a)} ({start.get('fiscal_year')}) → {fmt(b)} ({end.get('fiscal_year')})")
+    if not snippets:
+        return ""
+    return "CapIQ historical ratio context: " + "; ".join(snippets[:4]) + "."
 
 
 def _comparison_answer(payloads: dict[str, Any], *, question: str = "") -> str | None:
