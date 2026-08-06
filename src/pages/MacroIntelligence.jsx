@@ -262,17 +262,17 @@ export default function MacroIntelligence() {
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-[#101828]">
       <Helmet>
-        <title>Macro Intelligence | Agarwal Global Investments</title>
-        <meta name="description" content="AGI institutional macro research workspace — what happened, why, who benefits, who loses, and how the house view changed." />
-        <link rel="canonical" href="https://agarwalglobalinvestments.com/macro-intelligence" />
-        <meta property="og:title" content="Macro Intelligence | AGI" />
-        <meta property="og:description" content="Transform macro data into investment intelligence." />
+        <title>Global Markets | Agarwal Global Investments</title>
+        <meta name="description" content="AGI global markets and macro research workspace — global developments, India transmission, sector impact, and the house view." />
+        <link rel="canonical" href="https://agarwalglobalinvestments.com/global-markets" />
+        <meta property="og:title" content="Global Markets | AGI" />
+        <meta property="og:description" content="Transform global markets and macro data into India investment intelligence." />
         <script type="application/ld+json">
           {JSON.stringify({
             '@context': 'https://schema.org',
             '@type': 'WebPage',
-            name: 'AGI Macro Intelligence',
-            description: intel.what_happened || 'Institutional macro investment intelligence',
+            name: 'AGI Global Markets',
+            description: intel.what_happened || 'Institutional global markets and macro investment intelligence',
           })}
         </script>
       </Helmet>
@@ -322,7 +322,7 @@ export default function MacroIntelligence() {
         <aside className="sticky top-0 hidden h-screen w-[240px] shrink-0 flex-col border-r border-[#e7eaf0] bg-white lg:flex">
           <div className="border-b border-[#e7eaf0] px-5 py-5">
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#3b6ea5]">AGI Intelligence</p>
-            <p className="mt-1 text-sm font-semibold text-[#101828]">Macro Terminal</p>
+            <p className="mt-1 text-sm font-semibold text-[#101828]">Global Markets Terminal</p>
           </div>
           <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
             {NAV.map((item) => {
@@ -346,8 +346,8 @@ export default function MacroIntelligence() {
           </nav>
           <div className="space-y-3 border-t border-[#e7eaf0] p-4">
             <div className="rounded-2xl bg-gradient-to-br from-[#eef4fb] to-white p-4 ring-1 ring-[#d9e4f2]">
-              <p className="text-xs font-semibold text-[#101828]">AGI Macro Brief</p>
-              <p className="mt-1 text-[11px] leading-relaxed text-[#667085]">Daily institutional macro note for CIOs and research desks.</p>
+              <p className="text-xs font-semibold text-[#101828]">AGI Global Markets Brief</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-[#667085]">Daily global markets and macro note for CIOs and research desks.</p>
               <button type="button" onClick={() => goTab('brief')} className="mt-3 text-[11px] font-semibold text-[#1d4f91]">
                 Open brief →
               </button>
@@ -418,8 +418,8 @@ export default function MacroIntelligence() {
                   <Card className="p-6 sm:p-8">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#3b6ea5]">Macro Intelligence</p>
-                        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#101828] sm:text-4xl">Chief Economist Brief</h1>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#3b6ea5]">Global Markets & Macro Intelligence</p>
+                        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#101828] sm:text-4xl">Global Markets Brief</h1>
                         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#667085]">
                           Global economy. Indian economy. Investment implications — an institutional research workspace, not a data dashboard.
                         </p>
