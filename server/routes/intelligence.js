@@ -2312,6 +2312,16 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err.message || 'hedge-fund-lab calculate failed' });
     }
   });
+  router.post('/hedge-fund-lab/backtest/:strategyId', async (req, res) => {
+    try {
+      const r = await engineFetch(`/v1/hedge-fund-lab/backtest/${encodeURIComponent(req.params.strategyId)}`, {
+        method: 'POST', body: req.body || {}, timeoutMs: 180_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hedge-fund-lab backtest failed' });
+    }
+  });
 
   router.get('/universal-knowledge/health', kfGet('/v1/universal-knowledge/health'));
   router.get('/universal-knowledge/registry', kfGet('/v1/universal-knowledge/registry'));

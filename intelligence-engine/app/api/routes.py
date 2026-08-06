@@ -10131,6 +10131,14 @@ async def hedge_fund_lab_calculate(kind: str, payload: dict[str, Any] = Body(def
     return calculate(kind, payload or {})
 
 
+@router.post("/hedge-fund-lab/backtest/{strategy_id}")
+async def hedge_fund_lab_backtest(strategy_id: str, payload: dict[str, Any] = Body(default={})):
+    """Run a bounded, point-in-time research backtest from warehouse data."""
+    from hedge_fund_lab.production import backtest
+
+    return backtest(strategy_id, payload or {})
+
+
 # ---------------------------------------------------------------------------
 # Valuation Intelligence Terminal — market multiples plus AGI interpretation.
 # ---------------------------------------------------------------------------

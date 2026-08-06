@@ -3265,6 +3265,10 @@ export const hflCalculate = (kind, payload) =>
     body: payload,
     timeoutMs: 90_000,
   });
+export const hflBacktest = (strategyId, payload = {}) =>
+  intelligenceFetch(`/hedge-fund-lab/backtest/${encodeURIComponent(strategyId)}`, {
+    method: 'POST', body: payload, timeoutMs: 180_000,
+  });
 export const getHflRegime = () =>
   intelligenceFetch('/hedge-fund-lab/regime', { timeoutMs: 120_000 });
 export const getHflTerminal = () =>

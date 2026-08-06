@@ -145,6 +145,72 @@ def pair_signal(
     }
 
 
+def pair_diagnostics(
+    long_prices: list[Any],
+    short_prices: list[Any],
+    *,
+    entry_z: Any = 2.0,
+    exit_z: Any = 0.5,
+    max_half_life_sessions: Any = 60,
+) -> dict[str, Any]:
+    """Pre-trade pair diagnostics using aligned price histories.
+
+    This is deliberately stricter than a valuation-gap screen.  It estimates a
+    hedge ratio, residual z-score and mean-reversion half-life, then reports a
+    candidate only when the relationship passes all coverage checks.  It does
+    not claim a p-value without a statistical package and therefore never
+    mislabels correlation as cointegration.
+    """
+    x = [_num(v, float("nan")) for v in long_prices or []]
+    y = [_num(v, float("nan")) for v in short_prices or []]
+    pairs = [(a, b) for a, b in zip(x, y) if a > 0 and b > 0 and math.isfinite(a) and math.isfinite(b)]
+    if len(pairs) < 120:
+        return {"ok": False, "error": "insufficient_aligned_history", "required_sessions": 120,
+                "available_sessions": len(pairs), "research_status": "not_tradeable"}
+    lx, ly = [math.log(a) for a, _ in pairs], [math.log(b) for _, b in pairs]
+    mx, my = sum(lx) / len(lx), sum(ly) / len(ly)
+    var_y = sum((item - my) ** 2 for item in ly)
+    if var_y <= 1e-12:
+        return {"ok": False, "error": "constant_leg", "research_status": "not_tradeable"}
+    hedge_ratio = sum((a - mx) * (b - my) for a, b in zip(lx, ly)) / var_y
+    intercept = mx - hedge_ratio * my
+    residuals = [a - (intercept + hedge_ratio * b) for a, b in zip(lx, ly)]
+    mean = sum(residuals) / len(residuals)
+    variance = sum((item - mean) ** 2 for item in residuals) / (len(residuals) - 1)
+    std = math.sqrt(variance)
+    if std <= 1e-12:
+        return {"ok": False, "error": "constant_spread", "research_status": "not_tradeable"}
+    # AR(1) residual fit: delta(s) = alpha + beta * s(t-1).  beta < 0 implies reversion.
+    lag, delta = residuals[:-1], [residuals[i] - residuals[i - 1] for i in range(1, len(residuals))]
+    lag_mean, delta_mean = sum(lag) / len(lag), sum(delta) / len(delta)
+    denom = sum((item - lag_mean) ** 2 for item in lag)
+    beta = sum((a - lag_mean) * (b - delta_mean) for a, b in zip(lag, delta)) / denom if denom else 0.0
+    half_life = math.log(2) / -beta if beta < 0 else None
+    correlation = sum((a - mx) * (b - my) for a, b in zip(lx, ly)) / math.sqrt(
+        sum((a - mx) ** 2 for a in lx) * sum((b - my) ** 2 for b in ly)
+    )
+    signal = pair_signal(residuals[-1], mean, std, entry_z=entry_z, exit_z=exit_z)
+    max_half_life = _num(max_half_life_sessions, 60.0)
+    eligible = bool(abs(correlation) >= 0.6 and half_life is not None and 1 <= half_life <= max_half_life)
+    return {
+        "ok": True,
+        "research_status": "pair_candidate" if eligible else "not_tradeable",
+        "eligible_for_research_queue": eligible,
+        "observations": len(pairs),
+        "hedge_ratio": round(hedge_ratio, 5),
+        "intercept": round(intercept, 5),
+        "log_price_correlation": round(correlation, 4),
+        "residual_z_score": signal.get("z_score"),
+        "signal": signal.get("signal"),
+        "estimated_half_life_sessions": round(half_life, 2) if half_life is not None else None,
+        "adf_status": "not_estimated_without_statistical_test_dependency",
+        "limitations": [
+            "A valuation gap and correlation do not establish cointegration.",
+            "Borrow availability, financing, corporate actions and execution costs must pass before any trade simulation.",
+        ],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Strategy expectancy
 # ---------------------------------------------------------------------------
