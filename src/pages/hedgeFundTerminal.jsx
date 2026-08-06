@@ -178,6 +178,32 @@ function Explanation({ ticker }) {
 
   return (
     <div className="hft-explain">
+      {data.alpha_brief ? (
+        <section className="hft-alpha-brief">
+          <div className="hft-alpha-head">
+            <div>
+              <span className="k">AGI Alpha Intelligence</span>
+              <h5>{data.alpha_brief.status === 'research_priority' ? 'Research priority' : 'Monitoring'}</h5>
+            </div>
+            <strong>{data.alpha_brief.research_score != null ? `${n(data.alpha_brief.research_score)} / 100` : 'Evidence incomplete'}</strong>
+          </div>
+          <p>{data.alpha_brief.headline}</p>
+          <div className="hft-alpha-components">
+            {(data.alpha_brief.components || []).map((item) => (
+              <div key={item.name} className={item.status === 'supportive' ? 'supportive' : 'neutral'}>
+                <span>{item.name}</span><b>{n(item.score)}</b>
+              </div>
+            ))}
+          </div>
+          {(data.alpha_brief.evidence_gaps || []).length ? (
+            <div className="hft-alpha-gaps">
+              <b>Evidence to complete</b>
+              <ul>{data.alpha_brief.evidence_gaps.map((gap) => <li key={gap}>{gap}</li>)}</ul>
+            </div>
+          ) : null}
+          <p className="hft-dim">{data.alpha_brief.policy}</p>
+        </section>
+      ) : null}
       <div className="hft-explain-grid">
         <div>
           <h5>Why AGI surfaced this</h5>

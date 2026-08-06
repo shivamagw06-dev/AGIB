@@ -872,6 +872,58 @@ def opportunity(ticker: str, limit: int = 1000) -> dict[str, Any]:
         "with metrics and consensus attached, but nothing in today's data flags it for research."
     )
 
+    alpha_match = next((item for item in matched if item.get("strategy") == "alpha"), None)
+    alpha_scores = dict((row.get("factors") or {}))
+    alpha_components = {
+        "Value": _num(alpha_scores.get("value_score")),
+        "Quality": _num(alpha_scores.get("quality_score")),
+        "Growth": _num(alpha_scores.get("growth_score")),
+        "Technical": _num(alpha_scores.get("technical_score")) or _num(alpha_scores.get("momentum_score")),
+        "Consensus": _num(alpha_scores.get("consensus_score")),
+    }
+    alpha_components = {name: value for name, value in alpha_components.items() if value is not None}
+    alpha_gaps = []
+    if "Technical" not in alpha_components:
+        alpha_gaps.append("No verified 12–1 momentum / trend history yet.")
+    if "Growth" not in alpha_components:
+        alpha_gaps.append("No comparable historical growth signal yet.")
+    if "Consensus" not in alpha_components:
+        alpha_gaps.append("No usable analyst-expectations signal yet.")
+    if (consensus.get("coverage") or 0) < 5:
+        alpha_gaps.append("Limited analyst coverage; treat target-price context cautiously.")
+    if not alpha_scores.get("as_of"):
+        alpha_gaps.append("Factor refresh timestamp is unavailable.")
+
+    alpha_brief = {
+        "status": "research_priority" if alpha_match else "monitoring",
+        "headline": (
+            "Multi-factor evidence aligns; validate the catalyst and downside before forming a view."
+            if alpha_match else
+            "No multi-factor alignment today; monitor the individual evidence streams."
+        ),
+        "research_score": next(
+            (
+                _num(hit.get("alpha_opportunity_score"))
+                for hit in (results.get("alpha") or [])
+                if _identity(hit)[0] == tk
+            ),
+            _num(alpha_scores.get("opportunity_score")),
+        ),
+        "components": [
+            {
+                "name": name,
+                "score": value,
+                "status": "supportive" if value >= 60 else "not_supportive",
+            }
+            for name, value in alpha_components.items()
+        ],
+        "catalyst_to_verify": catalysts[:3],
+        "invalidation": risks[:3],
+        "evidence_gaps": alpha_gaps,
+        "as_of": alpha_scores.get("as_of"),
+        "policy": "Research priority only. A score is not a forecast, recommendation, or probability of return.",
+    }
+
     return {
         "ok": True,
         "ticker": tk,
@@ -913,6 +965,7 @@ def opportunity(ticker: str, limit: int = 1000) -> dict[str, Any]:
             "source": consensus.get("source") or SOURCES["consensus"],
         },
         "factors": row.get("factors") or {},
+        "alpha_brief": alpha_brief,
         "strategies_matched": matched,
         "calculation_chain": chain,
         "risks": risks,

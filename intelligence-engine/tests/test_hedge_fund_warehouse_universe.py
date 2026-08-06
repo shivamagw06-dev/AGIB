@@ -196,6 +196,17 @@ def test_alpha_and_technical_screens_expose_evidence(warehouse_universe):
     assert technical["results"][0]["momentum_12_1_pct"] == pytest.approx(18.5)
 
 
+def test_alpha_opportunity_dossier_exposes_gaps_and_invalidation(warehouse_universe):
+    from hedge_fund_lab.terminal import opportunity
+
+    out = opportunity("AAA", limit=10)
+    assert out["ok"] is True
+    assert out["alpha_brief"]["status"] == "research_priority"
+    assert out["alpha_brief"]["research_score"] is not None
+    assert {item["name"] for item in out["alpha_brief"]["components"]} >= {"Value", "Quality", "Technical"}
+    assert "recommendation" in out["alpha_brief"]["policy"].lower()
+
+
 def test_health_reports_live_feed(warehouse_universe):
     from hedge_fund_lab.production import health
 
