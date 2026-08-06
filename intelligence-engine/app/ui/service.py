@@ -1638,6 +1638,9 @@ class UiService:
         q = (question or "").strip()
         client = None
         detected_ticker = ticker.upper() if ticker else None
+        # Comparisons are multi-entity research requests.  Keep the canonical pair
+        # separate from the primary ticker used by legacy single-company adapters.
+        comparison_tickers: list[str] = []
         rsp_pkg: dict[str, Any] = {}
         irp_pkg = None
         irp_dump: dict[str, Any] = {}
@@ -2367,8 +2370,9 @@ class UiService:
             if not detected_ticker and _alias_all:
                 detected_ticker = _alias_all[0]
                 ask_orchestration["ticker_source"] = "alias_compare"
-            ask_orchestration["comparison_tickers"] = _alias_all
-            ask_orchestration["comparison_entity_count"] = max(_cmp_n, len(_alias_all))
+            comparison_tickers = list(dict.fromkeys(str(x).upper() for x in _alias_all if x))[:2]
+            ask_orchestration["comparison_tickers"] = comparison_tickers
+            ask_orchestration["comparison_entity_count"] = max(_cmp_n, len(comparison_tickers))
 
         slim = ask_slim_enabled()
 
@@ -2782,6 +2786,19 @@ class UiService:
 
             def _krig_pull() -> dict[str, Any]:
                 client = KrigClient(timeout_seconds=2.5)
+                if len(comparison_tickers) >= 2:
+                    # Use the comparison endpoint: /bundle with a primary symbol
+                    # silently produced a one-company brief for questions such as
+                    # "Compare ICICI Bank and HDFC Bank".
+                    try:
+                        comparison = client.compare(comparison_tickers, question=q) or {}
+                        if comparison:
+                            return comparison
+                    except Exception:
+                        # Older Knowledge Platform deployments may not yet expose
+                        # /compare.  The regular bundle still receives both sides.
+                        pass
+                    return client.retrieve_bundle(question=q, symbols=comparison_tickers) or {}
                 symbols = [detected_ticker] if detected_ticker else ([ticker.upper()] if ticker else None)
                 return client.retrieve_bundle(question=q, symbols=symbols) or {}
 
@@ -2795,6 +2812,11 @@ class UiService:
                 degradation["krig"] = "timeout_cached"
             elif knowledge_bundle:
                 degradation["krig"] = "ok"
+                if len(comparison_tickers) >= 2:
+                    ask_orchestration["comparison_retrieval"] = {
+                        "mode": "krig_compare",
+                        "tickers": comparison_tickers,
+                    }
             else:
                 degradation["krig"] = "empty"
         except Exception:
@@ -2932,7 +2954,7 @@ class UiService:
                 ikl_ask_consult(
                     q,
                     ticker=detected_ticker,
-                    companies=[detected_ticker] if detected_ticker else None,
+                    companies=comparison_tickers or ([detected_ticker] if detected_ticker else None),
                 )
                 or {}
             )
@@ -4899,6 +4921,10 @@ class UiService:
         ][:8]
         if detected_ticker and detected_ticker not in related:
             related = [detected_ticker] + [r for r in related if r != detected_ticker]
+        # The response UI uses related_companies for entity chips and follow-up
+        # context; guarantee that a verified comparison retains both sides.
+        if comparison_tickers:
+            related = list(dict.fromkeys([*comparison_tickers, *related]))[:8]
         stage_timer.mark("response_assembly")
         _ice_for_trace = (ask_pipeline_runtime or {}).get("communication") or {}
         ask_orchestration["ice_framework_meta_suppressed"] = bool(
