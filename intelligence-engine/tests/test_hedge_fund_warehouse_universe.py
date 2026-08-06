@@ -226,6 +226,22 @@ def test_record_daily_snapshot(warehouse_universe, tmp_path, monkeypatch):
     assert (tmp_path / "snapshots.json").exists()
 
 
+def test_alpha_refresh_uses_stored_data_only(monkeypatch):
+    from hedge_fund_lab import terminal
+
+    monkeypatch.setattr(
+        "institutional_warehouse.formulas.recalc_factors",
+        lambda **kwargs: {"ok": True, "rows": 2, "actor": kwargs["actor"]},
+    )
+    monkeypatch.setattr(terminal, "record_daily_snapshot", lambda **kwargs: {"ok": True, "limit": kwargs["limit"]})
+
+    out = terminal.refresh_alpha_intelligence(snapshot_limit=500)
+    assert out["ok"] is True
+    assert out["mode"] == "stored_data_only"
+    assert out["factors"]["actor"] == "alpha_intelligence_scheduler"
+    assert out["snapshot"]["limit"] == 100
+
+
 def test_legacy_fallback_when_warehouse_empty(monkeypatch):
     from hedge_fund_lab import scanner as hfl_scanner
 

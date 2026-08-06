@@ -60,6 +60,17 @@ def _apply_worker_defaults() -> None:
     # HTTP Blueprint/dashboard left FAA_LIVE_FETCH unset/false.
     if _truthy("AGI_GATHER_FORCE", "true") and not _truthy("FAA_LIVE_FETCH_FORCE_OFF", "false"):
         os.environ["FAA_LIVE_FETCH"] = "true"
+    # Alpha Focus freezes collection and backfill without touching the durable
+    # warehouse. The Node API runs the bounded post-close factor refresh.
+    if _truthy("AGI_ALPHA_FOCUS_MODE"):
+        for key in (
+            "CONTINUOUS_GATHER_LEARN", "FAA_BACKGROUND_COLLECTOR",
+            "CONTINUOUS_HISTORICAL_BACKFILL", "CONTINUOUS_BACKFILL_UNTIL_COMPLETE",
+            "KF_HD_LIVE_COLLECTORS", "CONTINUOUS_FAA_REFRESH", "CONTINUOUS_LIDI",
+            "CONTINUOUS_KF_HD", "CONTINUOUS_LEARNING_LOOP", "CONTINUOUS_MORNING_DAG",
+            "WAREHOUSE_DAILY_REFRESH", "WAREHOUSE_BACKFILL", "HVIE_RUNTIME",
+        ):
+            os.environ[key] = "false"
 
 
 def main() -> int:
@@ -78,6 +89,11 @@ def main() -> int:
             "kip_data_dir": os.environ.get("KIP_DATA_DIR"),
         },
     )
+
+    if _truthy("AGI_ALPHA_FOCUS_MODE"):
+        log.info("gather_worker_alpha_focus", extra={"policy": "collection_and_backfill_paused"})
+        while True:
+            time.sleep(60.0)
 
     stop_fns: list = []
 

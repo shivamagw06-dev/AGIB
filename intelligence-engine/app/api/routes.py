@@ -10127,6 +10127,15 @@ async def hedge_fund_lab_daily_monitor(limit: int = 6):
     return daily_monitor(limit=limit)
 
 
+@router.post("/hedge-fund-lab/alpha-refresh")
+async def hedge_fund_lab_alpha_refresh(payload: dict[str, Any] = Body(default={})):
+    """Post-close Alpha factor refresh using only the existing warehouse."""
+    from hedge_fund_lab.terminal import refresh_alpha_intelligence
+
+    requested_limit = (payload or {}).get("snapshot_limit", 25)
+    return refresh_alpha_intelligence(snapshot_limit=max(1, min(int(requested_limit or 25), 100)))
+
+
 @router.post("/hedge-fund-lab/calculate/{kind}")
 async def hedge_fund_lab_calculate(kind: str, payload: dict[str, Any] = Body(default={})):
     """Every strategy calculation runs here, never in the browser."""

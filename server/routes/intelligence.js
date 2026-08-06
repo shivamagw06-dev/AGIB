@@ -2317,6 +2317,16 @@ export default function createIntelligenceRouter() {
     }
   });
   router.get('/hedge-fund-lab/daily-monitor', kfGet('/v1/hedge-fund-lab/daily-monitor'));
+  router.post('/hedge-fund-lab/alpha-refresh', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/hedge-fund-lab/alpha-refresh', {
+        method: 'POST', body: req.body || {}, timeoutMs: 180_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hedge-fund-lab alpha refresh failed' });
+    }
+  });
   router.get('/hedge-fund-lab/terminal', async (req, res) => {
     try {
       // Cap default scan size so cold/open paths stay interactive.

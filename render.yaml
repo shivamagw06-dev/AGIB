@@ -36,6 +36,12 @@ services:
         value: "true"
       - key: CONTINUOUS_FAA_REFRESH
         value: "true"
+      # Alpha Focus derives investable research signals from the existing
+      # warehouse after close.  It does not run vendor collection/backfills.
+      - key: ALPHA_INTELLIGENCE_SCHEDULER
+        value: "true"
+      - key: ALPHA_SNAPSHOT_LIMIT
+        value: "25"
       # embedded = API also runs the ingest worker (default on Free).
       # Set to external when the dedicated worker below is enabled.
       - key: CMS_INGEST_WORKER_MODE
@@ -318,6 +324,10 @@ services:
       - key: AGI_ROLE
         value: gather_worker
       - key: AGI_GATHER_FORCE
+        value: "false"
+      # Keep the optional worker alive only as a lightweight heartbeat while
+      # Alpha Focus is active.  The Node Alpha scheduler owns post-close work.
+      - key: AGI_ALPHA_FOCUS_MODE
         value: "true"
       - key: KIP_DATA_DIR
         sync: false
@@ -358,7 +368,7 @@ services:
       - key: FAA_BROWSERBASE_ENABLED
         value: "false"
       - key: CONTINUOUS_GATHER_LEARN
-        value: "true"
+        value: "false"
       - key: CONTINUOUS_GATHER_LEARN_INTERVAL_SEC
         value: "1800"
       - key: CONTINUOUS_MORNING_DAG
@@ -374,13 +384,13 @@ services:
       - key: CONTINUOUS_DIRECTOR_LEARNING
         value: "true"
       - key: CONTINUOUS_HISTORICAL_BACKFILL
-        value: "true"
+        value: "false"
       - key: CONTINUOUS_BACKFILL_UNTIL_COMPLETE
-        value: "true"
+        value: "false"
       - key: CONTINUOUS_BACKFILL_ACTIVE_INTERVAL_SEC
         value: "300"
       - key: KF_HD_LIVE_COLLECTORS
-        value: "true"
+        value: "false"
       - key: KF_HD_BACKFILL_BATCH
         value: "12"
       - key: KF_HD_BACKFILL_BATCHES_PER_CYCLE
@@ -390,7 +400,7 @@ services:
       - key: KF_HD_TARGET_YEARS
         value: "15"
       - key: FAA_BACKGROUND_COLLECTOR
-        value: "true"
+        value: "false"
       - key: FAA_COLLECTOR_INTERVAL_SEC
         value: "900"
       - key: FAA_COLLECTOR_LIMIT

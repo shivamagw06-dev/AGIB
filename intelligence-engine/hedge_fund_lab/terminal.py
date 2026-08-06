@@ -318,6 +318,28 @@ def record_daily_snapshot(*, limit: int = 1000) -> dict[str, Any]:
     }
 
 
+def refresh_alpha_intelligence(*, snapshot_limit: int = 25) -> dict[str, Any]:
+    """Refresh derived Alpha factors from already-stored warehouse data.
+
+    This deliberately performs no vendor collection and no historical
+    backfill.  It is the bounded post-close job used when AGI is in Alpha
+    Focus mode: today\'s stored prices, valuation data and financial history
+    are converted into factor scores and a concise research-monitor snapshot.
+    """
+    from institutional_warehouse.formulas import recalc_factors
+
+    factors = recalc_factors(actor="alpha_intelligence_scheduler")
+    snapshot = record_daily_snapshot(limit=max(1, min(int(snapshot_limit or 25), 100)))
+    return {
+        "ok": bool(factors.get("ok", True) and snapshot.get("ok", False)),
+        "mode": "stored_data_only",
+        "as_of": _today(),
+        "factors": factors,
+        "snapshot": snapshot,
+        "policy": "No vendor collection or historical backfill was run.",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Market regime, extended with rotation and sentiment
 # ---------------------------------------------------------------------------
