@@ -19,3 +19,4 @@ __pycache__/
 artifacts/*.json
 artifacts/*.log
 artifacts/*.md
+.env.production
