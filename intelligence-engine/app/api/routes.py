@@ -18429,7 +18429,12 @@ async def warehouse_repair_upstox_quarterly(body: dict[str, Any] | None = None):
     body = body or {}
     if body.get("apply") and body.get("confirm") != "RETIRE_DUPLICATE_UPSTOX_Q4":
         return {"ok": False, "error": "repair_confirmation_required"}
-    return repair_upstox_quarterly(actor=_warehouse_actor(body), apply=bool(body.get("apply")))
+    row_ids = body.get("row_ids") if isinstance(body.get("row_ids"), list) else None
+    return repair_upstox_quarterly(
+        actor=_warehouse_actor(body),
+        apply=bool(body.get("apply")),
+        row_ids=row_ids,
+    )
 
 
 @router.get("/warehouse/workbook")
