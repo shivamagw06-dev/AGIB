@@ -79,6 +79,13 @@ services:
     # If this value drifts below the actual dashboard plan, a Blueprint
     # re-sync can DOWNGRADE the live service to match this file. Keep it in sync.
     plan: pro
+    # The warehouse is append-only financial history.  Without this disk, its
+    # SQLite store disappears on an engine restart/deploy and Ask AGI sees no
+    # verified company data.  A disk also makes the collection ledger durable.
+    disk:
+      name: intelligence-data
+      mountPath: /var/data
+      sizeGB: 10
     # Chromium for FAA Playwright JS-render + free web search.
     # If the live Render service ignores Blueprint buildCommand, start.sh
     # and FAA_PLAYWRIGHT_AUTO_INSTALL still attempt a one-shot install.
@@ -91,20 +98,20 @@ services:
     envVars:
       - key: APP_ENV
         value: production
-      # Sidecar on by default (same Pro box, $0 extra). Set false only when
-      # the dedicated agib-intelligence-worker below is enabled and funded.
+      # The live engine runs its web process only; scheduled collection is
+      # owned by the backend worker so it cannot compete with Ask requests.
       - key: AGI_GATHER_SIDECAR
-        value: "true"
-      # Set AFTER the paid disk is attached (mount /var/data/kip).
-      # Leaving this unset during Free→Starter upgrade is OK (warn-only boot).
-      # After disk is live: set KIP_DATA_DIR=/var/data/kip and optionally
-      # KIP_REQUIRE_PERSISTENT=1 to refuse ephemeral boots.
+        value: "false"
+      # Durable data roots.  KIP keeps research objects; the warehouse keeps
+      # imported financial statements, valuation snapshots and live prices.
       - key: KIP_DATA_DIR
-        sync: false
+        value: /var/data/kip
       - key: KIP_REQUIRE_PERSISTENT
-        sync: false
+        value: "1"
       - key: KIP_ALLOW_EPHEMERAL
-        sync: false
+        value: "false"
+      - key: INSTITUTIONAL_WAREHOUSE_ROOT
+        value: /var/data/institutional_warehouse
       - key: INTELLIGENCE_ENGINE_TOKEN
         fromService:
           name: agib-api
