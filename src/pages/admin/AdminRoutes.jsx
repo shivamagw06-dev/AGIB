@@ -70,6 +70,7 @@ const HistoricalValuation = lazy(() => import('@/pages/admin/HistoricalValuation
 const HvieRuntime = lazy(() => import('@/pages/admin/HvieRuntime'));
 const FinancialWarehouse = lazy(() => import('@/pages/admin/FinancialWarehouse'));
 const FinancialCoverage = lazy(() => import('@/pages/admin/FinancialCoverage'));
+const CompanyFinancials = lazy(() => import('@/pages/admin/CompanyFinancials'));
 const ResearchIntelligence = lazy(() => import('@/pages/admin/ResearchIntelligence'));
 const ForecastRuntime = lazy(() => import('@/pages/admin/ForecastRuntime'));
 const MacroRuntime = lazy(() => import('@/pages/admin/MacroRuntime'));
@@ -114,6 +115,7 @@ export default function AdminRoutes() {
           <Route path="financial-warehouse" element={<FinancialWarehouse />} />
           {/* Phase 7.4F Step 0 — read-only financial coverage audit */}
           <Route path="financial-coverage" element={<FinancialCoverage />} />
+          <Route path="company-financials" element={<CompanyFinancials />} />
           <Route path="research-intelligence" element={<ResearchIntelligence />} />
           <Route path="forecast-runtime" element={<ForecastRuntime />} />
           <Route path="macro-runtime" element={<MacroRuntime />} />
