@@ -12,6 +12,8 @@ let timer = null;
 let inFlight = false;
 let lastRun = null;
 let lastSuccessDate = null;
+let catchupRun = 0;
+let lastCatchupSlot = null;
 
 function enabled() {
   return String(process.env.UPSTOX_STATEMENT_SCHEDULER || 'true').toLowerCase() !== 'false';
@@ -30,11 +32,27 @@ function due(parts) {
   return !['Sat', 'Sun'].includes(String(parts.weekday || '')) && parts.hour === 18 && parts.minute >= 35;
 }
 
+function catchupConfig() {
+  const intervalMinutes = Math.max(0, Number(process.env.UPSTOX_STATEMENT_CATCHUP_INTERVAL_MINUTES || 0));
+  return {
+    enabled: intervalMinutes > 0,
+    date: String(process.env.UPSTOX_STATEMENT_CATCHUP_DATE || ''),
+    intervalMinutes,
+    batchSize: Math.max(1, Number(process.env.UPSTOX_STATEMENT_CATCHUP_BATCH || 4)),
+  };
+}
+
+function catchupSlot(parts, config) {
+  if (!config.enabled || config.date !== parts.date || ['Sat', 'Sun'].includes(String(parts.weekday || ''))) return null;
+  return `${parts.date}:${Math.floor(((parts.hour * 60) + parts.minute) / config.intervalMinutes)}`;
+}
+
 function dayNumber(date) {
   return Math.floor(Date.parse(`${date}T00:00:00Z`) / 86_400_000);
 }
 
 export function getUpstoxStatementSchedulerStatus() {
+  const catchup = catchupConfig();
   return {
     enabled: enabled(),
     running: Boolean(timer),
@@ -43,26 +61,39 @@ export function getUpstoxStatementSchedulerStatus() {
     lastSuccessDate,
     target: '18:35 IST weekdays',
     batchSize: Number(process.env.UPSTOX_STATEMENT_INCREMENTAL_BATCH || 12),
+    catchup: {
+      ...catchup,
+      runningToday: Boolean(catchupSlot(istParts(), catchup)),
+      completedBatches: catchupRun,
+      lastSlot: lastCatchupSlot,
+    },
     note: 'One small rotating batch per weekday; full statements are normalized into the warehouse.',
   };
 }
 
 export async function triggerUpstoxStatementRefresh({ force = false } = {}) {
   const now = istParts();
+  const catchup = catchupConfig();
+  const slot = catchupSlot(now, catchup);
   if (inFlight) return { ok: true, skipped: true, reason: 'already_running' };
-  if (!force && lastSuccessDate === now.date) return { ok: true, skipped: true, reason: 'already_ran_today', date: now.date };
-  if (!force && !due(now)) return { ok: true, skipped: true, reason: 'outside_post_close_window', now };
+  if (!force && slot && lastCatchupSlot === slot) return { ok: true, skipped: true, reason: 'already_ran_this_catchup_slot', slot };
+  if (!force && !slot && lastSuccessDate === now.date) return { ok: true, skipped: true, reason: 'already_ran_today', date: now.date };
+  if (!force && !slot && !due(now)) return { ok: true, skipped: true, reason: 'outside_post_close_window', now };
   inFlight = true;
   try {
-    const batchSize = Math.max(1, Number(process.env.UPSTOX_STATEMENT_INCREMENTAL_BATCH || 12));
+    const batchSize = slot ? catchup.batchSize : Math.max(1, Number(process.env.UPSTOX_STATEMENT_INCREMENTAL_BATCH || 12));
     const result = await refreshUpstoxFundamentals({
       dataset: 'statements', limit: batchSize,
       concurrency: Math.max(1, Number(process.env.UPSTOX_STATEMENT_CONCURRENCY || 1)),
-      offset: dayNumber(now.date) * batchSize,
+      offset: (dayNumber(now.date) * batchSize) + (slot ? catchupRun * batchSize : 0),
     });
-    lastRun = { at: new Date().toISOString(), date: now.date, ok: Boolean(result.ok), fetched: result.fetched || 0, errors: (result.errors || []).length, selection: result.selection || null, error: result.error || null };
-    if (result.ok) lastSuccessDate = now.date;
-    return { ...result, date: now.date, forced: force };
+    lastRun = { at: new Date().toISOString(), date: now.date, ok: Boolean(result.ok), fetched: result.fetched || 0, errors: (result.errors || []).length, selection: result.selection || null, error: result.error || null, catchup: Boolean(slot) };
+    if (result.ok && slot) {
+      lastCatchupSlot = slot;
+      catchupRun += 1;
+    }
+    if (result.ok && !slot) lastSuccessDate = now.date;
+    return { ...result, date: now.date, forced: force, catchup: Boolean(slot) };
   } catch (error) {
     lastRun = { at: new Date().toISOString(), date: now.date, ok: false, error: error.message };
     return { ok: false, error: error.message, date: now.date };
@@ -77,6 +108,6 @@ export function startUpstoxStatementScheduler() {
   setTimeout(tick, 60_000);
   timer = setInterval(tick, 60_000);
   timer.unref?.();
-  console.info('[upstox-statements] scheduler active — 18:35 IST weekdays, rotating batches');
+  console.info('[upstox-statements] scheduler active — daily post-close plus optional bounded catch-up batches');
   return getUpstoxStatementSchedulerStatus();
 }
