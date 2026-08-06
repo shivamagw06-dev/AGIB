@@ -68,8 +68,12 @@ def load_sector_median_series(
         return {"ok": False, "error": "sector_required", "points": [], "source": None}
 
     points = _from_persisted_medians(sector_name, metric=metric, limit=limit)
-    source = "warehouse.historical_sector_medians"
-    if len(points) < MIN_SECTOR_HISTORY_OBS:
+    capiq_baseline = any(str(point.get("source") or "") == "capital_iq_sector_ratios" for point in points)
+    source = "warehouse.capital_iq_sector_ratios" if capiq_baseline else "warehouse.historical_sector_medians"
+    # A verified annual vendor baseline has one observation per fiscal year;
+    # do not replace ten years of CapIQ evidence with a thinner reconstructed
+    # daily series simply because it has fewer than 24 weekly observations.
+    if len(points) < MIN_SECTOR_HISTORY_OBS and not capiq_baseline:
         rebuilt = _reconstruct_from_valuation(sector_name, metric=metric, limit=limit)
         if len(rebuilt) > len(points):
             points = rebuilt
@@ -111,7 +115,9 @@ def sector_historical_percentile(
         current = values[-1]
 
     obs = len(values)
-    if obs < max(1, int(min_obs)):
+    capiq_baseline = str(series.get("source") or "") == "warehouse.capital_iq_sector_ratios"
+    required_obs = min(int(min_obs), 8) if capiq_baseline else int(min_obs)
+    if obs < max(1, required_obs):
         return {
             "ok": True,
             "sector": series.get("sector") or sector,
@@ -128,7 +134,7 @@ def sector_historical_percentile(
             "status": "INSUFFICIENT_HISTORY",
             "reason": (
                 f"Insufficient history — observed {obs} sector medians; "
-                f"need ≥{min_obs}."
+                f"need ≥{required_obs}."
             ),
             "source": series.get("source"),
             "engine": ENGINE_CODE,
@@ -298,7 +304,10 @@ def _from_persisted_medians(sector: str, *, metric: str, limit: int) -> list[dic
         if not period or val is None or period in seen:
             continue
         seen.add(period)
-        points.append({"period": period, "value": val, "company_count": r.get("company_count")})
+        points.append({
+            "period": period, "value": val, "company_count": r.get("company_count"),
+            "source": r.get("source"),
+        })
     return points
 
 

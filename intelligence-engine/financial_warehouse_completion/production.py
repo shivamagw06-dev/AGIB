@@ -171,6 +171,16 @@ def run_capiq_workbook(*, years: Optional[list[int]] = None, actor: str = "fwcp"
     return import_completed_years(years=years, actor=actor)
 
 
+def sector_ratio_workbook_status() -> dict[str, Any]:
+    from financial_warehouse_completion.sector_ratio_workbook import preview
+    return preview()
+
+
+def run_sector_ratio_workbook(*, actor: str = "fwcp") -> dict[str, Any]:
+    from financial_warehouse_completion.sector_ratio_workbook import import_history
+    return import_history(actor=actor)
+
+
 def sync_shares(symbol: str, actor: str = "fwcp") -> dict[str, Any]:
     return sync_share_count(symbol, actor=actor)
 

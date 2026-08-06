@@ -19,6 +19,8 @@ from financial_warehouse_completion.production import (
     missing_share_count,
     missing_statements,
     run_capital_iq,
+    run_sector_ratio_workbook,
+    sector_ratio_workbook_status,
     sync_shares,
     upstox_fill_board,
     upstox_fill_queue,
@@ -63,5 +65,7 @@ __all__ = [
     "import_run",
     "capital_iq",
     "run_capital_iq",
+    "sector_ratio_workbook_status",
+    "run_sector_ratio_workbook",
     "sync_shares",
 ]
