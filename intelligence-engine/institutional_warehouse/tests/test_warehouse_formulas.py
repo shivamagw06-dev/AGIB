@@ -150,6 +150,53 @@ def test_ratios_tab_is_not_manually_editable():
     assert result["ok"] is False
 
 
+def test_annual_sector_ratio_medians_require_coverage_and_exclude_financial_leverage():
+    masters = []
+    ratios = []
+    for index in range(10):
+        symbol = f"IND{index}"
+        masters.append({
+            "company_id": symbol, "symbol": symbol, "company_name": f"Industrial {index}",
+            "sector": "Industrials", "industry": "Machinery", "active": True,
+        })
+        ratios.append({
+            "symbol": symbol, "period": "FY2026", "basis": "annual",
+            "roe": 10.0 + index, "roce": 12.0 + index, "debt_equity": 0.5 + index / 100,
+        })
+    masters.append({
+        "company_id": "BANK1", "symbol": "BANK1", "company_name": "Bank One",
+        "sector": "Financials", "industry": "Banks", "industry_dna": "banks", "active": True,
+    })
+    ratios.append({
+        "symbol": "BANK1", "period": "FY2026", "basis": "annual",
+        "roe": 15.0, "debt_equity": 8.0,
+    })
+    store.upsert("company_master", masters, source="test", actor="tester")
+    store.upsert("historical_ratios", ratios, source="test", actor="tester")
+
+    formulas.recalc_annual_sector_ratios(actor="tester")
+    rows = store.fetch("annual_sector_ratios", filters={"fiscal_year": "FY2026"}, limit=500)["rows"]
+    industrial_roe = next(r for r in rows if r["sector"] == "Industrials" and r["metric"] == "roe")
+    assert industrial_roe["quality_status"] == "PASSED"
+    assert industrial_roe["company_count"] == 10
+    assert industrial_roe["median_value"] == pytest.approx(14.5)
+    financial_leverage = next(r for r in rows if r["sector"] == "Financials" and r["metric"] == "debt_equity")
+    assert financial_leverage["quality_status"] == "NOT_APPLICABLE"
+    assert financial_leverage["median_value"] is None
+
+
+def test_ratios_prefer_consolidated_over_standalone_for_same_fiscal_year():
+    store.upsert("financials_annual", [
+        {"symbol": "AAA", "statement_type": "STANDALONE", "statement_frequency": "ANNUAL",
+         "fiscal_year": "FY2024", "pat": 100.0, "equity": 500.0},
+        {"symbol": "AAA", "statement_type": "CONSOLIDATED", "statement_frequency": "ANNUAL",
+         "fiscal_year": "FY2024", "pat": 200.0, "equity": 1000.0},
+    ], source="test", actor="tester")
+    formulas.recalc_ratios(actor="tester", entity="AAA")
+    row = store.fetch("historical_ratios", filters={"symbol": "AAA", "period": "FY2024"})["rows"][0]
+    assert row["roe"] == pytest.approx(20.0)
+
+
 # --------------------------------------------------------------------------
 # Valuation
 # --------------------------------------------------------------------------

@@ -479,6 +479,41 @@ HISTORICAL_RATIOS = Tab(
 )
 
 # --------------------------------------------------------------------------
+# Tab 5b — Annual Sector Ratios (computed)
+# --------------------------------------------------------------------------
+
+ANNUAL_SECTOR_RATIOS = Tab(
+    id="annual_sector_ratios",
+    label="Annual Sector Ratios",
+    description=(
+        "Fiscal-year sector medians calculated from verified company annual ratios. "
+        "ETFs, funds and non-comparable sector metrics are excluded."
+    ),
+    mode="computed",
+    key=("sector", "fiscal_year", "metric"),
+    order_by=("fiscal_year DESC", "sector", "metric"),
+    search_columns=("sector", "fiscal_year", "metric"),
+    icon="valuation",
+    notes=(
+        "A median is published only with at least 10 eligible companies. ",
+        "Financial-sector leverage and liquidity ratios are intentionally suppressed.",
+    ),
+    columns=(
+        _c("sector", "Sector", TEXT, editable=False, required=True, width=170, group="Key"),
+        _c("fiscal_year", "Fiscal Year", TEXT, editable=False, required=True, width=120, group="Key"),
+        _c("metric", "Metric", TEXT, editable=False, required=True, width=140, group="Key"),
+        _computed("median_value", "Sector Median", NUMBER, width=130, group="Ratio"),
+        _c("company_count", "Valid Companies", INTEGER, editable=False, width=130, group="Coverage"),
+        _c("eligible_company_count", "Eligible Companies", INTEGER, editable=False, width=145, group="Coverage"),
+        _c("coverage_pct", "Coverage %", NUMBER, editable=False, width=120, group="Coverage"),
+        _c("minimum_required", "Minimum Required", INTEGER, editable=False, width=140, group="Coverage"),
+        _c("quality_status", "Quality Status", TEXT, editable=False, width=150, group="Quality"),
+        _c("exclusion_reason", "Exclusion Rule", TEXT, editable=False, width=260, group="Quality"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
 # Tab 6 — Historical Valuation (computed daily snapshots)
 # --------------------------------------------------------------------------
 
@@ -1563,6 +1598,7 @@ TABS: tuple[Tab, ...] = (
     FINANCIALS_QUARTERLY,
     SHARE_COUNT_HISTORY,
     HISTORICAL_RATIOS,
+    ANNUAL_SECTOR_RATIOS,
     HISTORICAL_VALUATION,
     CONSENSUS,
     RESEARCH_INTELLIGENCE,

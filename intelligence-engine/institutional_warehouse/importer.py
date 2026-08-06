@@ -294,13 +294,13 @@ def commit(import_id: str, *, actor: str = "admin", recalculate: bool = True) ->
 
 def stages_for(tab_id: str) -> list[str]:
     if tab_id in ("financials_annual", "financials_quarterly"):
-        return ["statement_derivations", "ratios", "valuation", "factors", "quality"]
+        return ["statement_derivations", "ratios", "annual_sector_ratios", "valuation", "factors", "quality"]
     if tab_id == "daily_market_history":
         return ["market_derivations", "valuation", "factors", "quality"]
     if tab_id == "consensus":
         return ["consensus_derivations", "valuation", "factors", "quality"]
     if tab_id == "company_master":
-        return ["valuation", "quality"]
+        return ["annual_sector_ratios", "valuation", "quality"]
     return ["quality"]
 
 
