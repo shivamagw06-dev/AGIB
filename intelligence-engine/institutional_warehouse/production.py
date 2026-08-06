@@ -556,7 +556,9 @@ def coverage() -> dict[str, Any]:
     }
 
 
-def repair_upstox_quarterly(*, actor: str = "admin", apply: bool = False) -> dict[str, Any]:
+def repair_upstox_quarterly(
+    *, actor: str = "admin", apply: bool = False, row_ids: list[str] | None = None
+) -> dict[str, Any]:
     from institutional_warehouse.upstox_repair import repair_annual_as_quarterly
 
-    return repair_annual_as_quarterly(actor=actor, apply=apply)
+    return repair_annual_as_quarterly(actor=actor, apply=apply, row_ids=row_ids)
