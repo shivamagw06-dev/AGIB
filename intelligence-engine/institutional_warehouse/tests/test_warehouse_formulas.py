@@ -105,6 +105,7 @@ def test_statement_derivations_compute_fcf_and_book_value():
     # Book value per share is money per share: equity of 500 INR million over
     # 100 shares is 5 million rupees a share, not 5.
     assert row["book_value"] == pytest.approx(5.0 * units.MILLION)
+    assert row["source"] == "test"
 
 
 def test_market_cap_is_price_times_shares():
