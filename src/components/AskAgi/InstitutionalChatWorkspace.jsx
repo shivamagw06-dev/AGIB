@@ -195,10 +195,10 @@ function AnswerTurn({ answer, onAsk }) {
         )}
       </div>
 
-      {/* 2. Why AGI thinks this */}
+      {/* 2. Evidence / rationale */}
       {answer.whyAgib?.length > 0 && (
         <section className="ac-block">
-          <h2>Why AGI thinks this</h2>
+          <h2>{answer.answerFormat?.evidenceTitle || 'Why AGI thinks this'}</h2>
           <ul className="ac-why-list">
             {answer.whyAgib.map((item) => (
               <li key={item}>{item}</li>
@@ -207,9 +207,9 @@ function AnswerTurn({ answer, onAsk }) {
         </section>
       )}
 
-      {/* 3. Investment Thesis */}
-      <section className="ac-block">
-        <h2>Investment Thesis</h2>
+      {/* 3. Company / financial thesis — not meaningful for factual comparisons. */}
+      {answer.answerFormat?.thesis !== false && <section className="ac-block">
+        <h2>{answer.answerFormat?.key === 'financials' ? 'Financial performance' : answer.answerFormat?.key === 'valuation' ? 'Valuation framework' : 'Investment Thesis'}</h2>
         <div className="ac-thesis">
           {answer.thesisCards.map((card) => (
             <details key={card.id} className="ac-thesis-card">
@@ -221,12 +221,12 @@ function AnswerTurn({ answer, onAsk }) {
             </details>
           ))}
         </div>
-      </section>
+      </section>}
 
       {/* 4. Bull vs Bear Case */}
-      {answer.confidence != null && !answer.evidenceUnavailable && (answer.moreBullish?.length || answer.moreBearish?.length) ? (
+      {answer.answerFormat?.scenarios !== false && answer.confidence != null && !answer.evidenceUnavailable && (answer.moreBullish?.length || answer.moreBearish?.length) ? (
         <section className="ac-block">
-          <h2>Bull vs Bear Case</h2>
+          <h2>{answer.answerFormat?.key === 'catalysts' ? 'Upside and downside catalysts' : 'Bull vs Bear Case'}</h2>
           <div className="ac-change">
             <div className="ac-change-col bull">
               <h3>Bull Case</h3>
@@ -286,7 +286,7 @@ function AnswerTurn({ answer, onAsk }) {
       {/* 7. Bottom Line */}
       {answer.bottomLine && (
         <section className="ac-block ac-bottom-line">
-          <h2>Bottom Line</h2>
+          <h2>{answer.answerFormat?.bottomLine || 'Bottom Line'}</h2>
           <p>{answer.bottomLine}</p>
         </section>
       )}

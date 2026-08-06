@@ -10,6 +10,7 @@ import {
   mergeResearchJourneyState,
 } from '@/lib/researchJourney';
 import { getResearchSession, mergeResearchSession } from '@/lib/researchSession';
+import { answerFormatFor } from '@/components/AskAgi/answerFormat';
 
 function asList(v, n = 8) {
   if (!Array.isArray(v)) return [];
@@ -86,6 +87,7 @@ export function mapChatAnswer(pack) {
         pack?.ask_orchestration?.fallback ||
         pack?.ask_orchestration?.fallback_used
     );
+  const answerFormat = answerFormatFor(vm.question || pack?.question, vm.intent || pack?.intent);
   const unavailableText =
     'Evidence unavailable: AGI could not retrieve verified company research for this answer. Retry when the research desk is available.';
   const evidenceBacked = (value, fallback) =>
@@ -373,6 +375,7 @@ export function mapChatAnswer(pack) {
     freshness: vm.freshness,
     lastUpdated: vm.lastUpdated,
     evidenceUnavailable,
+    answerFormat,
     constitutionVersion: aic?.version || ipf?.version || rc?.version || '1.0',
     investmentContext,
     researchConclusion,
