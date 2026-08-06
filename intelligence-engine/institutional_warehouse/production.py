@@ -554,3 +554,9 @@ def coverage() -> dict[str, Any]:
         "total_rows": sum(counts.values()),
         "quality": validation.validate_all(sample=100),
     }
+
+
+def repair_upstox_quarterly(*, actor: str = "admin", apply: bool = False) -> dict[str, Any]:
+    from institutional_warehouse.upstox_repair import repair_annual_as_quarterly
+
+    return repair_annual_as_quarterly(actor=actor, apply=apply)

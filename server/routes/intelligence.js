@@ -8432,6 +8432,7 @@ export default function createIntelligenceRouter() {
   const encode = (value) => encodeURIComponent(String(value || ''));
 
   router.get('/warehouse/health', warehouseGet('/v1/warehouse/health'));
+  router.post('/warehouse/repair/upstox-quarterly', warehousePost('/v1/warehouse/repair/upstox-quarterly', 300_000));
   router.get('/warehouse/workbook', warehouseGet('/v1/warehouse/workbook'));
   router.get('/warehouse/stats', warehouseGet('/v1/warehouse/stats'));
   router.get('/warehouse/whoami', warehouseGet('/v1/warehouse/whoami'));

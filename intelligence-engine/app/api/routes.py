@@ -18422,6 +18422,16 @@ async def warehouse_health():
     return health()
 
 
+@router.post("/warehouse/repair/upstox-quarterly")
+async def warehouse_repair_upstox_quarterly(body: dict[str, Any] | None = None):
+    from institutional_warehouse.production import repair_upstox_quarterly
+
+    body = body or {}
+    if body.get("apply") and body.get("confirm") != "RETIRE_DUPLICATE_UPSTOX_Q4":
+        return {"ok": False, "error": "repair_confirmation_required"}
+    return repair_upstox_quarterly(actor=_warehouse_actor(body), apply=bool(body.get("apply")))
+
+
 @router.get("/warehouse/workbook")
 async def warehouse_workbook():
     from institutional_warehouse.production import workbook
