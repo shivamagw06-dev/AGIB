@@ -357,6 +357,7 @@ export default function createMarketRouter(env = {}) {
         limit: req.body?.limit,
         concurrency: req.body?.concurrency,
         symbols: req.body?.symbols,
+        annualOnly: req.body?.annual_only === true || req.body?.annualOnly === true,
       });
       return res.status(result.status || (result.ok ? 200 : 502)).json(result);
     } catch (err) {

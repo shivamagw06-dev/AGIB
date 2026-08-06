@@ -5,7 +5,7 @@
  * then reuses refreshUpstoxFundamentals({ dataset: 'statements' }) which
  * already calls:
  *   GET /v2/fundamentals/{isin}/income-statement|balance-sheet|cash-flow
- * with type=consolidated, yearly+quarterly, fs=true.
+ * with type=consolidated, yearly, fs=true.
  *
  * Prefer this over Yahoo fill on Render (Yahoo fundamentals are blocked).
  */
@@ -121,6 +121,7 @@ async function runBatch({ batchSize = state.batchSize, symbols = null } = {}) {
     limit: todo.length,
     concurrency: state.concurrency,
     symbols: todo,
+    annualOnly: true,
   });
 
   const fetched = Number(result.fetched || 0);
@@ -259,11 +260,11 @@ export function getUpstoxEmptyFillStatus() {
     plain_english: (
       `Upstox EMPTY fill is ${state.status}. `
       + `Processed ${state.processed}, filled ${state.filled}, failed ${state.failed}. `
-      + 'Uses /v2/fundamentals/{isin}/… (yearly+quarterly, consolidated).'
+      + 'Uses three annual Upstox statement calls per eligible company (consolidated).'
     ),
     what_this_does: (
       'Fills warehouse financials_annual / financials_quarterly for EMPTY equities '
-      + 'with INE* ISINs via Upstox fundamentals. Prefer over Yahoo on Render.'
+      + 'with INE* ISINs via three annual Upstox fundamentals calls. Prefer over Yahoo on Render.'
     ),
   };
 }
