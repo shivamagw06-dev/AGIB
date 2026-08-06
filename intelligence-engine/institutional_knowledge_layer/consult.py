@@ -5,6 +5,7 @@ Never issues recommendations. Soft — never raises.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from institutional_knowledge_layer.deltas import timeline_for
@@ -14,6 +15,13 @@ from institutional_knowledge_layer.memory.company import read_company_memory
 from institutional_knowledge_layer.memory.industry import read_industry_memory
 from institutional_knowledge_layer.memory.macro import detect_macro_topics, read_macro_memory
 from institutional_knowledge_layer.schema import ASK_RETRIEVAL_ORDER, IKL_CODE, IKL_VERSION, now_ts
+
+
+_TIMELINE_QUERY_RE = re.compile(
+    r"\b(history|historical|timeline|what changed|since|previous|prior|"
+    r"quarter|quarterly|earnings|results|annual report|filing|guidance)\b",
+    re.I,
+)
 
 
 def _slot_preview(slots: dict[str, Any], keys: list[str], *, n: int = 4) -> dict[str, list[Any]]:
@@ -139,15 +147,20 @@ def consult(
             if kpis:
                 structured_kpis[cid] = kpis[:8]
 
+        # Timeline reads are the most expensive part of a memory consult.  A
+        # current-state comparison already has company memory and structured KPIs;
+        # only load dated history when the user actually asks a historical question.
         timelines: dict[str, Any] = {}
-        for cid in company_ids[:5]:
-            deltas = timeline_for(cid, limit=20)
-            mem = read_company_memory(cid)
-            docs = ((mem or {}).get("slots") or {}).get("document_timeline") or []
-            timelines[cid] = {
-                "deltas": deltas,
-                "documents": docs[-12:],
-            }
+        timeline_requested = bool(_TIMELINE_QUERY_RE.search(q))
+        if timeline_requested:
+            for cid in company_ids[:5]:
+                deltas = timeline_for(cid, limit=20)
+                mem = read_company_memory(cid)
+                docs = ((mem or {}).get("slots") or {}).get("document_timeline") or []
+                timelines[cid] = {
+                    "deltas": deltas,
+                    "documents": docs[-12:],
+                }
 
         layers_hit = []
         if company_memories:
@@ -205,6 +218,7 @@ def consult(
             "knowledge_graph": kg,
             "structured_kpis": structured_kpis,
             "historical_timeline": timelines,
+            "timeline_requested": timeline_requested,
             "answer_hints": answer_hints[:12],
             "explainability": {
                 "knowledge_sources": layers_hit,
