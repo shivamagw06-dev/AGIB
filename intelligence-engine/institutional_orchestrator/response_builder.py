@@ -19,6 +19,20 @@ def _value(value: Any, *, decimals: int = 2) -> str:
         return "not reported"
 
 
+def _money(value: Any, row: dict[str, Any]) -> str:
+    """Use Indian units only for warehouse rows with verified normalisation."""
+    meta = row.get("_meta") if isinstance(row.get("_meta"), dict) else {}
+    method = str(meta.get("unit_method") or "").lower()
+    try:
+        amount = float(value)
+    except (TypeError, ValueError):
+        return "not reported"
+    if "canonical" in method or "normal" in method:
+        # Warehouse canonical currency is INR million; 10 million INR = 1 crore.
+        return f"₹{amount / 10:,.1f} crore"
+    return f"{amount:,.2f} (source units)"
+
+
 def _comparison_answer(payloads: dict[str, Any]) -> str | None:
     comparison = ((payloads.get("ComparisonEvidence") or {}).get("payload") or {})
     if not comparison.get("available"):
@@ -37,7 +51,7 @@ def _comparison_answer(payloads: dict[str, Any]) -> str | None:
         sources = ", ".join(company.get("sources") or []) or "institutional warehouse"
         as_of = company.get("as_of") or "not supplied"
         lines.append(
-            f"{symbol} ({period}): reported PAT {_value(pat)}; EPS {_value(eps)}; "
+            f"{symbol} ({period}): reported PAT {_money(pat, quarter if quarter.get('pat') is not None else annual)}; EPS {_value(eps)}; "
             f"P/E {_value(pe)}; P/B {_value(pb)}. Source: {sources}; as of {as_of}."
         )
     return "Verified comparison — " + " ".join(lines) + " This is factual research, not an investment recommendation."
