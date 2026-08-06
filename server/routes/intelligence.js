@@ -98,6 +98,36 @@ function proxyGet(pathBuilder) {
   };
 }
 
+let companyMasterCache = { expiresAt: 0, rows: [] };
+
+async function companyMatches(query, limit = 8) {
+  const needle = String(query || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!needle) return [];
+  if (Date.now() > companyMasterCache.expiresAt) {
+    const result = await engineFetch('/v1/warehouse/tab/company_master?limit=3000', { timeoutMs: 20_000 });
+    if (!result.ok) throw new Error(result.data?.error || 'Company master is unavailable.');
+    companyMasterCache = {
+      expiresAt: Date.now() + 5 * 60_000,
+      rows: (result.data?.rows || []).map((row) => ({
+        symbol: String(row.symbol || row.company_id || '').toUpperCase(),
+        company_name: row.company_name || row.legal_name || row.symbol || row.company_id,
+      })).filter((row) => row.symbol),
+    };
+  }
+  const clean = (value) => String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const rank = (row) => {
+    const symbol = clean(row.symbol); const name = clean(row.company_name);
+    if (symbol === needle || name === needle) return 0;
+    if (symbol.startsWith(needle)) return 1;
+    if (name.startsWith(needle)) return 2;
+    return 3;
+  };
+  return companyMasterCache.rows
+    .filter((row) => clean(row.symbol).includes(needle) || clean(row.company_name).includes(needle))
+    .sort((a, b) => rank(a) - rank(b) || a.company_name.localeCompare(b.company_name))
+    .slice(0, limit);
+}
+
 export default function createIntelligenceRouter() {
   const router = Router();
 
@@ -137,21 +167,20 @@ export default function createIntelligenceRouter() {
   router.get('/company/resolve', async (req, res) => {
     const query = String(req.query.q || '').trim();
     if (!query) return res.status(400).json({ error: 'Enter a company name or NSE symbol.' });
-    const normalize = (value) => String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     try {
-      const result = await engineFetch('/v1/warehouse/tab/company_master?limit=3000', { timeoutMs: 20_000 });
-      if (!result.ok) return res.status(result.status).json(result.data);
-      const needle = normalize(query);
-      const candidates = (result.data?.rows || []).map((row) => ({
-        symbol: String(row.symbol || row.company_id || '').toUpperCase(),
-        company_name: row.company_name || row.legal_name || row.symbol || row.company_id,
-      })).filter((row) => row.symbol);
-      const match = candidates.find((row) => normalize(row.symbol) === needle)
-        || candidates.find((row) => normalize(row.company_name) === needle)
-        || candidates.find((row) => normalize(row.company_name).startsWith(needle))
-        || candidates.find((row) => normalize(row.company_name).includes(needle));
+      const [match] = await companyMatches(query, 1);
       if (!match) return res.status(404).json({ error: `No listed company found for “${query}”.` });
       return res.json({ ok: true, ...match });
+    } catch (error) {
+      return res.status(503).json({ error: 'Company search is temporarily unavailable.', detail: error.message });
+    }
+  });
+
+  router.get('/company/search', async (req, res) => {
+    const query = String(req.query.q || '').trim();
+    if (query.length < 2) return res.json({ ok: true, results: [] });
+    try {
+      return res.json({ ok: true, results: await companyMatches(query, 8) });
     } catch (error) {
       return res.status(503).json({ error: 'Company search is temporarily unavailable.', detail: error.message });
     }
