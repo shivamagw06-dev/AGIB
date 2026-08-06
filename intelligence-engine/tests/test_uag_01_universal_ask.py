@@ -110,6 +110,17 @@ def test_pat_yoy_requires_same_upstox_consolidated_quarter():
     assert _pat_yoy(current, [prior, different_source])["value"] == 20.0
 
 
+def test_pat_yoy_uses_disclosed_same_provider_fallback_when_headline_history_is_missing():
+    from institutional_orchestrator.object_registry import _pat_yoy
+
+    headline = {"fiscal_period": "FY27Q1", "pat": 120, "source": "upstox", "statement_type": "CONSOLIDATED"}
+    current_fallback = {"fiscal_period": "Q1 FY27", "pat": 110, "source": "financial_connector", "statement_type": "UNKNOWN"}
+    prior_fallback = {"fiscal_period": "Q1 FY26", "pat": 100, "source": "financial_connector", "statement_type": "UNKNOWN"}
+    result = _pat_yoy(headline, [headline, current_fallback, prior_fallback])
+    assert result["value"] == 10.0
+    assert result["basis"] == "same_provider_unclassified"
+
+
 def test_registry_route_discovery():
     hits = match_routes("Show committee deferred decisions and policy violations")
     types = {h.object_type for h in hits}
