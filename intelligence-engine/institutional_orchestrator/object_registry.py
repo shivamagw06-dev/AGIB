@@ -216,6 +216,67 @@ def _retrieve_research(ctx: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _retrieve_comparison_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
+    """Read company facts from the warehouse for a side-by-side research question.
+
+    This is intentionally a fact provider, not a decision engine: it must never
+    turn two records into a buy/sell recommendation.  The resulting source and
+    as-of fields let the response layer make the provenance visible.
+    """
+    symbols = list(dict.fromkeys(str(x).upper() for x in (ctx.get("entities") or []) if x))[:5]
+    if len(symbols) < 2:
+        return {
+            "ok": True,
+            "object_type": "ComparisonEvidence",
+            "payload": {"available": False, "reason": "two_companies_required", "symbols": symbols},
+            "soft_missing": True,
+        }
+    try:
+        from institutional_warehouse.production import read_company
+
+        companies: list[dict[str, Any]] = []
+        for symbol in symbols:
+            record = read_company(symbol)
+            if not record.get("ok"):
+                continue
+            annual = record.get("latest_annual") or {}
+            quarter = record.get("latest_quarter") or {}
+            valuation = record.get("valuation") or {}
+            source_rows = [row for row in (quarter, annual, valuation) if row]
+            companies.append(
+                {
+                    "symbol": record.get("symbol") or symbol,
+                    "annual": annual,
+                    "quarter": quarter,
+                    "valuation": valuation,
+                    "provider_ratios": record.get("provider_ratios") or {},
+                    "sources": sorted({str(row.get("source")) for row in source_rows if row.get("source")}),
+                    "as_of": next(
+                        (
+                            row.get("effective_date") or row.get("filing_date") or row.get("last_updated")
+                            for row in source_rows
+                            if row.get("effective_date") or row.get("filing_date") or row.get("last_updated")
+                        ),
+                        None,
+                    ),
+                }
+            )
+        if len(companies) < 2:
+            return {
+                "ok": True,
+                "object_type": "ComparisonEvidence",
+                "payload": {"available": False, "reason": "verified_warehouse_records_missing", "symbols": symbols},
+                "soft_missing": True,
+            }
+        return {
+            "ok": True,
+            "object_type": "ComparisonEvidence",
+            "payload": {"available": True, "companies": companies, "source": "institutional_warehouse"},
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "object_type": "ComparisonEvidence", "error": str(exc)}
+
+
 def _retrieve_relationships(ctx: dict[str, Any]) -> dict[str, Any]:
     """CCI-01 soft retrieve — relationship reasoning over KG-01; no recommendations."""
     question = str(ctx.get("question") or "")
@@ -251,6 +312,14 @@ def _retrieve_relationships(ctx: dict[str, Any]) -> dict[str, Any]:
 def bootstrap_default_registry() -> None:
     if _REGISTRY:
         return
+    register(
+        "ComparisonEvidence",
+        routes=["compare", "comparison", "versus", " vs "],
+        provider="institutional_warehouse",
+        planner="company",
+        description="Verified warehouse facts for multi-company comparison",
+        retrieve=_retrieve_comparison_evidence,
+    )
     register(
         "CompanyDecision",
         routes=["buy", "sell", "hold", "recommendation", "investment thesis", "valuation", "should i"],
