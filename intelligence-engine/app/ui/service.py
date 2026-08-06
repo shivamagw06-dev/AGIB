@@ -1557,11 +1557,11 @@ class UiService:
             # Call the single warehouse provider, not the general Universal Ask
             # planner.  The latter also schedules broad industry/event objects and
             # defeated this latency guard on a single-worker Render instance.
-            comparison_wrap = _retrieve_comparison_evidence({"entities": tickers[:2]}) or {}
+            comparison_wrap = _retrieve_comparison_evidence({"entities": tickers[:2], "question": question}) or {}
             comparison_payload = comparison_wrap.get("payload") if isinstance(comparison_wrap, dict) else {}
             comparison_payload = comparison_payload if isinstance(comparison_payload, dict) else {}
             direct = str(
-                _comparison_answer({"ComparisonEvidence": {"payload": comparison_payload}}) or ""
+                _comparison_answer({"ComparisonEvidence": {"payload": comparison_payload}}, question=question) or ""
             ).strip()
             # Do not hide richer research behind an empty warehouse response.
             if not direct or "unavailable for every requested company" in direct.lower():

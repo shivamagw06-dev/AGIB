@@ -73,6 +73,13 @@ def _preferred_statement(rows: list[dict[str, Any]], fallback: dict[str, Any]) -
     return min(usable, key=_statement_rank) if usable else fallback
 
 
+def _annual_history(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One annual record per fiscal year, with CapIQ as the history of record."""
+    from institutional_warehouse.financials import canonical_statement_series
+
+    return canonical_statement_series(rows, period_key="fiscal_year", annual=True)
+
+
 def _pat_growth(current: dict[str, Any], prior: dict[str, Any], *, basis: str) -> dict[str, Any] | None:
     """Return a labelled PAT growth observation without concealing its basis."""
     try:
@@ -365,15 +372,16 @@ def _retrieve_comparison_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
             # Do not call ``read_company`` here: it opens every warehouse sheet
             # (news, prices, ownership, research, etc.) for each symbol.  A
             # financial comparison only needs the three bounded source tables.
-            annual_rows = _statement_rows("financials_annual", symbol, 12)
+            # The question can explicitly ask for a decade. Read the bounded
+            # company series (not the whole warehouse) so CapIQ FY2016–FY2026
+            # is actually available to the answer formatter.
+            annual_rows = _statement_rows("financials_annual", symbol, 80)
             quarter_rows = _statement_rows("financials_quarterly", symbol, 12)
             valuation_rows = _statement_rows("historical_valuation", symbol, 1)
             if not annual_rows and not quarter_rows and not valuation_rows:
                 continue
-            annual = _preferred_statement(
-                annual_rows,
-                {},
-            )
+            annual_history = _annual_history(annual_rows)
+            annual = annual_history[-1] if annual_history else {}
             quarter = _preferred_statement(
                 quarter_rows,
                 {},
@@ -384,11 +392,16 @@ def _retrieve_comparison_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
                 {
                     "symbol": symbol,
                     "annual": annual,
+                    "annual_history": annual_history,
                     "quarter": quarter,
                     "valuation": valuation,
                     "provider_ratios": {},
                     "earnings_trend": _pat_yoy(quarter, quarter_rows),
-                    "sources": sorted({str(row.get("source")) for row in source_rows if row.get("source")}),
+                    "sources": sorted({
+                        "Capital IQ workbook" if str(row.get("statement_version") or "").startswith("capiq_workbook_")
+                        else str(row.get("source"))
+                        for row in source_rows if row.get("source") or row.get("statement_version")
+                    }),
                     "as_of": next(
                         (
                             row.get("effective_date") or row.get("filing_date") or row.get("last_updated")
@@ -409,7 +422,12 @@ def _retrieve_comparison_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
         return {
             "ok": True,
             "object_type": "ComparisonEvidence",
-            "payload": {"available": True, "companies": companies, "source": "institutional_warehouse"},
+            "payload": {
+                "available": True,
+                "companies": companies,
+                "source": "institutional_warehouse",
+                "question": str(ctx.get("question") or ""),
+            },
         }
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "object_type": "ComparisonEvidence", "error": str(exc)}

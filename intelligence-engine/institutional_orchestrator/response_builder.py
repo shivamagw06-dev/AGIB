@@ -27,17 +27,65 @@ def _money(value: Any, row: dict[str, Any]) -> str:
         amount = float(value)
     except (TypeError, ValueError):
         return "not reported"
-    if method in {"declared", "source_default"} or "normal" in method:
+    is_capiq = str(row.get("statement_version") or "").startswith("capiq_workbook_")
+    if is_capiq or method in {"declared", "source_default", "assumed_canonical"} or "normal" in method:
         # Warehouse canonical currency is INR million; 10 million INR = 1 crore.
         return f"₹{amount / 10:,.1f} crore"
     return f"{amount:,.2f} (source units)"
 
 
-def _comparison_answer(payloads: dict[str, Any]) -> str | None:
+def _year_number(value: Any) -> int | None:
+    import re
+
+    found = re.search(r"(\d{2,4})", str(value or ""))
+    if not found:
+        return None
+    year = int(found.group(1))
+    return year + 2000 if year < 100 else year
+
+
+def _ten_year_summary(company: dict[str, Any]) -> str | None:
+    """Render a factual decade trend from the canonical annual series."""
+    history = [
+        row for row in (company.get("annual_history") or [])
+        if row.get("pat") is not None and _year_number(row.get("fiscal_year")) is not None
+    ]
+    if len(history) < 2:
+        return None
+    start, end = history[0], history[-1]
+    start_year, end_year = _year_number(start.get("fiscal_year")), _year_number(end.get("fiscal_year"))
+    try:
+        start_pat, end_pat = float(start["pat"]), float(end["pat"])
+        years = (end_year or 0) - (start_year or 0)
+        cagr = ((end_pat / start_pat) ** (1 / years) - 1) * 100 if years > 0 and start_pat > 0 and end_pat > 0 else None
+    except (TypeError, ValueError, ZeroDivisionError):
+        cagr = None
+    cagr_text = f"; PAT CAGR {cagr:.1f}%" if cagr is not None else ""
+    balance = []
+    if end.get("equity") is not None:
+        balance.append(f"equity {_money(end.get('equity'), end)}")
+    if end.get("assets") is not None:
+        balance.append(f"assets {_money(end.get('assets'), end)}")
+    try:
+        if float(end.get("debt")) >= 0 and float(end.get("equity")) > 0:
+            balance.append(f"debt/equity {float(end['debt']) / float(end['equity']):.2f}x")
+    except (TypeError, ValueError, ZeroDivisionError):
+        pass
+    balance_text = "; ".join(balance) if balance else "reported balance-sheet fields unavailable"
+    return (
+        f"{company.get('symbol')}: annual PAT {_money(start_pat, start)} in {start.get('fiscal_year')} → "
+        f"{_money(end_pat, end)} in {end.get('fiscal_year')}{cagr_text}. "
+        f"Balance-sheet snapshot ({end.get('fiscal_year')}): {balance_text}."
+    )
+
+
+def _comparison_answer(payloads: dict[str, Any], *, question: str = "") -> str | None:
     comparison = ((payloads.get("ComparisonEvidence") or {}).get("payload") or {})
     if not comparison.get("available"):
         return None
     lines: list[str] = []
+    q = (question or comparison.get("question") or "").lower()
+    wants_decade = any(term in q for term in ("10-year", "10 year", "decade", "long-term", "long term"))
     for company in (comparison.get("companies") or [])[:5]:
         symbol = company.get("symbol") or "Company"
         quarter = company.get("quarter") or {}
@@ -62,6 +110,11 @@ def _comparison_answer(payloads: dict[str, Any]) -> str | None:
             yoy_text = f"; PAT YoY {float(yoy):+.1f}% vs {trend.get('prior_period')}"
         sources = ", ".join(company.get("sources") or []) or "institutional warehouse"
         as_of = company.get("as_of") or "not supplied"
+        if wants_decade:
+            decade = _ten_year_summary(company)
+            if decade:
+                lines.append(f"{decade} Source: {sources}; as of {as_of}.")
+                continue
         lines.append(
             f"{symbol} ({period}): reported PAT {_money(pat, quarter if quarter.get('pat') is not None else annual)}; EPS {_value(eps)}; "
             f"P/E {_value(pe)}; P/B {_value(pb)}{yoy_text}. Source: {sources}; as of {as_of}."
@@ -126,7 +179,7 @@ def _direct_answer(question: str, intent: str, payloads: dict[str, Any], why: tu
     q = (question or "").lower()
 
     if intent == "Comparison":
-        comparison = _comparison_answer(payloads)
+        comparison = _comparison_answer(payloads, question=question)
         if comparison:
             return comparison
         return "Verified comparison data is unavailable for every requested company; no conclusion was inferred."
