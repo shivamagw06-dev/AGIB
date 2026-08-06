@@ -9,15 +9,25 @@ import { hydrateHomeFromMarketApis } from '@/office/homeDeskFallback';
 
 const BASE = API_ORIGIN || '';
 
-async function uiFetch(path, { method = 'GET', body, query } = {}) {
+async function uiFetch(path, { method = 'GET', body, query, timeoutMs = 45_000 } = {}) {
   const qs = query ? `?${new URLSearchParams(query).toString()}` : '';
   const url = `${BASE}/api/ui${path}${qs}`;
-  const resp = await fetch(url, {
-    method,
-    credentials: 'include',
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let resp;
+  try {
+    resp = await fetch(url, {
+      method,
+      credentials: 'include',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err) {
+    const name = err?.name || '';
+    if (name === 'TimeoutError' || name === 'AbortError' || /timed out|aborted/i.test(String(err?.message || ''))) {
+      throw new Error(`UI API timed out after ${Math.round(timeoutMs / 1000)}s (${path})`);
+    }
+    throw err;
+  }
   const contentType = resp.headers.get('content-type') || '';
   const text = await resp.text().catch(() => '');
   if (!resp.ok) {
@@ -48,7 +58,7 @@ export async function getUiHome() {
     }
   }
 }
-export const getUiDashboard = () => uiFetch('/dashboard');
+export const getUiDashboard = () => uiFetch('/dashboard', { timeoutMs: 12_000 });
 export const getUiMacro = () => uiFetch('/macro');
 export const getUiPortfolio = () => uiFetch('/portfolio');
 export const getUiWorkflow = () => uiFetch('/workflow');

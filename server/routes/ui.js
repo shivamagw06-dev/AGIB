@@ -487,7 +487,10 @@ export default function createUiRouter() {
       try {
         const path = `/v1/ui${req.path}`;
         const qs = new URLSearchParams(req.query).toString();
-        const result = await engineFetch(`${path}${qs ? `?${qs}` : ''}`);
+        // Public pages (Market Intelligence) must not hang for minutes when the
+        // engine is cold. Dashboard is enrichment, not a hard dependency.
+        const timeoutMs = p === '/dashboard' ? 12_000 : 45_000;
+        const result = await engineFetch(`${path}${qs ? `?${qs}` : ''}`, { timeoutMs });
         return res.status(result.status).json(result.data);
       } catch (error) {
         return res.status(503).json({ error: 'UI aggregation unavailable', detail: error.message });

@@ -391,10 +391,30 @@ def regime(universe: Optional[list[dict[str, Any]]] = None) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # The terminal overview — everything the page needs in one call
 # ---------------------------------------------------------------------------
-def overview(limit: int = 1000) -> dict[str, Any]:
-    run = run_all(limit=limit)
+_OVERVIEW_CACHE: dict[str, Any] = {"key": None, "at": 0.0, "payload": None}
+_OVERVIEW_TTL_SEC = 90.0
+
+
+def overview(limit: int = 12) -> dict[str, Any]:
+    """Build the hedge-fund terminal. Cached briefly so cold opens don't recompute."""
+    import time
+
+    capped = max(1, min(int(limit or 12), 50))
+    now = time.time()
+    cache_key = f"limit:{capped}"
+    cached = _OVERVIEW_CACHE.get("payload")
+    if (
+        cached
+        and _OVERVIEW_CACHE.get("key") == cache_key
+        and (now - float(_OVERVIEW_CACHE.get("at") or 0.0)) < _OVERVIEW_TTL_SEC
+    ):
+        out = dict(cached)
+        out["cache"] = {"hit": True, "ttl_sec": _OVERVIEW_TTL_SEC}
+        return out
+
+    run = run_all(limit=capped)
     if not run.get("ok"):
-        return {"ok": False, "error": run.get("error") or "universe_empty"}
+        return {"ok": False, "error": run.get("error") or "universe_empty", "cache": {"hit": False}}
 
     universe = run["universe"]
     medians = run["medians"]
@@ -454,6 +474,8 @@ def overview(limit: int = 1000) -> dict[str, Any]:
                 "research_question": profile.get("question"),
                 "entered_today": len(entered),
                 "exited_today": len(exited),
+                # Embed preview rows so the UI does not re-scan on first paint.
+                "results": rows,
             }
         )
 
@@ -549,7 +571,7 @@ def overview(limit: int = 1000) -> dict[str, Any]:
     ]
 
     total = sum(len(rows) for rows in results.values())
-    return {
+    payload = {
         "ok": True,
         "as_of": day,
         "compared_with": prior_day,
@@ -580,7 +602,12 @@ def overview(limit: int = 1000) -> dict[str, Any]:
         "sources": dict(SOURCES),
         "universe_meta": universe_meta(),
         "policy": "Research observations only — no buy, sell, target price or personalised advice.",
+        "cache": {"hit": False, "ttl_sec": _OVERVIEW_TTL_SEC},
     }
+    _OVERVIEW_CACHE["key"] = cache_key
+    _OVERVIEW_CACHE["at"] = now
+    _OVERVIEW_CACHE["payload"] = payload
+    return payload
 
 
 def market_dashboard(universe=None, medians=None) -> dict[str, Any]:

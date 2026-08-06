@@ -237,18 +237,34 @@ function Explanation({ ticker }) {
 /* ------------------------------------------------------------------ */
 /* Opportunity table for one scanner                                    */
 /* ------------------------------------------------------------------ */
-function OpportunityTable({ scan, label }) {
-  const [rows, setRows] = useState([]);
-  const [meta, setMeta] = useState(null);
+function OpportunityTable({ scan, label, previewRows = null, researchQuestion = '' }) {
+  const [rows, setRows] = useState(() => (Array.isArray(previewRows) ? previewRows : []));
+  const [meta, setMeta] = useState(() => (
+    Array.isArray(previewRows) && previewRows.length
+      ? { count: previewRows.length, research_question: researchQuestion, universe_scanned: null }
+      : null
+  ));
   const [open, setOpen] = useState(null);
-  const [busy, setBusy] = useState(true);
+  const [busy, setBusy] = useState(!(Array.isArray(previewRows) && previewRows.length));
   const [error, setError] = useState('');
 
   useEffect(() => {
     let live = true;
-    setBusy(true);
     setOpen(null);
-    getHflScan(scan, { limit: 25 })
+    // Prefer embedded terminal preview so first paint does not re-scan the universe.
+    if (Array.isArray(previewRows) && previewRows.length) {
+      setRows(previewRows);
+      setMeta({
+        count: previewRows.length,
+        research_question: researchQuestion,
+        universe_scanned: null,
+      });
+      setBusy(false);
+      setError('');
+      return () => { live = false; };
+    }
+    setBusy(true);
+    getHflScan(scan, { limit: 15 })
       .then((res) => {
         if (!live) return;
         setRows(res?.results || []);
@@ -258,7 +274,7 @@ function OpportunityTable({ scan, label }) {
       .catch((err) => { if (live) setError(err?.message || 'Scan failed'); })
       .finally(() => { if (live) setBusy(false); });
     return () => { live = false; };
-  }, [scan]);
+  }, [scan, previewRows, researchQuestion]);
 
   if (busy) return <div className="hft-dim">Scanning the universe…</div>;
   if (error) return <div className="hft-error">{error}</div>;
@@ -334,28 +350,64 @@ function OpportunityTable({ scan, label }) {
 export default function HedgeFundTerminal() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
   const [scan, setScan] = useState('value');
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    getHflTerminal()
+    let live = true;
+    setLoading(true);
+    setError('');
+    getHflTerminal({ limit: 12 })
       .then((res) => {
-        if (res?.ok === false) setError(res?.error || 'Terminal unavailable');
-        else setData(res);
+        if (!live) return;
+        if (res?.ok === false) {
+          setError(res?.error || 'Terminal unavailable');
+          setData(null);
+        } else {
+          setData(res);
+          setError('');
+        }
       })
-      .catch((err) => setError(err?.message || 'Terminal unavailable'));
-  }, []);
+      .catch((err) => {
+        if (!live) return;
+        setError(err?.message || 'Terminal unavailable');
+      })
+      .finally(() => {
+        if (live) setLoading(false);
+      });
+    return () => { live = false; };
+  }, [reloadKey]);
 
-  if (error) return <div className="hft-error">{error}</div>;
-  if (!data) return <div className="hft-dim">Loading the terminal…</div>;
-
-  const hero = data.hero || {};
-  const dash = data.market_dashboard || {};
-  const daily = data.daily_intelligence || {};
-  const active = (data.cards || []).find((c) => c.id === scan);
+  const hero = data?.hero || {};
+  const dash = data?.market_dashboard || {};
+  const daily = data?.daily_intelligence || {};
+  const active = (data?.cards || []).find((c) => c.id === scan);
 
   return (
     <div className="hft">
-      <RegimeStrip regime={data.regime} />
+      {loading && !data ? (
+        <div className="hft-dim" style={{ padding: '1rem 0' }}>
+          Loading the terminal…
+        </div>
+      ) : null}
+      {error ? (
+        <div className="hft-error" style={{ marginBottom: '0.75rem' }}>
+          {error}
+          <div style={{ marginTop: '0.5rem' }}>
+            <button type="button" className="hft-toggle" onClick={() => setReloadKey((k) => k + 1)}>
+              Retry terminal
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {!data && !loading ? (
+        <div className="hft-dim">
+          Terminal data is unavailable right now. Strategy library and calculators below still work.
+        </div>
+      ) : null}
+
+      {data ? <RegimeStrip regime={data.regime} /> : null}
 
       <section className="hft-hero">
         {[
@@ -392,7 +444,7 @@ export default function HedgeFundTerminal() {
         costed point-in-time backtest is shown as backtested research.
       </p>
       <section className="hft-scanners">
-        {(data.cards || []).map((card) => (
+        {(data?.cards || []).map((card) => (
           <button
             key={card.id}
             type="button"
@@ -414,10 +466,19 @@ export default function HedgeFundTerminal() {
         ))}
       </section>
 
-      {active ? <OpportunityTable scan={active.id} label={active.label} /> : null}
+      {active ? (
+        <OpportunityTable
+          scan={active.id}
+          label={active.label}
+          previewRows={active.results || null}
+          researchQuestion={active.research_question || ''}
+        />
+      ) : null}
 
       <BacktestPanel />
 
+      {data ? (
+        <>
       <h2 className="hft-title">Strategy overlap</h2>
       <p className="hft-dim hft-lead">
         Independent scanners reaching the same company. Agreement raises research priority; it is not
@@ -462,7 +523,11 @@ export default function HedgeFundTerminal() {
           </tbody>
         </table>
       </div>
+        </>
+      ) : null}
 
+      {data ? (
+        <>
       <h2 className="hft-title">Daily intelligence</h2>
       <div className="hft-daily">
         <div>
@@ -552,6 +617,8 @@ export default function HedgeFundTerminal() {
         Scanned {n(data.hero?.universe_scanned)} companies on {data.as_of}
         {data.compared_with ? `, compared with ${data.compared_with}` : ''}. {data.policy}
       </p>
+        </>
+      ) : null}
     </div>
   );
 }

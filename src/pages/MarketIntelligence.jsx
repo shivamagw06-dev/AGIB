@@ -66,17 +66,23 @@ export default function MarketIntelligence() {
       try {
         const data = await getMarketBriefing();
         if (active && data) setBriefingState({ loading: false, data });
+        else if (active) setBriefingState((previous) => ({ ...previous, loading: false }));
       } catch {
         if (active) setBriefingState((previous) => ({ ...previous, loading: false }));
       }
     };
+    // Briefing first — page shell must not wait on the heavier UI dashboard.
     loadBriefing();
-    getUiDashboard()
-      .then((data) => active && setUiDash(data))
-      .catch(() => active && setUiDash(null));
+    // Enrichment only; 12s client timeout + Node 12s proxy. Failures stay silent.
+    const dashTimer = window.setTimeout(() => {
+      getUiDashboard()
+        .then((data) => active && setUiDash(data))
+        .catch(() => active && setUiDash(null));
+    }, 0);
     const interval = window.setInterval(loadBriefing, 60_000);
     return () => {
       active = false;
+      window.clearTimeout(dashTimer);
       window.clearInterval(interval);
     };
   }, []);

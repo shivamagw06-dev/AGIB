@@ -348,6 +348,10 @@ def _universe_from_legacy() -> list[dict[str, Any]]:
     return out
 
 
+_UNIVERSE_CACHE: dict[str, Any] = {"at": 0.0, "rows": None}
+_UNIVERSE_TTL_SEC = 120.0
+
+
 def _universe() -> list[dict[str, Any]]:
     """Companies with market multiples (+ consensus / factors when available).
 
@@ -355,10 +359,19 @@ def _universe() -> list[dict[str, Any]]:
     HVIE valuation, CapIQ consensus tabs). Falls back to the Yahoo-era file
     store only when the warehouse universe is empty.
     """
+    import time
+
+    now = time.time()
+    cached = _UNIVERSE_CACHE.get("rows")
+    if cached is not None and (now - float(_UNIVERSE_CACHE.get("at") or 0.0)) < _UNIVERSE_TTL_SEC:
+        return cached
+
     rows = _universe_from_warehouse()
-    if rows:
-        return rows
-    return _universe_from_legacy()
+    if not rows:
+        rows = _universe_from_legacy()
+    _UNIVERSE_CACHE["at"] = now
+    _UNIVERSE_CACHE["rows"] = rows
+    return rows
 
 
 def _primary_metric(dna: Optional[str]) -> str:
