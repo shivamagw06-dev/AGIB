@@ -27,7 +27,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -158,8 +158,12 @@ jobs:
             exit 1
           fi
 
-      # FTP remains a secondary publish path (some Hostinger setups also read FTP root).
-      - name: Deploy dist/ to Hostinger via FTP
+      # FTP is a secondary publish path (Hostinger Horizons Git sync is primary).
+      # Hostinger FTPS from GitHub runners intermittently times out on the control
+      # socket (~30s). Retry with a longer timeout; soft-fail so Git sync still greens CI.
+      - name: Deploy dist/ to Hostinger via FTP (attempt 1)
+        id: ftp1
+        continue-on-error: true
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -170,8 +174,72 @@ jobs:
           local-dir: ./dist/
           server-dir: ./
           dangerous-clean-slate: false
+          security: loose
+          timeout: 120000
           exclude: |
             **/.DS_Store
             **/.git*
             **/Dashboard _ Hostinger.html
             **/Dashboard _ Hostinger_files/**
+
+      - name: Wait before FTP retry
+        if: steps.ftp1.outcome == 'failure'
+        run: sleep 20
+
+      - name: Deploy dist/ to Hostinger via FTP (attempt 2)
+        id: ftp2
+        if: steps.ftp1.outcome == 'failure'
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          local-dir: ./dist/
+          server-dir: ./
+          dangerous-clean-slate: false
+          security: loose
+          timeout: 120000
+          exclude: |
+            **/.DS_Store
+            **/.git*
+            **/Dashboard _ Hostinger.html
+            **/Dashboard _ Hostinger_files/**
+
+      - name: Wait before FTP final retry
+        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
+        run: sleep 30
+
+      - name: Deploy dist/ to Hostinger via FTP (attempt 3)
+        id: ftp3
+        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          local-dir: ./dist/
+          server-dir: ./
+          dangerous-clean-slate: false
+          security: loose
+          timeout: 120000
+          exclude: |
+            **/.DS_Store
+            **/.git*
+            **/Dashboard _ Hostinger.html
+            **/Dashboard _ Hostinger_files/**
+
+      - name: FTP secondary path status
+        if: always()
+        run: |
+          if [ "${{ steps.ftp1.outcome }}" = "success" ] || [ "${{ steps.ftp2.outcome }}" = "success" ] || [ "${{ steps.ftp3.outcome }}" = "success" ]; then
+            echo "FTP secondary publish succeeded."
+            exit 0
+          fi
+          echo "::warning::FTP secondary publish failed after 3 retries (Hostinger control-socket timeout). Primary Hostinger publish is Git sync of index.html + /assets (already committed above when rebuild ran). Re-run this workflow if FTP root must also be refreshed."
+          # Do not fail the job: Horizons Git sync is the production document root.
