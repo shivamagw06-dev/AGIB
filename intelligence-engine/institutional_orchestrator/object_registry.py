@@ -56,7 +56,13 @@ def _statement_rank(row: dict[str, Any]) -> tuple[int, int, int, str]:
     period and source update, rather than whichever row happens to sort first.
     """
     source = str(row.get("source") or "").lower()
-    source_rank = 0 if "upstox" in source else 1
+    # CapIQ is the canonical 2016–2026 annual history. Quarterly rows are
+    # unchanged because they are live Upstox reported statements.
+    is_capiq = (
+        str(row.get("statement_version") or "").lower().startswith("capiq_workbook_")
+        or source == "capital_iq_workbook"
+    )
+    source_rank = 0 if is_capiq else 1 if "upstox" in source else 2
     statement_rank = 0 if str(row.get("statement_type") or "").upper() == "CONSOLIDATED" else 1
     year, quarter = _period_parts(row)
     return (source_rank, statement_rank, -(year * 10 + quarter), str(row.get("last_updated") or ""))

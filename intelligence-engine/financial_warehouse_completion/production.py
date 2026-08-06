@@ -161,6 +161,16 @@ def run_capital_iq(limit: Optional[int] = None, actor: str = "fwcp") -> dict[str
     return run_capital_iq_stage(limit=limit, actor=actor)
 
 
+def capiq_workbook_status() -> dict[str, Any]:
+    from financial_warehouse_completion.capiq_workbook import preview
+    return preview()
+
+
+def run_capiq_workbook(*, years: Optional[list[int]] = None, actor: str = "fwcp") -> dict[str, Any]:
+    from financial_warehouse_completion.capiq_workbook import import_completed_years
+    return import_completed_years(years=years, actor=actor)
+
+
 def sync_shares(symbol: str, actor: str = "fwcp") -> dict[str, Any]:
     return sync_share_count(symbol, actor=actor)
 

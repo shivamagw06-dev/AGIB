@@ -523,6 +523,15 @@ def read_company(symbol: str) -> dict[str, Any]:
     except Exception:
         provider_ratios = None
 
+    # The overview view is intentionally compact, so load the annual series
+    # independently. This makes the choice stable even when many vendors have
+    # written the same company-year to the append-only warehouse.
+    annual_rows = store.all_rows("financials_annual", entity=str(symbol_key), limit=80)
+    from institutional_warehouse.financials import canonical_statement_series
+    annual_series = canonical_statement_series(
+        annual_rows, period_key="fiscal_year", annual=True
+    )
+
     return {
         "ok": True,
         "symbol": view.get("symbol"),
@@ -533,7 +542,8 @@ def read_company(symbol: str) -> dict[str, Any]:
         "provider_ratios": provider_ratios,
         "consensus": _first("consensus"),
         "latest_price": _first("daily_market_history"),
-        "latest_annual": _first("financials_annual"),
+        "latest_annual": annual_series[-1] if annual_series else _first("financials_annual"),
+        "annual_history": annual_series,
         "latest_quarter": _first("financials_quarterly"),
         "ownership": _first("ownership"),
         "intelligence": _first("company_intelligence"),

@@ -1,9 +1,11 @@
 """Controlled import of the repository's annual Capital IQ workbook.
 
-The workbook is a source snapshot, not a live vendor call. Every imported row
-keeps its fiscal year, source, and unit so the newest source snapshot remains
-traceable.
+The workbook is a source snapshot, not a live vendor call. It imports the full
+2016–2026 supplied history and records the exact workbook and unit on every
+write. This protects downstream ratio calculations from legacy Yahoo /
+unknown-unit statement rows.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,9 +13,11 @@ from typing import Any, Iterable
 
 from financial_warehouse_completion.models import ENGINE_CODE, PROGRAMME_VERSION
 
+
 SOURCE = "capital_iq_workbook"
 DEFAULT_YEARS = tuple(range(2016, 2027))
 WORKBOOK_PATH = Path(__file__).resolve().parents[2] / "2016-2026.xlsx"
+
 FIELD_MAP = {
     "Revenue": "revenue", "Gross Profit": "gross_profit", "EBITDA": "ebitda",
     "EBIT": "ebit", "PBT": "pbt", "PAT": "pat", "EPS": "eps",
@@ -25,9 +29,11 @@ FIELD_MAP = {
     "Cash Flow from Investing": "cfi", "Cash Flow from Financing": "cff",
 }
 
+
 def _symbol(value: Any) -> str:
     text = str(value or "").strip().upper()
     return text.split(":", 1)[-1] if ":" in text else text
+
 
 def _number(value: Any) -> float | None:
     if value is None or isinstance(value, bool):
@@ -37,8 +43,10 @@ def _number(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
 
+
 def _sheet_rows(year: int, *, path: Path) -> Iterable[dict[str, Any]]:
     from openpyxl import load_workbook
+
     book = load_workbook(path, read_only=True, data_only=True)
     try:
         if str(year) not in book.sheetnames:
@@ -51,9 +59,12 @@ def _sheet_rows(year: int, *, path: Path) -> Iterable[dict[str, Any]]:
             if not symbol:
                 continue
             row: dict[str, Any] = {
-                "symbol": symbol, "fiscal_year": f"FY{year}",
-                "statement_type": "CONSOLIDATED", "statement_frequency": "ANNUAL",
-                "source": SOURCE, "statement_version": f"capiq_workbook_{year}",
+                "symbol": symbol,
+                "fiscal_year": f"FY{year}",
+                "statement_type": "CONSOLIDATED",
+                "statement_frequency": "ANNUAL",
+                "source": SOURCE,
+                "statement_version": f"capiq_workbook_{year}",
             }
             for label, field in FIELD_MAP.items():
                 index = positions.get(label)
@@ -61,23 +72,30 @@ def _sheet_rows(year: int, *, path: Path) -> Iterable[dict[str, Any]]:
                     number = _number(values[index])
                     if number is not None:
                         row[field] = number
+            # A row with no financial facts is a vendor no-coverage marker.
             if any(row.get(field) is not None for field in FIELD_MAP.values()):
                 yield row
     finally:
         book.close()
 
+
 def preview(*, years: Iterable[int] = DEFAULT_YEARS, path: Path = WORKBOOK_PATH) -> dict[str, Any]:
     if not path.is_file():
         return {"ok": False, "error": f"workbook_not_found:{path.name}"}
-    summary = {str(year): sum(1 for _ in _sheet_rows(int(year), path=path)) for year in years}
+    summary: dict[str, int] = {}
+    for year in years:
+        summary[str(year)] = sum(1 for _ in _sheet_rows(int(year), path=path))
     return {
-        "ok": True, "source": SOURCE, "workbook": path.name, "unit": "INR million",
-        "years": summary, "engine": ENGINE_CODE, "version": PROGRAMME_VERSION,
+        "ok": True, "source": SOURCE, "workbook": path.name,
+        "unit": "INR million", "years": summary,
+        "engine": ENGINE_CODE, "version": PROGRAMME_VERSION,
     }
+
 
 def import_completed_years(*, years: Iterable[int] = DEFAULT_YEARS, actor: str = "fwcp") -> dict[str, Any]:
     from institutional_warehouse import gateway
     from institutional_warehouse.formulas import recalculate
+
     selected = tuple(sorted({int(year) for year in years if 2016 <= int(year) <= 2026}))
     check = preview(years=selected)
     if not check.get("ok"):
@@ -96,6 +114,6 @@ def import_completed_years(*, years: Iterable[int] = DEFAULT_YEARS, actor: str =
     return {
         "ok": True, "source": SOURCE, "workbook": WORKBOOK_PATH.name,
         "years": list(selected), "rows": len(rows), "financials_annual": written,
-        "recalculated": rebuilt, "unit": "INR million",
-        "engine": ENGINE_CODE, "version": PROGRAMME_VERSION,
+        "recalculated": rebuilt, "unit": "INR million", "engine": ENGINE_CODE,
+        "version": PROGRAMME_VERSION,
     }
