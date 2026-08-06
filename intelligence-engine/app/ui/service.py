@@ -1870,6 +1870,25 @@ class UiService:
         except Exception:
             pipeline.set_entities([], none_found=True)
 
+        # A two-company comparison with deterministic aliases does not need the
+        # general KUL/QUE research fan-out before it can return verified financial
+        # facts.  Keep this before those expensive soft layers; the later guard is
+        # retained for comparisons resolved by non-alias entity paths.
+        early_comparison_tickers = alias_tickers_from_question(q) if is_comparison_question(q) else []
+        if len(early_comparison_tickers) >= 2:
+            ask_orchestration["comparison_tickers"] = early_comparison_tickers[:2]
+            ask_orchestration["comparison_entity_count"] = len(early_comparison_tickers[:2])
+            fast_comparison = self._verified_comparison_view(
+                question=q,
+                tickers=early_comparison_tickers[:2],
+                ask_trace_id=ask_trace_id,
+                stage_timer=stage_timer,
+                ask_orchestration=ask_orchestration,
+                entity_resolution=entity_resolution,
+            )
+            if fast_comparison is not None:
+                return fast_comparison
+
         # QUE v1.1 — first pipeline stage. Built once; attached to every Ask path
         # (including short-circuits) so downstream always knows the decision.
         que_pack = _build_que_answer_construction(q, ticker=detected_ticker)
