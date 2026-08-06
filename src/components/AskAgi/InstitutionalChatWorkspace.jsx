@@ -224,7 +224,7 @@ function AnswerTurn({ answer, onAsk }) {
       </section>
 
       {/* 4. Bull vs Bear Case */}
-      {!answer.evidenceUnavailable && (answer.moreBullish?.length || answer.moreBearish?.length) ? (
+      {answer.confidence != null && !answer.evidenceUnavailable && (answer.moreBullish?.length || answer.moreBearish?.length) ? (
         <section className="ac-block">
           <h2>Bull vs Bear Case</h2>
           <div className="ac-change">
@@ -543,7 +543,9 @@ export default function InstitutionalChatWorkspace({
               <div style={{ marginTop: '0.9rem', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6b7280' }}>
                 Confidence
               </div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 750 }}>{answer ? `${answer.confidence}%` : '—'}</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 750 }}>
+                {answer?.confidence == null ? '—' : `${answer.confidence}%`}
+              </div>
               <div className="ac-gauge" aria-hidden>
                 <i style={{ width: `${Math.min(100, answer?.confidence || 0)}%` }} />
               </div>
