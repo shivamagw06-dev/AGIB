@@ -336,32 +336,35 @@ def _retrieve_comparison_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
             "soft_missing": True,
         }
     try:
-        from institutional_warehouse.production import read_company, read_table
+        from institutional_warehouse.production import read_table
 
         companies: list[dict[str, Any]] = []
         for symbol in symbols:
-            record = read_company(symbol)
-            if not record.get("ok"):
+            # Do not call ``read_company`` here: it opens every warehouse sheet
+            # (news, prices, ownership, research, etc.) for each symbol.  A
+            # financial comparison only needs the three bounded source tables.
+            annual_rows = read_table("financials_annual", entity=symbol, limit=12)
+            quarter_rows = read_table("financials_quarterly", entity=symbol, limit=12)
+            valuation_rows = read_table("historical_valuation", entity=symbol, limit=1)
+            if not annual_rows and not quarter_rows and not valuation_rows:
                 continue
-            annual_rows = read_table("financials_annual", entity=symbol, limit=30)
-            quarter_rows = read_table("financials_quarterly", entity=symbol, limit=40)
             annual = _preferred_statement(
                 annual_rows,
-                record.get("latest_annual") or {},
+                {},
             )
             quarter = _preferred_statement(
                 quarter_rows,
-                record.get("latest_quarter") or {},
+                {},
             )
-            valuation = record.get("valuation") or {}
+            valuation = valuation_rows[0] if valuation_rows else {}
             source_rows = [row for row in (quarter, annual, valuation) if row]
             companies.append(
                 {
-                    "symbol": record.get("symbol") or symbol,
+                    "symbol": symbol,
                     "annual": annual,
                     "quarter": quarter,
                     "valuation": valuation,
-                    "provider_ratios": record.get("provider_ratios") or {},
+                    "provider_ratios": {},
                     "earnings_trend": _pat_yoy(quarter, quarter_rows),
                     "sources": sorted({str(row.get("source")) for row in source_rows if row.get("source")}),
                     "as_of": next(
