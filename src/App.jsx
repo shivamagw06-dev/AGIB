@@ -43,6 +43,7 @@ const Nifty500StockResearch = React.lazy(() => import('@/pages/Nifty500StockRese
 const IpoDetailPage = React.lazy(() => import('@/pages/IpoDetailPage'));
 const IpoIntelligencePage = React.lazy(() => import('@/pages/IpoIntelligencePage'));
 const MarketDataCentre = React.lazy(() => import('@/pages/MarketDataCentre'));
+const DataHealthSheet = React.lazy(() => import('@/pages/DataHealthSheet'));
 const PortfolioDesk = React.lazy(() => import('@/pages/PortfolioDesk'));
 const ThemeDesk = React.lazy(() => import('@/pages/ThemeDesk'));
 const SectorDesk = React.lazy(() => import('@/pages/SectorDesk'));
@@ -199,6 +200,7 @@ function PublicRoutes() {
       <Route path="/pre-market" element={<PreMarketIntelligence />} />
       <Route path="/updates/pre-market" element={<Navigate replace to="/pre-market" />} />
       <Route path="/market-data" element={<MarketDataCentre />} />
+      <Route path="/data-health" element={<DataHealthSheet />} />
       <Route path="/research/stocks/:symbol" element={<Nifty500StockResearch />} />
       <Route path="/portfolio" element={<PortfolioDesk />} />
       <Route path="/themes/:themeId" element={<ThemeDesk />} />
