@@ -453,7 +453,7 @@ export default function MarketSectorIntelligence() {
           </>
         ) : null}
 
-        {!loading && !pulseLoading && !pack?.ok && !error ? (
+        {!loading && !pack?.ok && !error ? (
           <p className="msi-hint"><TrendingUp size={14} /> Waiting for warehouse valuation coverage.</p>
         ) : null}
       </main>

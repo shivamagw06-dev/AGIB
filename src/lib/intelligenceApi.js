@@ -3251,21 +3251,26 @@ export const getMiSector = (sector) =>
   intelligenceFetch(`/market-intelligence/sector/${encodeURIComponent(sector)}`, { timeoutMs: 90_000 });
 
 /** Hedge Fund Strategy Lab */
-export const getHflHealth = () => intelligenceFetch('/hedge-fund-lab/health');
-export const getHflStrategies = () => intelligenceFetch('/hedge-fund-lab/strategies');
-export const getHflCompare = () => intelligenceFetch('/hedge-fund-lab/compare');
+export const getHflHealth = () =>
+  intelligenceFetch('/hedge-fund-lab/health', { timeoutMs: 45_000 });
+export const getHflStrategies = () =>
+  intelligenceFetch('/hedge-fund-lab/strategies', { timeoutMs: 120_000 });
+export const getHflCompare = () =>
+  intelligenceFetch('/hedge-fund-lab/compare', { timeoutMs: 120_000 });
 export const getHflStrategy = (id) =>
-  intelligenceFetch(`/hedge-fund-lab/strategy/${encodeURIComponent(id)}`);
+  intelligenceFetch(`/hedge-fund-lab/strategy/${encodeURIComponent(id)}`, { timeoutMs: 90_000 });
 export const hflCalculate = (kind, payload) =>
   intelligenceFetch(`/hedge-fund-lab/calculate/${encodeURIComponent(kind)}`, {
     method: 'POST',
     body: payload,
+    timeoutMs: 90_000,
   });
-export const getHflRegime = () => intelligenceFetch('/hedge-fund-lab/regime');
+export const getHflRegime = () =>
+  intelligenceFetch('/hedge-fund-lab/regime', { timeoutMs: 120_000 });
 export const getHflTerminal = () =>
-  intelligenceFetch('/hedge-fund-lab/terminal', { timeoutMs: 120_000 });
+  intelligenceFetch('/hedge-fund-lab/terminal', { timeoutMs: 180_000 });
 export const getHflOpportunity = (ticker) =>
-  intelligenceFetch(`/hedge-fund-lab/opportunity/${encodeURIComponent(ticker)}`, { timeoutMs: 90_000 });
+  intelligenceFetch(`/hedge-fund-lab/opportunity/${encodeURIComponent(ticker)}`, { timeoutMs: 120_000 });
 export const getHflScan = (strategy, params = {}) => {
   const qs = new URLSearchParams(
     Object.fromEntries(
@@ -3273,5 +3278,8 @@ export const getHflScan = (strategy, params = {}) => {
         .map(([k, v]) => [k, String(v)])
     )
   ).toString();
-  return intelligenceFetch(`/hedge-fund-lab/scan/${encodeURIComponent(strategy)}${qs ? `?${qs}` : ''}`);
+  return intelligenceFetch(
+    `/hedge-fund-lab/scan/${encodeURIComponent(strategy)}${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 180_000 },
+  );
 };
