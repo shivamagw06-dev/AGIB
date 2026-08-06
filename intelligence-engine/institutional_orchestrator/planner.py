@@ -84,6 +84,11 @@ def plan_query(
     generated_at: str = "",
 ) -> InstitutionalQuery:
     route_hits = match_routes(question)
+    # A comparison is a factual multi-company retrieval.  Do not pull a
+    # single-company decision object merely because the question mentions
+    # valuation; it can be unavailable and is not evidence for a comparison.
+    if intent == "Comparison":
+        route_hits = [r for r in route_hits if r.object_type == "ComparisonEvidence"]
     planned_types: list[str] = []
 
     # Route hits first (capability discovery)

@@ -79,6 +79,7 @@ def test_comparison_uses_verified_warehouse_facts(monkeypatch):
     response = result["response"]
     assert response["intent"] == "Comparison"
     assert response["execution_plan"][0]["object_type"] == "ComparisonEvidence"
+    assert all(step["object_type"] != "CompanyDecision" for step in response["execution_plan"])
     assert "HDFCBANK" in response["direct_answer"]
     assert "Source: upstox" in response["direct_answer"]
 

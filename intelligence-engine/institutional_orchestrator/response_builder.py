@@ -37,7 +37,7 @@ def _comparison_answer(payloads: dict[str, Any]) -> str | None:
         sources = ", ".join(company.get("sources") or []) or "institutional warehouse"
         as_of = company.get("as_of") or "not supplied"
         lines.append(
-            f"{symbol} ({period}): PAT {_value(pat)}; EPS {_value(eps)}; "
+            f"{symbol} ({period}): reported PAT {_value(pat)}; EPS {_value(eps)}; "
             f"P/E {_value(pe)}; P/B {_value(pb)}. Source: {sources}; as of {as_of}."
         )
     return "Verified comparison — " + " ".join(lines) + " This is factual research, not an investment recommendation."
