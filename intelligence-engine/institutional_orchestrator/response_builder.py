@@ -27,7 +27,7 @@ def _money(value: Any, row: dict[str, Any]) -> str:
         amount = float(value)
     except (TypeError, ValueError):
         return "not reported"
-    if "canonical" in method or "normal" in method:
+    if method in {"declared", "source_default"} or "normal" in method:
         # Warehouse canonical currency is INR million; 10 million INR = 1 crore.
         return f"₹{amount / 10:,.1f} crore"
     return f"{amount:,.2f} (source units)"
