@@ -364,6 +364,13 @@ export default function createMarketRouter(env = {}) {
     }
   });
 
+  // Read-only operator view: confirms the post-close fundamentals refresh is
+  // active without exposing provider credentials or raw responses.
+  router.get('/upstox/statements/status', async (_req, res) => {
+    const { getUpstoxStatementSchedulerStatus } = await import('../services/upstoxStatementScheduler.js');
+    return res.status(200).json({ ok: true, scheduler: getUpstoxStatementSchedulerStatus() });
+  });
+
   // Upstox-first EMPTY statement fill (prefer over Yahoo on Render)
   router.get('/upstox/statements/fill-empty/status', async (_req, res) => {
     try {
