@@ -336,16 +336,32 @@ def _retrieve_comparison_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
             "soft_missing": True,
         }
     try:
-        from institutional_warehouse.production import read_table
+        from institutional_warehouse import db
+
+        def _statement_rows(tab_id: str, symbol: str, limit: int) -> list[dict[str, Any]]:
+            """Indexed comparison read: avoid store.fetch's COUNT + full shaping."""
+            table = db.physical_table(tab_id)
+            rows = db.query(
+                f"SELECT * FROM {table} WHERE sys_entity = ? "
+                "AND COALESCE(sys_published, 1) = 1 "
+                "ORDER BY sys_updated_at DESC LIMIT ?",
+                (symbol, limit),
+            )
+            for row in rows:
+                row["_meta"] = {
+                    "unit_method": row.get("sys_unit_method"),
+                    "reported_unit": row.get("sys_reported_unit"),
+                }
+            return rows
 
         companies: list[dict[str, Any]] = []
         for symbol in symbols:
             # Do not call ``read_company`` here: it opens every warehouse sheet
             # (news, prices, ownership, research, etc.) for each symbol.  A
             # financial comparison only needs the three bounded source tables.
-            annual_rows = read_table("financials_annual", entity=symbol, limit=12)
-            quarter_rows = read_table("financials_quarterly", entity=symbol, limit=12)
-            valuation_rows = read_table("historical_valuation", entity=symbol, limit=1)
+            annual_rows = _statement_rows("financials_annual", symbol, 12)
+            quarter_rows = _statement_rows("financials_quarterly", symbol, 12)
+            valuation_rows = _statement_rows("historical_valuation", symbol, 1)
             if not annual_rows and not quarter_rows and not valuation_rows:
                 continue
             annual = _preferred_statement(
