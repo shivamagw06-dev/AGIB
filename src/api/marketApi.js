@@ -2,9 +2,14 @@ import { API_ORIGIN } from '@/config';
 
 const BASE = API_ORIGIN || '';
 
-async function marketFetch(path) {
+async function marketFetch(path, { method = 'GET', body } = {}) {
   const url = `${BASE}/api/market${path}`;
-  const resp = await fetch(url, { credentials: 'include' });
+  const resp = await fetch(url, {
+    method,
+    credentials: 'include',
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
   if (resp.status === 429) {
     // Rate limited — return empty so UI keeps last cached state
     console.warn('[marketApi] rate limited, using cached UI state');
@@ -20,4 +25,5 @@ export const getMarketPulse = () => marketFetch('/pulse');
 export const getMarketDashboard = () => marketFetch('/dashboard');
 export const getMarketBriefing = () => marketFetch('/briefing');
 export const getMacroBriefing = () => marketFetch('/macro-briefing');
+export const askMacroEconomist = (query) => marketFetch('/macro-ask', { method: 'POST', body: { query } });
 export const getPreMarketBriefing = () => marketFetch('/pre-market-briefing');
