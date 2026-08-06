@@ -84,8 +84,8 @@ services:
     # verified company data.  A disk also makes the collection ledger durable.
     disk:
       name: intelligence-data
-      mountPath: /var/data
-      sizeGB: 10
+      mountPath: /var/data/kip
+      sizeGB: 50
     # Chromium for FAA Playwright JS-render + free web search.
     # If the live Render service ignores Blueprint buildCommand, start.sh
     # and FAA_PLAYWRIGHT_AUTO_INSTALL still attempt a one-shot install.
@@ -111,7 +111,7 @@ services:
       - key: KIP_ALLOW_EPHEMERAL
         value: "false"
       - key: INSTITUTIONAL_WAREHOUSE_ROOT
-        value: /var/data/institutional_warehouse
+        value: /var/data/kip/institutional_warehouse
       - key: INTELLIGENCE_ENGINE_TOKEN
         fromService:
           name: agib-api
