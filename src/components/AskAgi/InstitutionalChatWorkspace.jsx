@@ -178,7 +178,7 @@ function AnswerTurn({ answer, onAsk }) {
           </div>
           <div>
             <span>Confidence</span>
-            <strong>{answer.confidence}%</strong>
+            <strong>{answer.confidence == null ? '—' : `${answer.confidence}%`}</strong>
           </div>
           <div>
             <span>Institutional View</span>
@@ -224,29 +224,31 @@ function AnswerTurn({ answer, onAsk }) {
       </section>
 
       {/* 4. Bull vs Bear Case */}
-      <section className="ac-block">
-        <h2>Bull vs Bear Case</h2>
-        <div className="ac-change">
-          <div className="ac-change-col bull">
-            <h3>Bull Case</h3>
-            <p className="ac-case-lead">Why someone would buy</p>
-            <ul>
-              {answer.moreBullish.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
+      {!answer.evidenceUnavailable && (answer.moreBullish?.length || answer.moreBearish?.length) ? (
+        <section className="ac-block">
+          <h2>Bull vs Bear Case</h2>
+          <div className="ac-change">
+            <div className="ac-change-col bull">
+              <h3>Bull Case</h3>
+              <p className="ac-case-lead">Why someone would buy</p>
+              <ul>
+                {answer.moreBullish.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="ac-change-col bear">
+              <h3>Bear Case</h3>
+              <p className="ac-case-lead">Why someone would avoid it</p>
+              <ul>
+                {answer.moreBearish.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
           </div>
-          <div className="ac-change-col bear">
-            <h3>Bear Case</h3>
-            <p className="ac-case-lead">Why someone would avoid it</p>
-            <ul>
-              {answer.moreBearish.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {/* 5. Research Conclusion */}
       {answer.researchConclusion && (

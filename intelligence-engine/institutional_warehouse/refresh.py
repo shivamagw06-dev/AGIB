@@ -45,11 +45,13 @@ def _fail(stage: str, error: str) -> dict[str, Any]:
 
 
 def stage_groww(*, actor: str) -> dict[str, Any]:
-    try:
-        from app.market_data.client import MarketDataClient  # noqa: F401
-    except Exception:
-        return _skip("groww", "no_groww_collector_wired")
-    return _skip("groww", "groww_quotes_not_persisted_to_warehouse_yet")
+    """Live Groww prices are securely collected by the finance backend.
+
+    The backend owns the credential and sends bounded, candidate-only price
+    snapshots into this warehouse.  The engine must not duplicate the token or
+    perform a universe scan during a refresh.
+    """
+    return _skip("groww", "delegated_to_finance_backend", actor=actor)
 
 
 # --------------------------------------------------------------------------
