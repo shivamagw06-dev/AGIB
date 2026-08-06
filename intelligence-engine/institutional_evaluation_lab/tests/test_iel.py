@@ -20,6 +20,7 @@ def test_iel_health_and_catalogue() -> None:
     stats = catalog_stats()
     assert stats["cio_frozen_25"] == 25
     assert stats["institutional_1000"] >= 1000
+    assert stats["investor_100"] == 100
     assert stats["meets_1000_plus"] is True
     assert stats["all"] >= 1025
     assert set(CATEGORIES).issubset(set(stats["by_category"].keys()))
@@ -72,6 +73,17 @@ def test_catalog_api_shape() -> None:
     cat = catalog(suite="institutional_1000", limit=10)
     assert cat["n"] == 10
     assert cat["stats"]["institutional_1000"] >= 1000
+
+
+def test_investor_100_is_a_complete_routable_coverage_suite() -> None:
+    questions = load_suite("investor_100")
+    assert len(questions) == 100
+    assert len({q["question_id"] for q in questions}) == 100
+    assert all(q["answer_format"] for q in questions)
+    assert all(q["expected_evidence"] for q in questions)
+    assert all(q["expected_playbook"] for q in questions)
+    cat = catalog(suite="investor_100", limit=100)
+    assert cat["n"] == 100
 
 
 def test_no_llm_imports() -> None:
