@@ -11,6 +11,22 @@ from institutional_orchestrator.schema import LINEAGE_CHAIN
 def assemble_evidence(payloads: dict[str, Any]) -> tuple[EvidenceRef, ...]:
     refs: list[EvidenceRef] = []
 
+    comparison = (payloads.get("ComparisonEvidence") or {}).get("payload") or {}
+    if comparison.get("available"):
+        for company in (comparison.get("companies") or [])[:5]:
+            symbol = str(company.get("symbol") or "company")
+            sources = ", ".join(company.get("sources") or []) or "warehouse"
+            as_of = company.get("as_of") or "not supplied"
+            refs.append(
+                EvidenceRef(
+                    object_type="ComparisonEvidence",
+                    object_id=symbol,
+                    label=f"Verified warehouse facts: {symbol}",
+                    snippet=f"Source: {sources}; as of: {as_of}",
+                    provider="institutional_warehouse",
+                )
+            )
+
     cd = payloads.get("CompanyDecision", {}).get("payload") or {}
     if cd:
         ticker = str(cd.get("ticker") or payloads.get("CompanyDecision", {}).get("ticker") or "")
@@ -114,7 +130,7 @@ def lineage_for_response(payloads: dict[str, Any]) -> tuple[str, ...]:
         ot = mapping.get(label)
         if ot and ot in present:
             chain.append(label)
-        elif label == "Evidence" and ("Research" in present or "Observation" in present):
+        elif label == "Evidence" and ("Research" in present or "Observation" in present or "ComparisonEvidence" in present):
             chain.append(label)
     # Always show full institutional chain labels that were consulted
     if not chain:
