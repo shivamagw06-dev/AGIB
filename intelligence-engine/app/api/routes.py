@@ -18925,6 +18925,29 @@ async def warehouse_import_capital_iq_run(
     )
 
 
+@router.get("/warehouse/import/capital-iq-workbook")
+async def warehouse_import_capital_iq_workbook_status():
+    from financial_warehouse_completion.production import capiq_workbook_status
+    return capiq_workbook_status()
+
+
+@router.post("/warehouse/import/capital-iq-workbook")
+async def warehouse_import_capital_iq_workbook_run(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion.production import run_capiq_workbook
+
+    body = payload or {}
+    years = body.get("years")
+    if years is not None and (not isinstance(years, list) or not all(str(y).isdigit() for y in years)):
+        raise HTTPException(status_code=422, detail="years_must_be_a_list_of_years")
+    return run_capiq_workbook(
+        years=[int(year) for year in years] if years else None,
+        actor=_warehouse_actor(body, x_agi_actor),
+    )
+
+
 @router.post("/warehouse/share-count/{symbol}/sync")
 async def warehouse_share_count_sync(
     symbol: str,

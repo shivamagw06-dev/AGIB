@@ -17,6 +17,7 @@ import statistics
 from typing import Any, Iterable, Optional
 
 from institutional_warehouse import audit, gateway, store, units
+from institutional_warehouse.financials import canonical_statement_series
 from institutional_warehouse.values import now_iso, today_iso
 
 SOURCE = "formula_engine"
@@ -260,13 +261,9 @@ def _statement_type_rank(row: dict[str, Any]) -> tuple[int, str]:
 
 
 def _preferred_statement_series(statements: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
-    by_period: dict[str, list[dict[str, Any]]] = {}
-    for row in statements:
-        period = str(row.get(key) or "").strip()
-        if period:
-            by_period.setdefault(period, []).append(row)
-    selected = [sorted(rows, key=_statement_type_rank)[0] for rows in by_period.values()]
-    return sorted(selected, key=lambda row: str(row.get(key) or ""))
+    return canonical_statement_series(
+        statements, period_key=key, annual=key == "fiscal_year"
+    )
 
 
 def recalc_ratios(*, actor: str = "system", entity: Optional[str] = None) -> dict[str, Any]:

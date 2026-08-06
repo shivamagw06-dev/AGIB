@@ -1,0 +1,57 @@
+"""Deterministic selection rules for reported financial statements.
+
+Capital IQ workbook rows are AGI's audited long-term annual history. Live
+providers remain useful, particularly for the most recent quarter, but must not
+silently replace the selected annual record for a fiscal year.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import Any, Iterable
+
+
+def is_capiq_workbook(row: dict[str, Any]) -> bool:
+    """True only for the controlled CapIQ workbook import."""
+    return (
+        str(row.get("statement_version") or "").lower().startswith("capiq_workbook_")
+        or str(row.get("source") or "").lower() == "capital_iq_workbook"
+    )
+
+
+def fiscal_sort_key(value: Any) -> tuple[int, str]:
+    text = str(value or "").strip().upper()
+    years = re.findall(r"\d{2,4}", text)
+    year = int(years[0]) if years else 0
+    if year and year < 100:
+        year += 2000
+    return year, text
+
+
+def _selection_rank(row: dict[str, Any], *, annual: bool) -> tuple[int, int, str]:
+    statement_type = str(row.get("statement_type") or "").upper()
+    basis_rank = 0 if statement_type == "CONSOLIDATED" else 1
+    # CapIQ is the canonical annual history. Quarterly data deliberately keeps
+    # its provider order because CapIQ is not a live quarterly feed.
+    source_rank = 0 if annual and is_capiq_workbook(row) else 1
+    updated = str(row.get("sys_updated_at") or row.get("last_updated") or "")
+    return basis_rank, source_rank, updated
+
+
+def canonical_statement_series(
+    rows: Iterable[dict[str, Any]], *, period_key: str, annual: bool
+) -> list[dict[str, Any]]:
+    """Return one reported statement per fiscal period with clear lineage.
+
+    The selection is consolidated-first. For annual statements it is then
+    CapIQ-first within the same fiscal year, never an older CapIQ year in place
+    of a newer live annual report.
+    """
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        period = str(row.get(period_key) or "").strip()
+        if period:
+            grouped.setdefault(period, []).append(row)
+    selected = [min(candidates, key=lambda row: _selection_rank(row, annual=annual))
+                for candidates in grouped.values()]
+    return sorted(selected, key=lambda row: fiscal_sort_key(row.get(period_key)))

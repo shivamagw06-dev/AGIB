@@ -137,12 +137,13 @@ def annual_pair(wh: dict[str, Any]) -> tuple[Optional[dict[str, Any]], Optional[
         sym = wh.get("symbol")
         if not sym:
             return wh.get("latest_annual"), None
-        rows = store.all_rows("financials_annual", entity=str(sym).upper(), limit=8)
-        rows = sorted(rows, key=lambda r: str(r.get("period") or r.get("as_of") or ""), reverse=True)
+        rows = store.all_rows("financials_annual", entity=str(sym).upper(), limit=80)
+        from institutional_warehouse.financials import canonical_statement_series
+        rows = canonical_statement_series(rows, period_key="fiscal_year", annual=True)
         if not rows:
             return wh.get("latest_annual"), None
-        latest = rows[0]
-        prior = rows[1] if len(rows) >= 2 else None
+        latest = rows[-1]
+        prior = rows[-2] if len(rows) >= 2 else None
         return latest, prior
     except Exception:
         return wh.get("latest_annual"), None
