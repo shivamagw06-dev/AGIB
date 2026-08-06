@@ -17,6 +17,51 @@ const DATASETS = Object.freeze([
   'corporate-actions',
 ]);
 
+// The market universe intentionally contains more than operating companies.
+// Keep that breadth for quotes and ETF research, but do not send funds to the
+// company-financial-statement pipeline.  Upstox company statements are best
+// used for listed operating companies (normally INE* ISINs).
+const FUND_NAME_RE = /\b(ETF|EXCHANGE[ -]?TRADED|MUTUAL FUND|LIQUID FUND|INDEX FUND)\b/i;
+const FUND_SYMBOL_RE = /(?:ETF|BEES|IETF|BETF|ADD|CASE|BETA|GOLD|SILVER|LIQUID)/i;
+
+/**
+ * Classify instruments without guessing from an ISIN alone.  The return is
+ * carried through operator responses, making exclusions auditable.
+ */
+export function classifyInstrument(row = {}) {
+  const declared = String(row.instrument_type || row.security_type || row.asset_type || '').trim().toUpperCase();
+  if (declared === 'STOCK' || declared === 'EQUITY') return { type: 'STOCK', reason: 'declared_equity' };
+  if (['ETF', 'FUND', 'MUTUAL_FUND', 'INDEX'].includes(declared)) return { type: declared === 'ETF' ? 'ETF' : 'FUND', reason: 'declared_non_company' };
+
+  const isin = String(row.isin || '').trim().toUpperCase();
+  const symbol = String(row.symbol || '').trim().toUpperCase();
+  const name = String(row.company_name || row.legal_name || '').trim();
+  if (isin.startsWith('INF')) return { type: 'FUND', reason: 'fund_isin' };
+  if (FUND_NAME_RE.test(name) || FUND_SYMBOL_RE.test(symbol)) return { type: 'ETF', reason: 'fund_or_etf_name' };
+  if (/^INE[A-Z0-9]{9}$/.test(isin)) return { type: 'STOCK', reason: 'equity_isin' };
+  return { type: 'UNKNOWN', reason: 'unclassified_instrument' };
+}
+
+export function statementRequests({ annualOnly = false } = {}) {
+  const annual = [
+    ['income-statement', { type: 'consolidated', time_period: 'yearly', fs: true }],
+    ['balance-sheet', { type: 'consolidated', time_period: 'yearly', fs: true }],
+    ['cash-flow', { type: 'consolidated', time_period: 'yearly', fs: true }],
+  ];
+  if (annualOnly) return annual;
+  return annual.concat([
+    ['income-statement', { type: 'consolidated', time_period: 'quarterly', fs: false }],
+    ['balance-sheet', { type: 'consolidated', time_period: 'quarterly', fs: false }],
+    ['cash-flow', { type: 'consolidated', time_period: 'quarterly', fs: false }],
+  ]);
+}
+
+export function instrumentUniverseSummary(rows = []) {
+  const counts = { STOCK: 0, ETF: 0, FUND: 0, UNKNOWN: 0 };
+  for (const row of rows) counts[classifyInstrument(row).type] += 1;
+  return counts;
+}
+
 function engineConfig() {
   let baseUrl = (process.env.AGIB_INTELLIGENCE_ENGINE_URL || process.env.INTELLIGENCE_ENGINE_URL || '').replace(/\/$/, '');
   if (baseUrl && !/^https?:\/\//i.test(baseUrl)) baseUrl = `https://${baseUrl}`;
@@ -50,7 +95,7 @@ async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 180_
   return { ok: response.ok, status: response.status, data };
 }
 
-function pickIsinCompanies(rows, { limit = 40, symbols = null, offset = 0 } = {}) {
+export function pickIsinCompanies(rows, { limit = 40, symbols = null, offset = 0 } = {}) {
   const want = Array.isArray(symbols) && symbols.length
     ? new Set(symbols.map((s) => String(s).toUpperCase()))
     : null;
@@ -61,6 +106,8 @@ function pickIsinCompanies(rows, { limit = 40, symbols = null, offset = 0 } = {}
     const isin = String(row.isin || '').trim().toUpperCase();
     if (!symbol || !isin || seen.has(isin)) continue;
     if (want && !want.has(symbol)) continue;
+    const classification = classifyInstrument(row);
+    if (classification.type !== 'STOCK') continue;
     seen.add(isin);
     eligible.push({
       symbol,
@@ -69,6 +116,8 @@ function pickIsinCompanies(rows, { limit = 40, symbols = null, offset = 0 } = {}
       instrument_key: row.instrument_key || `NSE_EQ|${isin}`,
       sector: row.sector || null,
       industry: row.industry || null,
+      instrument_type: classification.type,
+      instrument_type_reason: classification.reason,
     });
   }
   // Explicit user selections must keep their requested order. Scheduled runs
@@ -100,6 +149,7 @@ export async function refreshUpstoxFundamentals({
   concurrency = Number(process.env.UIFI_CONCURRENCY || 3),
   symbols = null,
   offset = 0,
+  annualOnly = false,
 } = {}) {
   const ds = String(dataset || '').trim().toLowerCase();
   if (!DATASETS.includes(ds) && ds !== 'statements') {
@@ -129,19 +179,13 @@ export async function refreshUpstoxFundamentals({
       const company = companies[idx];
       try {
         if (ds === 'statements') {
-          // Yearly + quarterly, consolidated, with full_statement line items.
-          const [incomeY, balanceY, cashY, incomeQ, balanceQ, cashQ] = await Promise.all([
-            getFundamentals(company.isin, 'income-statement', { type: 'consolidated', time_period: 'yearly', fs: true }),
-            getFundamentals(company.isin, 'balance-sheet', { type: 'consolidated', time_period: 'yearly', fs: true }),
-            getFundamentals(company.isin, 'cash-flow', { type: 'consolidated', time_period: 'yearly', fs: true }),
-            // Upstox documents full_statement as annual-only even on a
-            // quarterly request. Keep detailed items in the yearly request;
-            // otherwise annual values may be labelled as Q4 data.
-            getFundamentals(company.isin, 'income-statement', { type: 'consolidated', time_period: 'quarterly', fs: false }),
-            getFundamentals(company.isin, 'balance-sheet', { type: 'consolidated', time_period: 'quarterly', fs: false }),
-            getFundamentals(company.isin, 'cash-flow', { type: 'consolidated', time_period: 'quarterly', fs: false }),
-          ]);
-          // Ingest yearly and quarterly as separate company blobs so time_period is preserved.
+          // The coverage backfill is deliberately annual-only: three bounded
+          // requests per company, all with full line items.  Quarterly refresh
+          // remains available for the post-close scheduler when required.
+          const replies = await Promise.all(statementRequests({ annualOnly }).map(
+            ([endpoint, params]) => getFundamentals(company.isin, endpoint, params),
+          ));
+          const [incomeY, balanceY, cashY, incomeQ, balanceQ, cashQ] = replies;
           batch.push({
             symbol: company.symbol,
             isin: company.isin,
@@ -151,8 +195,10 @@ export async function refreshUpstoxFundamentals({
             'income-statement': incomeY,
             'balance-sheet': balanceY,
             'cash-flow': cashY,
+            reported_unit: 'crore',
+            source: 'upstox',
           });
-          batch.push({
+          if (!annualOnly) batch.push({
             symbol: company.symbol,
             isin: company.isin,
             company_id: company.company_id,
@@ -161,6 +207,8 @@ export async function refreshUpstoxFundamentals({
             'income-statement': incomeQ,
             'balance-sheet': balanceQ,
             'cash-flow': cashQ,
+            reported_unit: 'crore',
+            source: 'upstox',
           });
         } else if (ds === 'competitors') {
           const key = company.instrument_key || `NSE_EQ|${company.isin}`;
@@ -225,7 +273,14 @@ export async function refreshUpstoxFundamentals({
     status: ingest?.status,
     dataset: ds,
     attempted: companies.length,
-    selection: { offset: Number(offset) || 0, universeSize: universe.length, batchSize: companies.length },
+    selection: {
+      offset: Number(offset) || 0,
+      universeSize: universe.length,
+      instrument_types: instrumentUniverseSummary(universe),
+      batchSize: companies.length,
+      annual_only: Boolean(annualOnly),
+      requests_per_company: annualOnly ? 3 : 6,
+    },
     fetched: batch.length,
     errors: errors.slice(0, 20),
     ingest: ingest?.data || ingest,
