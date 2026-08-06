@@ -33,6 +33,9 @@ def classify_market_regime(
     adv_ratio = adv / max(1, adv + dec)
     heatmap = str(breadth.get("heatmap") or "Neutral")
     avg_ret = breadth.get("average_return_pct")
+    confirmation = breadth.get("confirmation") or {}
+    bullish_confirmed = bool(confirmation.get("bullish_confirmed"))
+    bearish_confirmed = bool(confirmation.get("bearish_confirmed"))
 
     flow_trend = flows.get("trend_5d") if flows.get("available") else None
     flow_positive = flow_trend is not None and float(flow_trend) > 0
@@ -44,17 +47,17 @@ def classify_market_regime(
     regime = "Transition"
     drivers: list[str] = []
 
-    if heatmap in ("Strong Bearish", "Bearish") and adv_ratio < 0.35:
+    if heatmap in ("Strong Bearish", "Bearish") and bearish_confirmed and adv_ratio < 0.35:
         if dec > adv * 3 and total >= 50:
             regime = "Capitulation"
             drivers.append("Breadth heavily negative with broad participation to the downside")
         else:
             regime = "Bear Market"
             drivers.append("Declining breadth with risk-off participation")
-    elif heatmap in ("Strong Bearish", "Bearish"):
+    elif heatmap in ("Strong Bearish", "Bearish") and bearish_confirmed:
         regime = "Correction"
         drivers.append("Pullback in market breadth despite mixed participation")
-    elif heatmap in ("Strong Bullish", "Bullish") and adv_ratio >= 0.65:
+    elif heatmap in ("Strong Bullish", "Bullish") and bullish_confirmed and adv_ratio >= 0.65:
         if premium_sectors >= max(2, sector_count // 3):
             regime = "Late Cycle"
             drivers.append("Broad participation but several sectors above historical valuation bands")
@@ -64,7 +67,7 @@ def classify_market_regime(
         else:
             regime = "Expansion"
             drivers.append("Breadth improving with balanced sector valuation")
-    elif heatmap in ("Strong Bullish", "Bullish"):
+    elif heatmap in ("Strong Bullish", "Bullish") and bullish_confirmed:
         regime = "Recovery"
         drivers.append("Breadth recovering from prior weakness")
     elif 0.45 <= adv_ratio <= 0.55:
@@ -72,7 +75,10 @@ def classify_market_regime(
         drivers.append("Balanced advance/decline participation")
     else:
         regime = "Transition"
-        drivers.append("Mixed signals across breadth and sector valuation")
+        if heatmap in ("Strong Bullish", "Bullish", "Strong Bearish", "Bearish"):
+            drivers.append("Latest breadth move awaits multi-session confirmation")
+        else:
+            drivers.append("Mixed signals across breadth and sector valuation")
 
     if flow_positive:
         drivers.append("Institutional flows supportive on recent sessions")
@@ -97,6 +103,7 @@ def classify_market_regime(
             "declining": dec,
             "tracked": total,
         },
+        "confirmation": confirmation,
         "drivers": drivers[:6],
         "explanation": (
             f"Market regime classified as {regime} because "

@@ -171,11 +171,11 @@
 
 .msi-heat-cell.on { outline: 2px solid #1a3358; }
 
-.msi-heat-dark-green { background: #1f7a4d; color: #fff; }
-.msi-heat-light-green { background: #d1fae5; color: #065f46; }
+.msi-heat-dark-green { background: #dbeafe; color: #173b67; }
+.msi-heat-light-green { background: #edf5ff; color: #28527a; }
 .msi-heat-grey { background: #f3f6fa; color: #33475f; }
-.msi-heat-orange { background: #ffedd5; color: #9a3412; }
-.msi-heat-dark-red { background: #b42318; color: #fff; }
+.msi-heat-orange { background: #fff3dc; color: #8a4b08; }
+.msi-heat-dark-red { background: #fde8c8; color: #7a3d00; }
 
 .msi-heat-cell .tag {
   font-size: 0.68rem;

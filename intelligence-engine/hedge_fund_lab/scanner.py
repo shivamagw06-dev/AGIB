@@ -652,7 +652,7 @@ def _scan_stress(universe, medians, limit) -> list[dict[str, Any]]:
 
 
 def _scan_pairs(universe, medians, limit) -> list[dict[str, Any]]:
-    """Cheapest against richest within the same industry — a market-neutral leg pair."""
+    """Valuation-spread research candidates, not a statistical-arbitrage signal."""
     groups: dict[str, list[dict[str, Any]]] = {}
     for row in universe:
         industry = row.get("primary_industry")
@@ -693,8 +693,8 @@ def _scan_pairs(universe, medians, limit) -> list[dict[str, Any]]:
                     f"{cheap['_value']} on {metric.upper()} while "
                     f"{rich.get('company_name')} trades at {rich['_value']} — a "
                     f"{spread}× spread across {len(members)} peers. A market-neutral "
-                    "expression is long the cheaper leg against the richer one, provided "
-                    "the gap is not explained by profitability."
+                    "expression needs price-history diagnostics, borrow and execution checks before it "
+                    "can become a long/short research candidate."
                 ),
                 "caution": (
                     "Valuation gaps within an industry usually reflect real differences in "

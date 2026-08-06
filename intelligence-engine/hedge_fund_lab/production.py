@@ -95,6 +95,12 @@ def calculate(kind: str, payload: dict[str, Any]) -> dict[str, Any]:
             entry_z=body.get("entry_z", 2.0),
             exit_z=body.get("exit_z", 0.5),
         )
+    if name == "pair_diagnostics":
+        return calculators.pair_diagnostics(
+            body.get("long_prices") or [], body.get("short_prices") or [],
+            entry_z=body.get("entry_z", 2.0), exit_z=body.get("exit_z", 0.5),
+            max_half_life_sessions=body.get("max_half_life_sessions", 60),
+        )
     if name == "expectancy":
         return calculators.strategy_expectancy(
             hit_rate_pct=body.get("hit_rate_pct"),
@@ -122,6 +128,12 @@ def calculate(kind: str, payload: dict[str, Any]) -> dict[str, Any]:
             body.get("scenarios"),
         )
     return {"ok": False, "error": "unknown_calculator", "kind": name}
+
+
+def backtest(strategy_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    from .backtests import run_from_warehouse
+
+    return run_from_warehouse(strategy_id, payload or {})
 
 
 def terminal(limit: int = 12) -> dict[str, Any]:

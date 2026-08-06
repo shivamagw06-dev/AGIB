@@ -213,7 +213,10 @@ export default function MarketSectorIntelligence() {
               {pack.summary ? <blockquote className="msi-summary">{pack.summary}</blockquote> : null}
             </Section>
 
-            <Section title="Sector valuation heatmap" subtitle="Historical valuation percentile · click a sector">
+            <Section
+              title="Sector valuation map"
+              subtitle={`Historical valuation percentile · data through ${overview.valuation_date || '—'} · colours describe valuation range, not expected return · click a sector`}
+            >
               <div className="msi-heatmap">
                 {heatmap.map((s) => (
                   <button
@@ -230,7 +233,7 @@ export default function MarketSectorIntelligence() {
                     </span>
                     <span className="tag">{s.historical_range_status || s.opportunity}</span>
                     {s.historical_observations != null ? (
-                      <span className="msi-obs">{s.historical_observations} obs</span>
+                      <span className="msi-obs">{s.historical_observations} sessions · through {s.historical_window?.last || '—'}</span>
                     ) : null}
                   </button>
                 ))}
@@ -244,6 +247,7 @@ export default function MarketSectorIntelligence() {
                   <Stat label="Companies" value={fmt(sectorPack.companies, 0)} />
                   <Stat label="Primary metric" value={sectorPack.valuation?.primary_metric_label || '—'} />
                   <Stat label="Median" value={fmt(sectorPack.valuation?.current)} />
+                  <Stat label="History through" value={sectorPack.valuation?.historical_window?.last || '—'} />
                 </div>
               </Section>
             ) : null}
@@ -265,7 +269,7 @@ export default function MarketSectorIntelligence() {
                       <th>Current</th>
                       <th>Sector</th>
                       <th>Premium</th>
-                      <th>Hist %ile</th>
+                      <th>History</th>
                       <th>Hist range</th>
                       <th>Upstox</th>
                       <th>Cos</th>
@@ -289,9 +293,9 @@ export default function MarketSectorIntelligence() {
                         </td>
                         <td title={s.historical_percentile_reason || ''}>
                           {s.historical_percentile != null
-                            ? fmt(s.historical_percentile, 0)
+                            ? `${fmt(s.historical_percentile, 0)}%ile`
                             : (s.historical_percentile_status === 'INSUFFICIENT_HISTORY'
-                              ? 'n/a'
+                              ? `Limited (${s.historical_observations || 0})`
                               : s.historical_percentile_status === 'DATA_QUALITY_FAIL'
                                 ? 'unreliable'
                                 : '—')}
@@ -444,6 +448,7 @@ export default function MarketSectorIntelligence() {
               <div className="msi-prov">
                 <div><span>Valuation</span><strong>{pack.provenance?.valuation}</strong></div>
                 <div><span>Price / breadth</span><strong>{pack.provenance?.price}</strong></div>
+                <div><span>Fresh through</span><strong>{overview.valuation_date || '—'}</strong></div>
                 <div><span>Engine</span><strong>{pack.engine} v{pack.version}</strong></div>
                 <div><span>Coverage</span><strong>{fmt(pack.coverage?.companies, 0)} cos</strong></div>
                 <div><span>Validation</span><strong>{pack.validation?.publishable ? 'Passed' : `${pack.validation?.checks_passed || 0}/${pack.validation?.checks_total || 0} checks`}</strong></div>

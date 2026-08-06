@@ -4,6 +4,7 @@ import {
   getHflOpportunity,
   getHflScan,
   getHflTerminal,
+  hflBacktest,
 } from '@/lib/intelligenceApi';
 import { postUiSearch } from '@/lib/uiApi';
 
@@ -386,6 +387,10 @@ export default function HedgeFundTerminal() {
       </section>
 
       <h2 className="hft-title"><Activity size={15} /> Live strategy scanners</h2>
+      <p className="hft-dim hft-lead">
+        Scanner confidence is a transparent screen-strength score, not a probability of profit. Only a completed,
+        costed point-in-time backtest is shown as backtested research.
+      </p>
       <section className="hft-scanners">
         {(data.cards || []).map((card) => (
           <button
@@ -410,6 +415,8 @@ export default function HedgeFundTerminal() {
       </section>
 
       {active ? <OpportunityTable scan={active.id} label={active.label} /> : null}
+
+      <BacktestPanel />
 
       <h2 className="hft-title">Strategy overlap</h2>
       <p className="hft-dim hft-lead">
@@ -546,5 +553,40 @@ export default function HedgeFundTerminal() {
         {data.compared_with ? `, compared with ${data.compared_with}` : ''}. {data.policy}
       </p>
     </div>
+  );
+}
+
+function BacktestPanel() {
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const run = async () => {
+    setBusy(true); setError('');
+    try {
+      const response = await hflBacktest('momentum');
+      if (!response?.ok) setError(response?.detail || response?.error || 'Backtest unavailable');
+      else setResult(response);
+    } catch (err) {
+      setError(err?.message || 'Backtest unavailable');
+    } finally { setBusy(false); }
+  };
+  const metrics = result?.metrics || {};
+  return (
+    <section className="hft-dash">
+      <div>
+        <h5>Validated strategy research</h5>
+        <p className="hft-dim">12–1 momentum, monthly rebalance, next-close execution, turnover costs and close-based stop.</p>
+        <button className="hft-ask-bar" type="button" onClick={run} disabled={busy}>
+          {busy ? 'Running point-in-time backtest…' : 'Run momentum backtest'}
+        </button>
+        {error ? <p className="hft-error">{error}</p> : null}
+      </div>
+      {result ? <div>
+        <h5>Research output — not a recommendation</h5>
+        <p>Cumulative return: <b>{pct(metrics.cumulative_return_pct)}</b> · Annualised: <b>{pct(metrics.annualized_return_pct)}</b></p>
+        <p>Volatility: {pct(metrics.annualized_volatility_pct)} · Sharpe: {n(metrics.sharpe)} · Max drawdown: {pct(metrics.max_drawdown_pct)}</p>
+        <p className="hft-dim">{result.coverage?.backtest_sessions} sessions · {result.coverage?.symbols_with_price_history} symbols · {result.average_turnover_pct}% average one-way turnover.</p>
+      </div> : null}
+    </section>
   );
 }
