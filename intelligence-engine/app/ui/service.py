@@ -1530,6 +1530,99 @@ class UiService:
             entity_resolution=scrub(entity_resolution) if entity_resolution else {},
         )
 
+    def _verified_comparison_view(
+        self,
+        *,
+        question: str,
+        tickers: list[str],
+        ask_trace_id: str,
+        stage_timer: StageTimer,
+        ask_orchestration: dict[str, Any],
+        entity_resolution: dict[str, Any],
+    ) -> SearchView | None:
+        """Return the warehouse-backed comparison before the heavyweight desk path.
+
+        A comparison is a factual, side-by-side question.  The Universal Ask
+        orchestrator reads the existing financial warehouse directly and produces
+        a sourced answer without an LLM or the broad research fan-out.  Falling
+        back to the full desk remains correct when neither company has verified
+        comparison evidence.
+        """
+        if len(tickers) < 2:
+            return None
+        try:
+            from institutional_orchestrator.production import ask as universal_ask
+
+            result = universal_ask({"question": question, "entities": tickers[:2]}) or {}
+            response = result.get("response") if isinstance(result, dict) else {}
+            response = response if isinstance(response, dict) else {}
+            direct = str(response.get("direct_answer") or "").strip()
+            # Do not hide richer research behind an empty warehouse response.
+            if not direct or "unavailable for every requested company" in direct.lower():
+                return None
+
+            why = [str(x) for x in (response.get("why") or []) if x][:6]
+            evidence = [x for x in (response.get("supporting_evidence") or []) if isinstance(x, dict)][:12]
+            for stage in ("ikl", "retrieval", "ranking", "reasoning", "response_assembly"):
+                stage_timer.mark(stage)
+            orch = finalize_orchestration(
+                {
+                    **ask_orchestration,
+                    "short_circuit": "verified_comparison_warehouse",
+                    "comparison_tickers": tickers[:2],
+                    "comparison_retrieval": {"mode": "universal_ask", "tickers": tickers[:2]},
+                },
+                timer=stage_timer,
+                question=question,
+                detected_ticker=tickers[0],
+                ere_body={},
+                alias_hit=tickers[0],
+                evidence_used=evidence,
+                why=why,
+                executive=direct,
+                intent="comparison",
+                fallback=False,
+            )
+            stage_timer.mark("serialization")
+            orch["completed"] = True
+            orch["timeout"] = False
+            orch["latency"] = stage_timer.as_latency_block()
+            orch["latency_ms"] = stage_timer.as_dict()
+            orch["trace_summary"] = format_trace_summary(orch)
+            confidence = response.get("confidence")
+            return SearchView(
+                meta=UiMeta(surface="search", sources=["verified_comparison_warehouse"]),
+                question=question,
+                status="ok",
+                degradation={"ask_slim": ask_slim_enabled(), "short_circuit": "verified_comparison_warehouse"},
+                ask_orchestration=orch,
+                intent="comparison",
+                entities={"ticker": tickers[0], "companies": tickers[:2], "themes": [], "sectors": []},
+                answer={
+                    "summary": direct,
+                    "executive_summary": direct,
+                    "stance": "Research comparison",
+                    "why": why,
+                    "policy": "verified_warehouse_comparison_no_recommendation",
+                },
+                executive_summary=direct,
+                house_view={"label": "Research comparison", "stance": "Neutral"},
+                confidence=float(confidence) if isinstance(confidence, (int, float)) else None,
+                investment_thesis=direct,
+                why=why,
+                evidence_used=evidence,
+                supporting_research=evidence,
+                related_companies=tickers[:2],
+                follow_up_questions=[
+                    f"Compare {tickers[0]} and {tickers[1]} on earnings quality.",
+                    f"Compare {tickers[0]} and {tickers[1]} valuation.",
+                ],
+                answer_policy="verified_warehouse_comparison_no_recommendation",
+                entity_resolution=scrub(entity_resolution) if entity_resolution else {},
+            )
+        except Exception:
+            return None
+
     def search(
         self,
         question: str,
@@ -2373,6 +2466,16 @@ class UiService:
             comparison_tickers = list(dict.fromkeys(str(x).upper() for x in _alias_all if x))[:2]
             ask_orchestration["comparison_tickers"] = comparison_tickers
             ask_orchestration["comparison_entity_count"] = max(_cmp_n, len(comparison_tickers))
+            fast_comparison = self._verified_comparison_view(
+                question=q,
+                tickers=comparison_tickers,
+                ask_trace_id=ask_trace_id,
+                stage_timer=stage_timer,
+                ask_orchestration=ask_orchestration,
+                entity_resolution=entity_resolution,
+            )
+            if fast_comparison is not None:
+                return fast_comparison
 
         slim = ask_slim_enabled()
 
