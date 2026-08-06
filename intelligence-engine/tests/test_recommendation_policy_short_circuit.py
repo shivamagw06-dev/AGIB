@@ -10,6 +10,16 @@ from app.ui.service import UiService, _is_recommendation_bait
 def test_recommendation_bait_detector():
     assert _is_recommendation_bait("Should I buy HDFC Bank tomorrow?")
     assert _is_recommendation_bait("Should I sell Reliance?")
+    assert not _is_recommendation_bait(
+        "Compare HDFC Bank vs ICICI Bank on valuation and risks; "
+        "do not give a buy or sell recommendation."
+    )
+    assert not _is_recommendation_bait(
+        "Explain HDFC Bank's earnings; no recommendation is required."
+    )
+    assert _is_recommendation_bait(
+        "Do not give a recommendation, but should I buy HDFC Bank?"
+    )
     assert not _is_recommendation_bait("What did Meta say in Q2 2026 about AI capex?")
     assert not _is_recommendation_bait("What are the key risks for HDFC Bank?")
 
