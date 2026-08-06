@@ -9,6 +9,29 @@ def test_opportunity_label_bands():
     assert aggregation._historical_range_status(80) == "Above Historical Range"
 
 
+def test_short_sector_history_is_not_published_as_a_percentile():
+    out = aggregation._publishable_history({
+        "status": "OK",
+        "historical_percentile": 14.0,
+        "historical_median": 21.0,
+        "observation_count": 184,
+    })
+    assert out["historical_percentile"] is None
+    assert out["status"] == "INSUFFICIENT_HISTORY"
+    assert "252" in out["reason"]
+
+
+def test_full_year_sector_history_remains_publishable():
+    out = aggregation._publishable_history({
+        "status": "OK",
+        "historical_percentile": 14.0,
+        "historical_median": 21.0,
+        "observation_count": 252,
+    })
+    assert out["historical_percentile"] == 14.0
+    assert out["status"] == "OK"
+
+
 def test_normalise_upstox_flow():
     rows = ingest_flows.normalise_upstox_flow({
         "date": "2026-08-01",
@@ -259,6 +282,23 @@ def test_market_regime_not_risk_on_only():
     )
     assert out["regime"] in regime.REGIME_LABELS
     assert out["regime"] not in ("Risk On", "Risk Off")
+
+
+def test_regime_requires_multi_session_breadth_confirmation():
+    from market_intelligence_engine import regime
+
+    out = regime.classify_market_regime(
+        breadth={
+            "advancing": 700, "declining": 300, "heatmap": "Bullish", "date": "2026-08-04",
+            "confirmation": {"sessions": 3, "bullish_sessions": 1, "bearish_sessions": 0,
+                             "bullish_confirmed": False, "bearish_confirmed": False},
+        },
+        flows={"available": False},
+        sectors=[],
+        overview={"coverage": {"pct": 70}},
+    )
+    assert out["regime"] == "Transition"
+    assert "awaits multi-session confirmation" in out["drivers"][0]
 
 
 def test_market_health_has_components():

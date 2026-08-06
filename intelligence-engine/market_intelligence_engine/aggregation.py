@@ -8,6 +8,12 @@ from typing import Any, Optional
 from valuation_terminal.sector_lens import lens_for
 
 
+# A sector valuation percentile becomes investor-facing only after roughly one
+# full year of trading sessions.  The lower HVIE floor remains useful for
+# diagnostics, but is not enough to colour the production heatmap.
+MIN_PUBLISHABLE_SECTOR_HISTORY_OBS = 252
+
+
 def _median(values: list[Any]) -> Optional[float]:
     clean = [float(v) for v in values if v is not None]
     return round(median(clean), 2) if clean else None
@@ -145,6 +151,7 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
         # True sector historical percentile: rank today's sector median in its
         # own median history (HVIE). Never fall back to inventing 50.
         hist_pack = _sector_own_history_percentile(sector, current=current, metric=primary)
+        hist_pack = _publishable_history(hist_pack)
         hist_pct = hist_pack.get("historical_percentile")
         # Upstox sector benchmark only — do not invent one from peer medians.
         sector_key = {
@@ -259,6 +266,28 @@ def _sector_own_history_percentile(
             "observation_count": 0,
             "source": None,
         }
+
+
+def _publishable_history(history: dict[str, Any]) -> dict[str, Any]:
+    """Fail closed for the heatmap when the sector series is too short.
+
+    A percentile from 24 or 184 daily observations is mathematically valid but
+    too fragile to present as a strong sector valuation signal.
+    """
+    pack = dict(history or {})
+    obs = int(pack.get("observation_count") or 0)
+    if pack.get("status") == "OK" and obs < MIN_PUBLISHABLE_SECTOR_HISTORY_OBS:
+        pack.update({
+            "historical_percentile": None,
+            "historical_median": None,
+            "sufficient": False,
+            "status": "INSUFFICIENT_HISTORY",
+            "reason": (
+                f"Limited sector history — observed {obs} sessions; need ≥"
+                f"{MIN_PUBLISHABLE_SECTOR_HISTORY_OBS} before publishing a valuation percentile."
+            ),
+        })
+    return pack
 
 
 def _historical_range_status(hist_pct: Optional[float]) -> str:

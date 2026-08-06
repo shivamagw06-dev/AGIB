@@ -5,24 +5,10 @@ from __future__ import annotations
 from typing import Any, Optional
 
 
-def market_breadth(*, sample_limit: int = 3000) -> dict[str, Any]:
-    from institutional_warehouse import db, store
-
-    table = db.physical_table("daily_market_history")
-    dates = db.query(f'SELECT DISTINCT "date" AS d FROM {table} ORDER BY d DESC LIMIT 2')
-    if len(dates) < 2:
-        return {"ok": False, "error": "insufficient_price_history", "advancing": 0, "declining": 0}
-
-    latest, prior = dates[0]["d"], dates[1]["d"]
-    latest_rows = {
-        str(r.get("symbol") or "").upper(): r
-        for r in store.fetch("daily_market_history", filters={"date": latest}, limit=sample_limit)["rows"]
-    }
-    prior_rows = {
-        str(r.get("symbol") or "").upper(): r
-        for r in store.fetch("daily_market_history", filters={"date": prior}, limit=sample_limit)["rows"]
-    }
-
+def _session_breadth(
+    latest_rows: dict[str, dict[str, Any]], prior_rows: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Breadth for one consecutive-session pair, without any market label."""
     advancing = declining = unchanged = 0
     returns: list[float] = []
     for sym, row in latest_rows.items():
@@ -44,8 +30,59 @@ def market_breadth(*, sample_limit: int = 3000) -> dict[str, Any]:
             declining += 1
         else:
             unchanged += 1
+    ratio = advancing / max(1, advancing + declining)
+    heatmap = "Neutral"
+    if ratio >= 0.65:
+        heatmap = "Strong Bullish"
+    elif ratio >= 0.55:
+        heatmap = "Bullish"
+    elif ratio <= 0.35:
+        heatmap = "Strong Bearish"
+    elif ratio <= 0.45:
+        heatmap = "Bearish"
+    return {
+        "advancing": advancing,
+        "declining": declining,
+        "unchanged": unchanged,
+        "average_return_pct": round(sum(returns) / len(returns), 2) if returns else None,
+        "heatmap": heatmap,
+        "sample_size": len(returns),
+    }
 
-    avg_ret = round(sum(returns) / len(returns), 2) if returns else None
+
+def market_breadth(*, sample_limit: int = 3000) -> dict[str, Any]:
+    from institutional_warehouse import db, store
+
+    table = db.physical_table("daily_market_history")
+    dates = db.query(f'SELECT DISTINCT "date" AS d FROM {table} ORDER BY d DESC LIMIT 4')
+    if len(dates) < 2:
+        return {"ok": False, "error": "insufficient_price_history", "advancing": 0, "declining": 0}
+
+    date_values = [row["d"] for row in dates]
+    rows_by_date = {
+        day: {
+            str(row.get("symbol") or "").upper(): row
+            for row in store.fetch("daily_market_history", filters={"date": day}, limit=sample_limit)["rows"]
+        }
+        for day in date_values
+    }
+    latest, prior = date_values[0], date_values[1]
+    current = _session_breadth(rows_by_date[latest], rows_by_date[prior])
+    sessions = []
+    for current_day, previous_day in zip(date_values, date_values[1:]):
+        item = _session_breadth(rows_by_date[current_day], rows_by_date[previous_day])
+        sessions.append({"date": current_day, **item})
+
+    advancing, declining, unchanged = current["advancing"], current["declining"], current["unchanged"]
+    avg_ret = current["average_return_pct"]
+    returns = []
+    for sym, row in rows_by_date[latest].items():
+        prev = rows_by_date[prior].get(sym)
+        try:
+            if prev:
+                returns.append(100.0 * (float(row.get("close") or row.get("adjusted_close") or 0) / float(prev.get("close") or prev.get("adjusted_close") or 0) - 1.0))
+        except (TypeError, ValueError, ZeroDivisionError):
+            continue
     med_ret = None
     if returns:
         ordered = sorted(returns)
@@ -60,16 +97,17 @@ def market_breadth(*, sample_limit: int = 3000) -> dict[str, Any]:
         elif avg_ret <= -0.35:
             sentiment = "Risk Off"
 
-    heatmap = "Neutral"
+    heatmap = current["heatmap"]
     ratio = advancing / max(1, advancing + declining)
-    if ratio >= 0.65:
-        heatmap = "Strong Bullish"
-    elif ratio >= 0.55:
-        heatmap = "Bullish"
-    elif ratio <= 0.35:
-        heatmap = "Strong Bearish"
-    elif ratio <= 0.45:
-        heatmap = "Bearish"
+    bullish_sessions = sum(item["heatmap"] in {"Bullish", "Strong Bullish"} for item in sessions)
+    bearish_sessions = sum(item["heatmap"] in {"Bearish", "Strong Bearish"} for item in sessions)
+    confirmation = {
+        "sessions": len(sessions),
+        "bullish_sessions": bullish_sessions,
+        "bearish_sessions": bearish_sessions,
+        "bullish_confirmed": len(sessions) >= 2 and bullish_sessions >= 2,
+        "bearish_confirmed": len(sessions) >= 2 and bearish_sessions >= 2,
+    }
 
     return {
         "ok": True,
@@ -82,6 +120,8 @@ def market_breadth(*, sample_limit: int = 3000) -> dict[str, Any]:
         "median_return_pct": med_ret,
         "sentiment": sentiment,
         "heatmap": heatmap,
+        "recent_sessions": sessions,
+        "confirmation": confirmation,
         "sample_size": len(returns),
         "tracked_universe": len(returns),
         "universe_definition": (
