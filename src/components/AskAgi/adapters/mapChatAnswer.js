@@ -207,7 +207,11 @@ export function mapChatAnswer(pack) {
       ),
       impact: 'Supportive',
     },
-  ].map((c) => ({ ...c, tone: scoreTone(c.impact) }));
+  ].map((c) =>
+    evidenceUnavailable
+      ? { ...c, impact: 'Unavailable', tone: 'neu' }
+      : { ...c, tone: scoreTone(c.impact) }
+  );
 
   const moreBullish = evidenceUnavailable
     ? []
