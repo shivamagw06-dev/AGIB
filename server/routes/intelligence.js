@@ -134,6 +134,29 @@ export default function createIntelligenceRouter() {
     proxyGet((req) => `/v1/company/statements/${encodeURIComponent(req.params.symbol)}`),
   );
 
+  router.get('/company/resolve', async (req, res) => {
+    const query = String(req.query.q || '').trim();
+    if (!query) return res.status(400).json({ error: 'Enter a company name or NSE symbol.' });
+    const normalize = (value) => String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    try {
+      const result = await engineFetch('/v1/warehouse/tab/company_master?limit=3000', { timeoutMs: 20_000 });
+      if (!result.ok) return res.status(result.status).json(result.data);
+      const needle = normalize(query);
+      const candidates = (result.data?.rows || []).map((row) => ({
+        symbol: String(row.symbol || row.company_id || '').toUpperCase(),
+        company_name: row.company_name || row.legal_name || row.symbol || row.company_id,
+      })).filter((row) => row.symbol);
+      const match = candidates.find((row) => normalize(row.symbol) === needle)
+        || candidates.find((row) => normalize(row.company_name) === needle)
+        || candidates.find((row) => normalize(row.company_name).startsWith(needle))
+        || candidates.find((row) => normalize(row.company_name).includes(needle));
+      if (!match) return res.status(404).json({ error: `No listed company found for “${query}”.` });
+      return res.json({ ok: true, ...match });
+    } catch (error) {
+      return res.status(503).json({ error: 'Company search is temporarily unavailable.', detail: error.message });
+    }
+  });
+
   router.post('/research/runs', proxyPost('/v1/research/runs'));
   router.get('/research/runs', async (req, res) => {
     try {
