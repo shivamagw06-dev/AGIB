@@ -25,6 +25,7 @@ def question(
     concept_mode: bool | None = None,
     must_not: list[str] | None = None,
     tags: list[str] | None = None,
+    answer_format: str | None = None,
     suite: str = "institutional",
     version: str = "iel-v1",
 ) -> dict[str, Any]:
@@ -48,6 +49,7 @@ def question(
         "concept_mode": concept_mode,
         "must_not": list(must_not or []),
         "tags": list(tags or []),
+        "answer_format": answer_format,
         "suite": suite,
         "version": version,
         "fabricated": False,

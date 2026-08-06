@@ -42,7 +42,7 @@ def run_benchmark(
     """
     Run IEL suite.
 
-    suite: cio_frozen_25 | institutional_1000 | smoke | all
+    suite: cio_frozen_25 | investor_100 | institutional_1000 | smoke | all
     mode: soft (nightly default) | full (sample)
     """
     t0 = time.time()
