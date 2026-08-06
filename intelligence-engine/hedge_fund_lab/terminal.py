@@ -165,9 +165,14 @@ SCANS: dict[str, tuple[str, Callable]] = {
     "dividend": ("Dividend / income", _scan_dividend),
 }
 
-_ORDER = ["value", "quality", "growth", "momentum", "conviction", "dividend", "stress", "pairs"]
+_ORDER = ["alpha", "value", "quality", "growth", "technical", "momentum", "conviction", "dividend", "stress", "pairs"]
 
 _SCAN_PROFILE: dict[str, dict[str, str]] = {
+    "alpha": {
+        "alpha": "Agreement across value, quality, growth, technical confirmation and consensus",
+        "risk": "Medium — a composite prioritises research; it cannot replace catalyst and downside work",
+        "question": "Which component is genuinely differentiated, and what could invalidate the combined signal?",
+    },
     "value": {
         "alpha": "Multiple re-rating toward the industry median",
         "risk": "Medium — cheap can stay cheap when returns are structurally lower",
@@ -187,6 +192,11 @@ _SCAN_PROFILE: dict[str, dict[str, str]] = {
         "alpha": "Persistence of relative strength inside an industry",
         "risk": "High — crowded trends reverse without warning",
         "question": "Is the trend fundamentally supported or purely flows?",
+    },
+    "technical": {
+        "alpha": "End-of-day 12–1 momentum plus trend confirmation",
+        "risk": "High — technical strength can reverse sharply around events or liquidity shocks",
+        "question": "Is the trend supported by fundamentals, liquidity and a near-term catalyst?",
     },
     "conviction": {
         "alpha": "Sell-side expectation gaps that resolve on results",
@@ -218,6 +228,12 @@ def _confidence(key: str, row: dict[str, Any]) -> int:
     def clamp(x: float) -> int:
         return int(max(25, min(95, round(x))))
 
+    if key == "alpha":
+        base = 35 + (_num(row.get("alpha_opportunity_score")) or 0) * 0.55
+        base += min(12, len(row.get("factor_scores") or {}) * 3)
+        if row.get("risk_flags"):
+            base -= 15
+        return clamp(base)
     if key == "value":
         base = 45 + abs(_num(row.get("discount_pct")) or 0) / 2.0
         if row.get("classification") == "Potential value trap":
@@ -229,6 +245,8 @@ def _confidence(key: str, row: dict[str, Any]) -> int:
         return clamp(40 + (_num(row.get("implied_earnings_growth_pct")) or 0) / 3.0)
     if key == "momentum":
         return clamp(45 + (_num(row.get("relative_strength")) or 0) / 2.5)
+    if key == "technical":
+        return clamp(30 + (_num(row.get("technical_score")) or 0) * 0.65)
     if key == "conviction":
         return clamp(
             (_num(row.get("buy_share_pct")) or 0) * 0.5
@@ -457,9 +475,11 @@ def _overview_uncached(capped: int, cache_key: str, now: float) -> dict[str, Any
     reg = regime(universe)
     suitability_by_name = {s["strategy"]: s for s in (reg.get("strategy_suitability") or [])}
     suitability_map = {
+        "alpha": "Long / Short Equity",
         "value": "Value / Deep Value",
         "quality": "Long / Short Equity",
         "growth": "Long / Short Equity",
+        "technical": "Momentum / CTA Trend",
         "momentum": "Momentum / CTA Trend",
         "conviction": "Long / Short Equity",
         "dividend": "Equity Market Neutral",

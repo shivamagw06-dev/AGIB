@@ -123,6 +123,22 @@ def test_consensus_derivations_count_analysts_and_dispersion():
     assert row["target_dispersion"] == pytest.approx(100.0 * (36 - 24) / 30.0)
 
 
+def test_technical_features_use_12_1_momentum_and_trend():
+    prices = [
+        {
+            "date": f"2025-{(index // 22) + 1:02d}-{(index % 22) + 1:02d}",
+            "close": 100.0 + index * 0.25,
+            "volume": 100_000 + index,
+        }
+        for index in range(280)
+    ]
+    out = formulas._technical_features(prices)
+    assert out["momentum_12_1_pct"] is not None
+    assert out["momentum_score"] is not None
+    assert out["trend_score"] == 100.0
+    assert out["technical_score"] is not None
+
+
 # --------------------------------------------------------------------------
 # Ratios
 # --------------------------------------------------------------------------

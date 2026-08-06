@@ -240,6 +240,10 @@ def _map_warehouse_row(
             "quality_score": _num(factors.get("quality_score")),
             "growth_score": _num(factors.get("growth_score")),
             "momentum_score": _num(factors.get("momentum_score")),
+            "technical_score": _num(factors.get("technical_score")),
+            "trend_score": _num(factors.get("trend_score")),
+            "momentum_12_1_pct": _num(factors.get("momentum_12_1_pct")),
+            "volume_ratio_20d": _num(factors.get("volume_ratio_20d")),
             "consensus_score": _num(factors.get("consensus_score")),
             "opportunity_score": _num(factors.get("opportunity_score")),
             "strategy_agreement": _num(factors.get("strategy_agreement")),
@@ -734,9 +738,110 @@ def _scan_pairs(universe, medians, limit) -> list[dict[str, Any]]:
     return out[:limit]
 
 
+def _scan_technical(universe, medians, limit) -> list[dict[str, Any]]:
+    """Technical confirmation from nightly, end-of-day warehouse factors.
+
+    We require both an established trend and an independently calculated 12–1
+    momentum score. This deliberately avoids calling live market vendors while
+    a user has the terminal open.
+    """
+    out = []
+    for row in universe:
+        factors = row.get("factors") or {}
+        score = _num(factors.get("technical_score"))
+        trend = _num(factors.get("trend_score"))
+        momentum = _num(factors.get("momentum_12_1_pct"))
+        if score is None or trend is None or momentum is None:
+            continue
+        if score < 65 or trend < 75 or momentum <= 0:
+            continue
+        volume_ratio = _num(factors.get("volume_ratio_20d"))
+        out.append(
+            {
+                **_base(row),
+                "technical_score": score,
+                "trend_score": trend,
+                "momentum_12_1_pct": momentum,
+                "volume_ratio_20d": volume_ratio,
+                "factor_as_of": factors.get("as_of"),
+                "why": (
+                    f"Technical score {score} with trend score {trend} and 12–1 momentum of "
+                    f"{momentum}% (latest 21 sessions excluded)"
+                    + (f"; 20-day volume is {volume_ratio}× the preceding 20 days." if volume_ratio is not None else ".")
+                    + " Confirm price structure and liquidity before treating this as a timing signal."
+                ),
+            }
+        )
+    out.sort(key=lambda r: (-r["technical_score"], -r["momentum_12_1_pct"]))
+    return out[:limit]
+
+
+def _scan_alpha(universe, medians, limit) -> list[dict[str, Any]]:
+    """Multi-factor research queue with every component exposed.
+
+    A composite is surfaced only when at least three independently refreshed
+    components exist. The output is a research priority, never a trade or a
+    probability of return.
+    """
+    out = []
+    weights = {
+        "value": 0.30,
+        "quality": 0.25,
+        "growth": 0.15,
+        "technical": 0.15,
+        "consensus": 0.15,
+    }
+    for row in universe:
+        factors = row.get("factors") or {}
+        components = {
+            "value": _num(factors.get("value_score")),
+            "quality": _num(factors.get("quality_score")),
+            "growth": _num(factors.get("growth_score")),
+            "technical": _num(factors.get("technical_score")) or _num(factors.get("momentum_score")),
+            "consensus": _num(factors.get("consensus_score")),
+        }
+        available = {name: value for name, value in components.items() if value is not None}
+        if len(available) < 3:
+            continue
+        total_weight = sum(weights[name] for name in available)
+        composite = round(sum(value * weights[name] for name, value in available.items()) / total_weight, 1)
+        agreement = sum(1 for value in available.values() if value >= 60)
+        if composite < 62 or agreement < 3:
+            continue
+        debt = _sane(row, "debt_to_equity")
+        margin = _sane(row, "profit_margin")
+        risks = []
+        if debt is not None and debt > 200:
+            risks.append("elevated leverage")
+        if margin is not None and margin < 0:
+            risks.append("negative profitability")
+        evidence = ", ".join(f"{name.title()} {value:.0f}" for name, value in available.items())
+        out.append(
+            {
+                **_base(row),
+                "alpha_opportunity_score": composite,
+                "factor_agreement": agreement,
+                "factor_scores": available,
+                "factor_as_of": factors.get("as_of"),
+                "risk_flags": risks,
+                "classification": "Needs risk review" if risks else "Multi-factor research candidate",
+                "why": (
+                    f"{agreement} of {len(available)} available factors are supportive: {evidence}. "
+                    f"Composite research score {composite}."
+                    + (f" Risk flags: {', '.join(risks)}." if risks else "")
+                    + " Validate the next catalyst, estimate changes and technical liquidity before acting."
+                ),
+            }
+        )
+    out.sort(key=lambda r: (-r["alpha_opportunity_score"], -r["factor_agreement"]))
+    return out[:limit]
+
+
 _SCANNERS = {
+    "alpha": ("Alpha opportunity", _scan_alpha),
     "value": ("Value", _scan_value),
     "quality": ("Quality", _scan_quality),
+    "technical": ("Technical confirmation", _scan_technical),
     "momentum": ("Momentum", _scan_momentum),
     "conviction": ("Consensus conviction", _scan_conviction),
     "stress": ("Distressed / stress", _scan_stress),

@@ -639,7 +639,8 @@ def recalc_factors(*, actor: str = "system", as_of: Optional[str] = None,
             if delta is not None:
                 growth_score = _clamp(50.0 + delta * 5.0)
 
-        momentum_score = _momentum(market.get(symbol, []))
+        technical = _technical_features(market.get(symbol, []))
+        momentum_score = technical.get("momentum_score")
         upside = _num(val.get("upside"))
         consensus_score = _clamp(50.0 + (upside or 0.0) / 2.0) if upside is not None else None
         dividend_yield = _num(val.get("dividend_yield"))
@@ -669,6 +670,10 @@ def recalc_factors(*, actor: str = "system", as_of: Optional[str] = None,
                 "quality_score": quality_score,
                 "growth_score": growth_score,
                 "momentum_score": momentum_score,
+                "technical_score": technical.get("technical_score"),
+                "trend_score": technical.get("trend_score"),
+                "momentum_12_1_pct": technical.get("momentum_12_1_pct"),
+                "volume_ratio_20d": technical.get("volume_ratio_20d"),
                 "consensus_score": consensus_score,
                 "dividend_score": dividend_score,
                 "risk_score": risk_score,
@@ -680,18 +685,74 @@ def recalc_factors(*, actor: str = "system", as_of: Optional[str] = None,
     return gateway.write("hedge_fund_factors", rows, source=SOURCE, actor=actor, reason="recalc_factors")
 
 
-def _momentum(prices: list[dict[str, Any]]) -> Optional[float]:
+def _technical_features(prices: list[dict[str, Any]]) -> dict[str, Optional[float]]:
+    """End-of-day technical inputs calculated during the warehouse refresh.
+
+    12–1 momentum deliberately skips the newest 21 sessions: it avoids using
+    the short-term reversal component as a trend signal.  These are research
+    factors, not instructions to trade.
+    """
     ordered = sorted(
         [p for p in prices if _num(p.get("close")) is not None],
         key=lambda r: str(r.get("date") or ""),
     )
-    if len(ordered) < 2:
-        return None
-    first, last = _num(ordered[0]["close"]), _num(ordered[-1]["close"])
-    if not first:
-        return None
-    change = 100.0 * (last - first) / first
-    return _clamp(50.0 + change / 2.0)
+    closes = [_num(row.get("close")) for row in ordered]
+    closes = [value for value in closes if value is not None]
+    if len(closes) < 2:
+        return {
+            "momentum_score": None,
+            "technical_score": None,
+            "trend_score": None,
+            "momentum_12_1_pct": None,
+            "volume_ratio_20d": None,
+        }
+
+    momentum_pct = None
+    # 252-session lookback, excluding the most recent 21 sessions.
+    if len(closes) >= 274:
+        start, end = closes[-274], closes[-22]
+        if start and end:
+            momentum_pct = round(100.0 * (end / start - 1.0), 2)
+    momentum_score = _clamp(50.0 + momentum_pct / 2.0) if momentum_pct is not None else None
+
+    ma50 = sum(closes[-50:]) / 50 if len(closes) >= 50 else None
+    ma200 = sum(closes[-200:]) / 200 if len(closes) >= 200 else None
+    trend_score = None
+    if ma50 is not None:
+        trend_score = 50.0
+        if closes[-1] > ma50:
+            trend_score += 25.0
+        if ma200 is not None and ma50 > ma200:
+            trend_score += 25.0
+
+    volumes = [_num(row.get("volume")) for row in ordered[-20:]]
+    volumes = [value for value in volumes if value is not None and value > 0]
+    prior_volumes = [_num(row.get("volume")) for row in ordered[-40:-20]]
+    prior_volumes = [value for value in prior_volumes if value is not None and value > 0]
+    volume_ratio = None
+    if volumes and prior_volumes:
+        base = sum(prior_volumes) / len(prior_volumes)
+        if base:
+            volume_ratio = round((sum(volumes) / len(volumes)) / base, 2)
+
+    components = [(momentum_score, 0.70), (trend_score, 0.30)]
+    available = [(value, weight) for value, weight in components if value is not None]
+    technical_score = (
+        round(sum(value * weight for value, weight in available) / sum(weight for _, weight in available), 2)
+        if available else None
+    )
+    return {
+        "momentum_score": momentum_score,
+        "technical_score": technical_score,
+        "trend_score": trend_score,
+        "momentum_12_1_pct": momentum_pct,
+        "volume_ratio_20d": volume_ratio,
+    }
+
+
+def _momentum(prices: list[dict[str, Any]]) -> Optional[float]:
+    """Backward-compatible access to the warehouse 12–1 momentum score."""
+    return _technical_features(prices).get("momentum_score")
 
 
 # --------------------------------------------------------------------------
