@@ -23,6 +23,7 @@ import {
   getVtCompany,
   getVtExplain,
   getVtHealth,
+  getVtInsights,
   getVtSeries,
   searchVtCompanies,
 } from '@/lib/intelligenceApi';
@@ -62,6 +63,7 @@ const CHART_METRICS = ['price', 'pe', 'pb', 'ev_ebitda', 'revenue', 'eps', 'roe'
 const WINDOWS = ['1Y', '3Y', '5Y', '10Y', 'MAX'];
 const RECENT_KEY = 'agi.vt.recent';
 const FAV_KEY = 'agi.vt.favorites';
+const NOTES_KEY = 'agi.vt.research-notes';
 
 function fmt(v, digits = 2) {
   if (v == null || v === '') return '—';
@@ -88,6 +90,23 @@ function writeList(key, items) {
     localStorage.setItem(key, JSON.stringify(items.slice(0, 12)));
   } catch {
     /* ignore */
+  }
+}
+
+function readObject(key) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(key) || '{}');
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeObject(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* Notes remain local-only when browser storage is unavailable. */
   }
 }
 
@@ -596,6 +615,147 @@ function DataQualityPanel({ dq, healthScore }) {
   );
 }
 
+function labelForMetric(metric) {
+  return METRIC_LABELS[metric] || String(metric || '').replace(/_/g, ' ').toUpperCase();
+}
+
+function ResearchGuide({ pack }) {
+  const table = pack?.table || [];
+  const overview = pack?.overview || {};
+  const health = pack?.health_score || {};
+  const meaningful = table.filter((row) => row.meaningful && row.company != null);
+  const valuationRows = meaningful.filter((row) => ['pe', 'pb', 'ev_ebitda', 'ev_sales'].includes(row.metric));
+  const below = valuationRows.filter((row) => ['Discount', 'Below'].includes(row.position));
+  const above = valuationRows.filter((row) => ['Premium', 'Above'].includes(row.position));
+  const qualityRow = meaningful.find((row) => row.metric === 'roe');
+  const debtRow = meaningful.find((row) => ['debt_to_equity', 'net_debt_ebitda'].includes(row.metric));
+  const coverage = pack?.coverage || {};
+  const reliable = health.score != null && health.score >= 70 && (coverage.pct == null || coverage.pct >= 60);
+  const stance = !reliable
+    ? { label: 'Build evidence', tone: 'review', text: 'Coverage is not yet strong enough for a reliable valuation conclusion.' }
+    : below.length >= 2
+      ? { label: 'Investigate valuation gap', tone: 'investigate', text: 'More than one applicable multiple screens below its historical or peer reference. Confirm that fundamentals support the discount.' }
+      : above.length >= 2
+        ? { label: 'Test expectations', tone: 'caution', text: 'More than one applicable multiple carries a premium. Check whether growth, returns and cash generation justify it.' }
+        : { label: 'Monitor', tone: 'monitor', text: 'The available valuation evidence is mixed. Track the next result, estimate revision and price move.' };
+
+  const questions = [
+    below.length
+      ? `Why is ${below.map((row) => labelForMetric(row.metric)).join(' and ')} below its reference range?`
+      : above.length
+        ? `What must improve for the ${above.map((row) => labelForMetric(row.metric)).join(' and ')} premium to be sustained?`
+        : 'Which operating KPI is most likely to change the valuation range?',
+    qualityRow?.company != null
+      ? `Is the reported ${labelForMetric(qualityRow.metric)} of ${fmt(qualityRow.company)} durable through the cycle?`
+      : 'Validate profitability and cash conversion before using valuation multiples.',
+    debtRow?.company != null
+      ? `Does leverage (${labelForMetric(debtRow.metric)}: ${fmt(debtRow.company)}) constrain capital allocation or downside resilience?`
+      : 'Review balance-sheet resilience and any refinancing or dilution risk.',
+  ];
+
+  return (
+    <section className="vt-panel vt-research-guide">
+      <div className="vt-panel-head">
+        <div>
+          <h3>Research guidance</h3>
+          <p className="hint">Evidence-led questions for your next research step — not a recommendation.</p>
+        </div>
+        <span className={`vt-stance vt-stance-${stance.tone}`}>{stance.label}</span>
+      </div>
+      <p className="vt-stance-copy">{stance.text}</p>
+      <div className="vt-signal-grid">
+        <div>
+          <span className="k">Valuation signals</span>
+          <strong>{below.length ? `${below.length} below reference` : above.length ? `${above.length} at premium` : 'Mixed / limited'}</strong>
+          <small>{meaningful.length ? `${meaningful.length} applicable metrics available` : 'No applicable metrics'}</small>
+        </div>
+        <div>
+          <span className="k">Financial quality</span>
+          <strong>{qualityRow?.company != null ? `${labelForMetric(qualityRow.metric)} ${fmt(qualityRow.company)}` : 'Needs validation'}</strong>
+          <small>{overview.sector || 'Sector unavailable'} · {overview.industry || 'Industry unavailable'}</small>
+        </div>
+        <div>
+          <span className="k">Evidence confidence</span>
+          <strong>{health.score != null ? `${health.score}%` : '—'}</strong>
+          <small>{coverage.pct != null ? `${coverage.pct}% metric coverage` : 'Coverage not reported'}</small>
+        </div>
+      </div>
+      <div className="vt-next-questions">
+        <span className="k">Suggested questions to answer</span>
+        <ol>
+          {questions.map((question) => <li key={question}>{question}</li>)}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+function ResearchNotes({ symbol, companyName }) {
+  const [notes, setNotes] = useState(() => readObject(NOTES_KEY));
+  const [saved, setSaved] = useState(false);
+  const value = notes[symbol] || '';
+
+  useEffect(() => { setSaved(false); }, [symbol]);
+
+  const save = () => {
+    const next = { ...notes, [symbol]: value.trim() };
+    setNotes(next);
+    writeObject(NOTES_KEY, next);
+    setSaved(true);
+  };
+
+  return (
+    <section className="vt-panel vt-notes-panel">
+      <div className="vt-panel-head">
+        <div>
+          <h3>Your research notes</h3>
+          <p className="hint">Private to this browser · use for thesis, risks, catalysts and open questions.</p>
+        </div>
+        <button type="button" className="vi-btn" onClick={save}>{saved ? 'Saved' : 'Save notes'}</button>
+      </div>
+      <textarea
+        value={value}
+        onChange={(e) => { setNotes((prev) => ({ ...prev, [symbol]: e.target.value })); setSaved(false); }}
+        placeholder={`Write your ${companyName || symbol} research notes…`}
+        aria-label={`Research notes for ${companyName || symbol}`}
+      />
+    </section>
+  );
+}
+
+function WorkspaceBriefing({ onSelectCompany }) {
+  const [insights, setInsights] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    getVtInsights()
+      .then((result) => { if (!cancelled) setInsights(result?.insights || []); })
+      .catch(() => { if (!cancelled) setInsights([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <section className="vt-workspace-briefing">
+      <div>
+        <span className="vt-brief-eyebrow">Start here</span>
+        <h2>What deserves research today?</h2>
+        <p>Use the screens to find ideas, then test the evidence in the company workspace. Nothing here is a buy or sell call.</p>
+      </div>
+      <div className="vt-brief-actions">
+        <button type="button" className="vt-brief-link" onClick={() => onSelectCompany?.('ICICIBANK', 'ICICI Bank')}>Research ICICI Bank</button>
+        <button type="button" className="vt-brief-link" onClick={() => onSelectCompany?.('HDFCBANK', 'HDFC Bank')}>Compare bank quality</button>
+      </div>
+      <div className="vt-insight-list">
+        {loading ? <p className="hint">Loading verified market observations…</p> : null}
+        {!loading && !insights?.length ? <p className="hint">Market observations will appear once the valuation engine has sufficient coverage.</p> : null}
+        {insights?.map((insight) => <p key={insight}>• {insight}</p>)}
+      </div>
+    </section>
+  );
+}
+
 const COMPANY_TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'valuation', label: 'Valuation' },
@@ -668,8 +828,12 @@ function CompanyDetailWorkspace({
           </div>
         ) : null}
 
+        {tab === 'overview' ? <ResearchGuide pack={pack} /> : null}
+
         {tab === 'research' ? (
           <>
+            <ResearchGuide pack={pack} />
+            <ResearchNotes symbol={symbol} companyName={overview.name} />
             <ResearchDossierPanel symbol={symbol} />
             <CompanyAttributionPanel symbol={symbol} />
           </>
@@ -937,6 +1101,7 @@ export default function ValuationTerminal() {
         {showSectorHome ? (
           <>
             <MarketSnapshot market={market} loading={marketLoading} />
+            <WorkspaceBriefing onSelectCompany={selectCompany} />
             <CoverageHealthPanel />
             <SectorDirectory
               sectors={sectors}
