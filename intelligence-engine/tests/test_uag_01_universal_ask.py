@@ -95,6 +95,12 @@ def test_statement_rank_prefers_upstox_consolidated_and_newer_period():
     assert selected["pat"] == 3
 
 
+def test_comparison_money_uses_crore_for_trusted_upstox_default():
+    from institutional_orchestrator.response_builder import _money
+
+    assert _money(162_097.4, {"_meta": {"unit_method": "source_default"}}) == "₹16,209.7 crore"
+
+
 def test_registry_route_discovery():
     hits = match_routes("Show committee deferred decisions and policy violations")
     types = {h.object_type for h in hits}
