@@ -298,7 +298,10 @@ function InstitutionalTable({ rows, onExplain }) {
                 </td>
                 <td>{!r.meaningful ? 'n/a' : fmt(r.company)}</td>
                 <td>{!r.meaningful ? '—' : fmt(r.industry)}</td>
-                <td>{!r.meaningful ? '—' : fmt(r.historical)}</td>
+                <td>
+                  {!r.meaningful ? '—' : fmt(r.historical)}
+                  {r.coverage?.observations ? <small className="hint"> n={r.coverage.observations}</small> : null}
+                </td>
                 <td className={positionClass(r.position)}>{r.position || (r.note ? '—' : '—')}</td>
                 <td className="vt-source">{r.source || (r.available ? 'Engine' : '—')}</td>
               </tr>
@@ -364,6 +367,7 @@ function ChartPanel({ symbol, window, onWindow, coverage }) {
         {' · '}History {cov.confidence || '—'}
         {' · '}Span {cov.observed_span != null ? `${cov.observed_span}y` : '—'}
         {cov.first && cov.last ? ` · ${cov.first} → ${cov.last}` : ''}
+        {!cov.sufficient_for_window && cov.count ? ` · Insufficient history for ${window}` : ''}
       </div>
       <div className="vt-chart">
         {loading ? (
@@ -436,6 +440,7 @@ function PeerTable({ peers }) {
               <th>ROE</th>
               <th>Consensus upside</th>
               <th>Relative score</th>
+              <th>Peer basis</th>
             </tr>
           </thead>
           <tbody>
@@ -448,6 +453,7 @@ function PeerTable({ peers }) {
                 <td>{fmt(p.roe)}</td>
                 <td>{fmt(p.consensus_upside)}</td>
                 <td>{fmt(p.relative_score, 1)}</td>
+                <td>{p.is_self ? 'Selected company' : (p.selection_reason || 'Sector match')}</td>
               </tr>
             ))}
           </tbody>
@@ -546,6 +552,15 @@ function ProvenancePanel({ provenance, version }) {
           <span className="v">{provenance.formula || 'unified_valuation_engine'}</span>
           <span className="hint">Version {provenance.formula_version || version || '3.0'}</span>
         </div>
+        <div>
+          <span className="k">Freshness</span>
+          <span className="v">
+            {provenance.freshness?.price_age_hours != null ? `Price ${provenance.freshness.price_age_hours}h` : 'Price timestamp unavailable'}
+          </span>
+          <span className="hint">
+            {provenance.freshness?.ratio_age_hours != null ? `Ratios ${provenance.freshness.ratio_age_hours}h` : 'Ratio timestamp unavailable'}
+          </span>
+        </div>
       </div>
     </section>
   );
@@ -561,6 +576,7 @@ function DataQualityPanel({ dq, healthScore }) {
       <div className="vt-dq-grid">
         <div><span className="k">Validated</span><span className="v">{dq?.validated ? 'Yes' : 'No'}</span></div>
         <div><span className="k">Warnings</span><span className="v">{dq?.warnings?.length || 0}</span></div>
+        <div><span className="k">Freshness</span><span className="v">{dq?.freshness?.warnings?.length ? 'Review' : 'Current'}</span></div>
         <div><span className="k">Missing</span><span className="v">{(dq?.missing || []).join(', ') || 'None'}</span></div>
         <div><span className="k">Conflicts</span><span className="v">{dq?.conflicts ?? 0}</span></div>
         <div><span className="k">Overrides</span><span className="v">{dq?.overrides ?? 0}</span></div>

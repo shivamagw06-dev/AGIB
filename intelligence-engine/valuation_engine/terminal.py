@@ -9,6 +9,8 @@ the view.
 from __future__ import annotations
 
 from statistics import median
+from datetime import datetime, timezone
+from math import log10
 from typing import Any, Optional
 
 from valuation_engine import attribution, engine, health_score, service
@@ -105,11 +107,12 @@ def company_pack(symbol: str, *, window: str = "5Y", peer_limit: int = 12) -> di
     change = _change_log(ticker, metrics, history_rows)
     charts = _chart_coverage(ticker, window)
     dq = _data_quality(ticker, record)
+    provenance = {**(valuation.get("provenance") or {}), "freshness": dq.get("freshness") or {}}
     hist_span, hist_obs = _history_depth(history_rows, charts)
     confidence = health_score.score(
         metrics=metrics,
         coverage=valuation.get("coverage") or {},
-        provenance=valuation.get("provenance") or {},
+        provenance=provenance,
         history_span_years=hist_span,
         history_observations=hist_obs,
         conflict_count=int(dq.get("conflicts") or 0),
@@ -133,7 +136,7 @@ def company_pack(symbol: str, *, window: str = "5Y", peer_limit: int = 12) -> di
         "change_log": change,
         "charts": charts,
         "coverage": valuation.get("coverage"),
-        "provenance": valuation.get("provenance"),
+        "provenance": provenance,
         "data_quality": dq,
         "health_score": confidence,
         "lens": valuation.get("lens"),
@@ -210,10 +213,29 @@ def _load_history_rows(symbol: str, limit: int = 400) -> list[dict[str, Any]]:
     return rows
 
 
+def _peer_rank(target: dict[str, Any], candidate: dict[str, Any]) -> tuple[float, str]:
+    """Rank peers by business similarity before a stable symbol tie-breaker."""
+    target_dna = str(target.get("industry_dna") or target.get("industry") or "").strip().lower()
+    candidate_dna = str(candidate.get("industry_dna") or candidate.get("industry") or "").strip().lower()
+    score = 0.0
+    reason = "same sector"
+    if target_dna and target_dna == candidate_dna:
+        score += 100.0
+        reason = "same industry"
+    target_cap = _as_number(target.get("market_cap"))
+    candidate_cap = _as_number(candidate.get("market_cap"))
+    if target_cap and candidate_cap and target_cap > 0 and candidate_cap > 0:
+        # Penalise size distance, but industry similarity remains dominant.
+        score -= min(30.0, abs(log10(target_cap) - log10(candidate_cap)) * 10.0)
+        reason += ", similar size"
+    return score, reason
+
+
 def _load_peers(record: dict[str, Any], *, limit: int = 12) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Same-sector peers from company_master, valued by the engine."""
+    """Comparable equities, ranked by industry and size—not alphabetically."""
     from institutional_warehouse import store
     from institutional_warehouse.production import read_company
+    from valuation_policy.instruments import resolve_instrument
 
     master = record.get("master") or {}
     sector = master.get("sector")
@@ -230,11 +252,24 @@ def _load_peers(record: dict[str, Any], *, limit: int = 12) -> tuple[list[dict[s
     except Exception:
         return [], []
 
-    # Prefer names with richer warehouse coverage later; for now take a stable slice.
-    candidates = sorted(candidates, key=lambda r: str(r.get("symbol") or ""))[: max(1, limit)]
+    ranked = []
+    for candidate in candidates:
+        kind = resolve_instrument(
+            symbol=str(candidate.get("symbol") or ""), company_name=candidate.get("company_name"),
+            sector=candidate.get("sector"), industry=candidate.get("industry"),
+            industry_dna=candidate.get("industry_dna"), master=candidate,
+        ).get("instrument_type")
+        if kind != "EQUITY":
+            continue
+        score, reason = _peer_rank(master, candidate)
+        ranked.append((score, str(candidate.get("symbol") or ""), reason, candidate))
+    # Assess a small, quality-ranked candidate pool; do not do a full-universe
+    # expensive company read on every terminal request.
+    ranked.sort(key=lambda x: (-x[0], x[1]))
+    candidates = ranked[: max(24, limit * 4)]
     peer_rows: list[dict[str, Any]] = []
     peer_vals: list[dict[str, Any]] = []
-    for row in candidates:
+    for _, _, peer_reason, row in candidates:
         ticker = str(row.get("symbol") or "").upper()
         if not ticker:
             continue
@@ -243,13 +278,20 @@ def _load_peers(record: dict[str, Any], *, limit: int = 12) -> tuple[list[dict[s
             if not peer_record.get("ok", True):
                 continue
             values = engine.compute(peer_record)
+            # A peer without both a current value and an annual statement is
+            # not a comparable company for valuation purposes.
+            if not peer_record.get("latest_annual") or not any(v.available for v in values.values()):
+                continue
             flat = {k: v.value for k, v in values.items() if v.available}
             flat["symbol"] = ticker
             flat["company_name"] = (peer_record.get("master") or {}).get("company_name") or ticker
             flat["sector"] = sector
+            flat["peer_reason"] = peer_reason
             peer_rows.append(flat)
             # Shape expected by service.get_company_valuation peer_series.
             peer_vals.append(flat)
+            if len(peer_vals) >= limit:
+                break
         except Exception:
             continue
     return peer_rows, peer_vals
@@ -318,11 +360,14 @@ def _institutional_table(
             "missing": cell.get("missing") or [],
             "note": cell.get("note") or "",
             "applicability": cell.get("applicability"),
-            "coverage": {
+        "coverage": {
                 "peer_count": ctx.get("peer_count"),
                 "observations": ctx.get("observations"),
                 "historical_percentile": ctx.get("historical_percentile"),
-                "premium_pct": ctx.get("premium_pct"),
+            "premium_pct": ctx.get("premium_pct"),
+            "historical_observation_label": (
+                f"{ctx.get('observations')} observations" if ctx.get("observations") else "No historical observations"
+            ),
             },
         })
     return rows
@@ -449,6 +494,7 @@ def _peer_table(
             "historical_pe": None,
             "consensus_upside": peer.get("upside"),
             "relative_score": _relative_score(peer_metrics, peer_ctx),
+            "selection_reason": peer.get("peer_reason"),
         })
     rows.sort(key=lambda r: (-1 if r.get("relative_score") is None else -float(r["relative_score"])))
     return {
@@ -630,7 +676,11 @@ def _chart_coverage(symbol: str, window: str) -> dict[str, Any]:
             "observed_span": span,
             "confidence": _series_confidence(count, span),
             "tab": tab_id,
+            "required_span_years": 10 if win == "10y" else (5 if win == "5y" else 3 if win == "3y" else 1),
         }
+        out[metric]["sufficient_for_window"] = bool(
+            count and (win == "max" or (span is not None and float(span) >= out[metric]["required_span_years"]))
+        )
     return {
         "window": win,
         "windows": list(WINDOWS),
@@ -726,6 +776,8 @@ def _data_quality(symbol: str, record: dict[str, Any]) -> dict[str, Any]:
         if quality and str(quality).lower() in {"warn", "warning", "fail"}:
             warnings.append(f"{name}: {quality}")
 
+    freshness = _freshness(record)
+    warnings.extend(freshness.get("warnings") or [])
     validated = not missing and not conflict_rows and not warnings
     return {
         "validated": validated,
@@ -734,4 +786,49 @@ def _data_quality(symbol: str, record: dict[str, Any]) -> dict[str, Any]:
         "conflicts": len(conflict_rows),
         "conflict_rows": conflict_rows[:5],
         "overrides": override_count,
+        "freshness": freshness,
+    }
+
+
+def _freshness(record: dict[str, Any], *, now: Optional[datetime] = None) -> dict[str, Any]:
+    """Turn timestamps into explicit terminal warnings; never silently imply live data."""
+    now = now or datetime.now(timezone.utc)
+
+    def age_hours(row: dict[str, Any]) -> Optional[float]:
+        meta = row.get("_meta") if isinstance(row.get("_meta"), dict) else {}
+        raw = meta.get("updated_at") or row.get("last_updated") or row.get("reported_time") or row.get("reported_date")
+        if not raw:
+            return None
+        try:
+            stamp = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+            if stamp.tzinfo is None:
+                stamp = stamp.replace(tzinfo=timezone.utc)
+            return max(0.0, (now - stamp.astimezone(timezone.utc)).total_seconds() / 3600)
+        except (TypeError, ValueError):
+            return None
+
+    price_age = age_hours(record.get("latest_price") or {})
+    financial_age = age_hours(record.get("latest_annual") or {})
+    provider = record.get("provider_ratios") or {}
+    ratio_age = age_hours({"reported_time": provider.get("as_of")})
+    warnings = []
+    # NSE cash session: 09:15–15:30 IST, Monday–Friday.  Outside it, one day
+    # is acceptable; inside it, a 15-minute price is already stale.
+    ist_hour = now.hour + 5 + (30 / 60)
+    in_market = now.weekday() < 5 and 9.25 <= ist_hour <= 15.5
+    price_limit = 0.25 if in_market else 24.0
+    if price_age is None:
+        warnings.append("price timestamp unavailable")
+    elif price_age > price_limit:
+        warnings.append(f"price stale ({price_age:.0f}h old)")
+    if ratio_age is not None and ratio_age > 36:
+        warnings.append(f"valuation ratios stale ({ratio_age:.0f}h old)")
+    if financial_age is not None and financial_age > 24 * 180:
+        warnings.append("financial statements older than 180 days")
+    return {
+        "price_age_hours": round(price_age, 1) if price_age is not None else None,
+        "ratio_age_hours": round(ratio_age, 1) if ratio_age is not None else None,
+        "financial_age_hours": round(financial_age, 1) if financial_age is not None else None,
+        "price_fresh_limit_hours": price_limit,
+        "warnings": warnings,
     }
