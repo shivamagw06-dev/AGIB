@@ -50,11 +50,11 @@ async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 180_
   return { ok: response.ok, status: response.status, data };
 }
 
-function pickIsinCompanies(rows, { limit = 40, symbols = null } = {}) {
+function pickIsinCompanies(rows, { limit = 40, symbols = null, offset = 0 } = {}) {
   const want = Array.isArray(symbols) && symbols.length
     ? new Set(symbols.map((s) => String(s).toUpperCase()))
     : null;
-  const out = [];
+  const eligible = [];
   const seen = new Set();
   for (const row of rows || []) {
     const symbol = String(row.symbol || '').trim().toUpperCase();
@@ -62,7 +62,7 @@ function pickIsinCompanies(rows, { limit = 40, symbols = null } = {}) {
     if (!symbol || !isin || seen.has(isin)) continue;
     if (want && !want.has(symbol)) continue;
     seen.add(isin);
-    out.push({
+    eligible.push({
       symbol,
       isin,
       company_id: row.company_id || symbol,
@@ -70,9 +70,15 @@ function pickIsinCompanies(rows, { limit = 40, symbols = null } = {}) {
       sector: row.sector || null,
       industry: row.industry || null,
     });
-    if (out.length >= limit) break;
   }
-  return out;
+  // Explicit user selections must keep their requested order. Scheduled runs
+  // rotate through the full universe instead of repeatedly refreshing the
+  // first N symbols forever.
+  if (want || eligible.length <= limit) return eligible.slice(0, limit);
+  const start = Math.max(0, Number(offset) || 0) % eligible.length;
+  return Array.from({ length: Math.min(limit, eligible.length) }, (_, index) =>
+    eligible[(start + index) % eligible.length],
+  );
 }
 
 function buildIsinMap(rows) {
@@ -93,6 +99,7 @@ export async function refreshUpstoxFundamentals({
   limit = Number(process.env.UIFI_BATCH || 40),
   concurrency = Number(process.env.UIFI_CONCURRENCY || 3),
   symbols = null,
+  offset = 0,
 } = {}) {
   const ds = String(dataset || '').trim().toLowerCase();
   if (!DATASETS.includes(ds) && ds !== 'statements') {
@@ -105,7 +112,7 @@ export async function refreshUpstoxFundamentals({
   }
 
   const universe = await loadIsinUniverse({ limit: Math.max(limit * 5, 5000) });
-  const companies = pickIsinCompanies(universe, { limit, symbols });
+  const companies = pickIsinCompanies(universe, { limit, symbols, offset });
   if (!companies.length) {
     return { ok: false, status: 404, error: 'no_isin_universe', dataset: ds };
   }
@@ -127,9 +134,12 @@ export async function refreshUpstoxFundamentals({
             getFundamentals(company.isin, 'income-statement', { type: 'consolidated', time_period: 'yearly', fs: true }),
             getFundamentals(company.isin, 'balance-sheet', { type: 'consolidated', time_period: 'yearly', fs: true }),
             getFundamentals(company.isin, 'cash-flow', { type: 'consolidated', time_period: 'yearly', fs: true }),
-            getFundamentals(company.isin, 'income-statement', { type: 'consolidated', time_period: 'quarterly', fs: true }),
-            getFundamentals(company.isin, 'balance-sheet', { type: 'consolidated', time_period: 'quarterly', fs: true }),
-            getFundamentals(company.isin, 'cash-flow', { type: 'consolidated', time_period: 'quarterly', fs: true }),
+            // Upstox documents full_statement as annual-only even on a
+            // quarterly request. Keep detailed items in the yearly request;
+            // otherwise annual values may be labelled as Q4 data.
+            getFundamentals(company.isin, 'income-statement', { type: 'consolidated', time_period: 'quarterly', fs: false }),
+            getFundamentals(company.isin, 'balance-sheet', { type: 'consolidated', time_period: 'quarterly', fs: false }),
+            getFundamentals(company.isin, 'cash-flow', { type: 'consolidated', time_period: 'quarterly', fs: false }),
           ]);
           // Ingest yearly and quarterly as separate company blobs so time_period is preserved.
           batch.push({
@@ -215,6 +225,7 @@ export async function refreshUpstoxFundamentals({
     status: ingest?.status,
     dataset: ds,
     attempted: companies.length,
+    selection: { offset: Number(offset) || 0, universeSize: universe.length, batchSize: companies.length },
     fetched: batch.length,
     errors: errors.slice(0, 20),
     ingest: ingest?.data || ingest,
