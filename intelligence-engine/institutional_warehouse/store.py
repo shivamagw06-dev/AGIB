@@ -218,6 +218,9 @@ def fetch(
     tab = get_tab(tab_id)
     table = db.physical_table(tab.id)
     clauses, params = _build_filters(tab, filters)
+    # Retired rows remain in the append-only audit ledger but must never feed
+    # products or the normal warehouse grid.
+    clauses.append("COALESCE(sys_published, 1) = 1")
     s_clauses, s_params = _build_search(tab, search)
     clauses += s_clauses
     params += s_params
@@ -248,7 +251,10 @@ def fetch(
 
 def get(tab_id: str, row_id: str) -> Optional[dict[str, Any]]:
     tab = get_tab(tab_id)
-    rows = db.query(f"SELECT * FROM {db.physical_table(tab.id)} WHERE row_id = ?", (row_id,))
+    rows = db.query(
+        f"SELECT * FROM {db.physical_table(tab.id)} WHERE row_id = ? AND COALESCE(sys_published, 1) = 1",
+        (row_id,),
+    )
     if not rows:
         return None
     overrides = _overrides_for(tab.id, [row_id])
@@ -681,6 +687,30 @@ def delete_rows(tab_id: str, row_ids: Sequence[str], *, actor: str, reason: Opti
         removed += 1
     audit.record("delete", tab_id=tab.id, actor=actor, detail={"rows": list(row_ids), "reason": reason})
     return {"ok": True, "removed": removed}
+
+
+def retire_rows(tab_id: str, row_ids: Sequence[str], *, actor: str, reason: str) -> dict[str, Any]:
+    """Hide bad imported rows from active reads while retaining full audit history."""
+    tab = get_tab(tab_id)
+    retired = 0
+    for row_id in row_ids:
+        current = raw_row(tab.id, row_id)
+        if not current or not current.get("sys_published"):
+            continue
+        versions.snapshot_row(
+            tab_id=tab.id,
+            row_id=row_id,
+            entity=current.get("sys_entity"),
+            version=int(current.get("sys_version") or 1),
+            payload={k: v for k, v in current.items() if not k.startswith("sys_")},
+            actor=actor,
+            reason=reason,
+            kind="retire",
+        )
+        db.execute(f"UPDATE {db.physical_table(tab.id)} SET sys_published = 0 WHERE row_id = ?", (row_id,))
+        retired += 1
+    audit.record("retire", tab_id=tab.id, actor=actor, detail={"rows": list(row_ids), "reason": reason})
+    return {"ok": True, "retired": retired}
 
 
 def publish(tab_id: str, *, actor: str, row_ids: Optional[Sequence[str]] = None) -> dict[str, Any]:
