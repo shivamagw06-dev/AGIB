@@ -65,6 +65,32 @@ export function mapChatAnswer(pack) {
   const vm = mapSearchPack(pack || {});
   if (!vm) return null;
 
+  // The presentation layer must never turn an empty evidence pack into a
+  // confident-looking research answer.  Keep the answer visibly incomplete
+  // until the engine has supplied at least one attributable evidence item.
+  const evidenceRows = [
+    ...(Array.isArray(vm.supporting) ? vm.supporting : []),
+    ...(Array.isArray(pack?.supporting_evidence) ? pack.supporting_evidence : []),
+    ...(Array.isArray(pack?.evidence_used) ? pack.evidence_used : []),
+    ...(Array.isArray(pack?.evidence) ? pack.evidence : []),
+  ];
+  const hasVerifiedEvidence = evidenceRows.some((item) => {
+    if (typeof item === 'string') return Boolean(item.trim());
+    return Boolean(item?.source || item?.title || item?.url || item?.id);
+  });
+  const evidenceUnavailable =
+    !hasVerifiedEvidence ||
+    Boolean(
+      pack?.degraded ||
+        pack?.mode === 'node_desk_fallback' ||
+        pack?.ask_orchestration?.fallback ||
+        pack?.ask_orchestration?.fallback_used
+    );
+  const unavailableText =
+    'Evidence unavailable: AGI could not retrieve verified company research for this answer. Retry when the research desk is available.';
+  const evidenceBacked = (value, fallback) =>
+    evidenceUnavailable ? unavailableText : (value || fallback);
+
   const rc = vm.responseConstitution || pack?.answer_construction?.response_constitution || null;
   const aic =
     vm.askIntelligenceConstitution ||
@@ -118,85 +144,99 @@ export function mapChatAnswer(pack) {
     {
       id: 'business',
       title: 'Business',
-      body:
+      body: evidenceBacked(
         thesisSrc.business ||
         asList([vm.businessQuality, vm.businessModel, vm.whyCards?.find((c) => c.key === 'demand')?.text])[0] ||
-        vm.why?.[0] ||
-        'What the company does, why customers choose it, and whether that advantage can last.',
+          vm.why?.[0],
+        'What the company does, why customers choose it, and whether that advantage can last.'
+      ),
       impact: impactFromLabel('business', thesisSrc.business || vm.businessQuality || ''),
     },
     {
       id: 'growth',
       title: 'Growth',
-      body:
+      body: evidenceBacked(
         thesisSrc.growth ||
         asList([vm.whyCards?.find((c) => c.key === 'demand')?.text, vm.sectorNarrative, vm.macroNarrative])[0] ||
-        'Where future growth could come from — and what could slow it down.',
+          null,
+        'Where future growth could come from — and what could slow it down.'
+      ),
       impact: impactFromLabel('growth', thesisSrc.growth || vm.sectorNarrative || ''),
     },
     {
       id: 'financial',
       title: 'Financial Quality',
-      body:
+      body: evidenceBacked(
         thesisSrc.financial_quality ||
         asList([vm.financialNarrative, vm.whyCards?.find((c) => c.key === 'financial')?.text])[0] ||
-        'Whether the company is making real cash and whether its balance sheet can handle stress.',
+          null,
+        'Whether the company is making real cash and whether its balance sheet can handle stress.'
+      ),
       impact: impactFromLabel('financial', thesisSrc.financial_quality || vm.financialNarrative || ''),
     },
     {
       id: 'valuation',
       title: 'Valuation',
-      body:
+      body: evidenceBacked(
         thesisSrc.valuation ||
         asList([vm.valuationNarrative, vm.whyCards?.find((c) => c.key === 'valuation')?.text])[0] ||
-        'Whether the share price already assumes strong future results — and compared with what.',
+          null,
+        'Whether the share price already assumes strong future results — and compared with what.'
+      ),
       impact: impactFromLabel('valuation', thesisSrc.valuation || vm.valuationNarrative || 'neutral'),
     },
     {
       id: 'risk',
       title: 'Risks',
-      body:
+      body: evidenceBacked(
         thesisSrc.risks ||
         asList([vm.risks?.[0]?.risk, vm.whyCards?.find((c) => c.key === 'risk')?.text])[0] ||
-        'What could make this investment go wrong — and why those risks matter.',
+          null,
+        'What could make this investment go wrong — and why those risks matter.'
+      ),
       impact: 'Watch',
     },
     {
       id: 'catalysts',
       title: 'Catalysts',
-      body:
+      body: evidenceBacked(
         thesisSrc.catalysts ||
         asList(vm.catalysts)[0] ||
-        asList(vm.bull)[0] ||
-        'Upcoming events that could raise or reduce AGIB’s conviction — explained in plain English.',
+          asList(vm.bull)[0],
+        'Upcoming events that could raise or reduce AGIB’s conviction — explained in plain English.'
+      ),
       impact: 'Supportive',
     },
   ].map((c) => ({ ...c, tone: scoreTone(c.impact) }));
 
-  const moreBullish = asList(
-    [
-      ...(rc?.bull_vs_bear?.bull_case || []),
-      ...(vm.bull || []),
-      ...(vm.catalysts || []),
-    ],
-    6
-  );
-  if (!moreBullish.length) {
+  const moreBullish = evidenceUnavailable
+    ? []
+    : asList(
+      [
+        ...(rc?.bull_vs_bear?.bull_case || []),
+        ...(vm.bull || []),
+        ...(vm.catalysts || []),
+      ],
+      6
+    );
+  if (!moreBullish.length && !evidenceUnavailable) {
     moreBullish.push(
       'Demand keeps compounding without needing ever-higher spending to win customers',
       'Cash generation improves so the company depends less on external capital'
     );
   }
 
-  const moreBearish = asList(
-    [
-      ...(rc?.bull_vs_bear?.bear_case || []),
-      ...(vm.bear || []),
-      ...(vm.risks || []).map((r) => (typeof r === 'string' ? r : r.risk)),
-    ],
-    6
-  );
-  if (!moreBearish.length) {
+  const moreBearish = evidenceUnavailable
+    ? []
+    : asList(
+      [
+        ...(rc?.bull_vs_bear?.bear_case || []),
+        ...(vm.bear || []),
+        ...(vm.risks || []).map((r) => (typeof r === 'string' ? r : r.risk)),
+      ],
+      6
+    );
+  if (!moreBearish.length && !evidenceUnavailable) {
     moreBearish.push(
       'Investors already expect a lot — so a small disappointment could pressure the share price',
       'Competition or regulation could slow growth faster than the business can adapt'
@@ -214,7 +254,14 @@ export function mapChatAnswer(pack) {
     { id: 'forecast', label: 'Forecast Intelligence', section: 'scenarios' },
   ];
 
-  const scores = {
+  const scores = evidenceUnavailable ? {
+    business: null,
+    financial: null,
+    growth: null,
+    valuation: null,
+    risk: null,
+    conviction: null,
+  } : {
     business: vm.kpis?.find((k) => /business|quality/i.test(k.label))?.value || null,
     financial: vm.kpis?.find((k) => /financial|cash|roe/i.test(k.label))?.value || null,
     growth: vm.kpis?.find((k) => /growth|momentum/i.test(k.label))?.value || null,
@@ -223,13 +270,16 @@ export function mapChatAnswer(pack) {
     conviction: vm.conviction || view,
   };
 
-  const directAnswer =
-    aicSections.executive_summary ||
-    rc?.direct_answer ||
-    vm.institutionalAnswer?.text ||
-    vm.executive ||
-    vm.conclusion ||
-    'AGIB is assembling institutional intelligence for this question.';
+  const directAnswer = evidenceUnavailable
+    ? unavailableText
+    : (
+      aicSections.executive_summary ||
+      rc?.direct_answer ||
+      vm.institutionalAnswer?.text ||
+      vm.executive ||
+      vm.conclusion ||
+      unavailableText
+    );
 
   const researchConclusion =
     vm.researchConclusion ||
@@ -268,28 +318,32 @@ export function mapChatAnswer(pack) {
     10
   );
 
-  const recentResearch = asList(
-    [
-      ...(vm.supporting || []).map((s) => s.title || s.source || s),
-      'Internal AGIB',
-      'Exchange Filing',
-    ],
-    4
-  );
+  const recentResearch = evidenceUnavailable
+    ? []
+    : asList(
+      [
+        ...(vm.supporting || []).map((s) => s.title || s.source || s),
+        'Internal AGIB',
+        'Exchange Filing',
+      ],
+      4
+    );
 
-  const whyAgib = asList(rc?.why_agib_thinks_this?.length ? rc.why_agib_thinks_this : vm.why, 5);
+  const whyAgib = evidenceUnavailable
+    ? [unavailableText]
+    : asList(rc?.why_agib_thinks_this?.length ? rc.why_agib_thinks_this : vm.why, 5);
 
-  const bottomLine =
-    rc?.bottom_line ||
-    vm.bottomLine ||
-    vm.conclusion ||
-    directAnswer;
+  const bottomLine = evidenceUnavailable
+    ? unavailableText
+    : (rc?.bottom_line || vm.bottomLine || vm.conclusion || directAnswer);
 
-  const confidence = vm.confidence ?? rc?.confidence?.score ?? 72;
+  const confidence = evidenceUnavailable ? null : (vm.confidence ?? rc?.confidence?.score ?? null);
   const confidenceExplanation =
-    rc?.confidence?.explanation ||
-    vm.confidenceExplanation ||
-    explainConfidenceFallback(confidence, view);
+    evidenceUnavailable
+      ? unavailableText
+      : (rc?.confidence?.explanation ||
+        vm.confidenceExplanation ||
+        explainConfidenceFallback(confidence, view));
 
   return {
     question: vm.question,
@@ -303,8 +357,8 @@ export function mapChatAnswer(pack) {
     horizon: vm.horizon || vm.institutionalAnswer?.horizon || '12–24 Months',
     confidence,
     confidenceExplanation,
-    institutionalView: view,
-    stanceTone: vm.stanceTone || (view === 'Constructive' ? 'pos' : view === 'Cautious' ? 'neg' : 'neu'),
+    institutionalView: evidenceUnavailable ? 'Evidence unavailable' : view,
+    stanceTone: evidenceUnavailable ? 'neu' : (vm.stanceTone || (view === 'Constructive' ? 'pos' : view === 'Cautious' ? 'neg' : 'neu')),
     thesisCards,
     moreBullish,
     moreBearish,
@@ -314,6 +368,7 @@ export function mapChatAnswer(pack) {
     recentResearch,
     freshness: vm.freshness,
     lastUpdated: vm.lastUpdated,
+    evidenceUnavailable,
     constitutionVersion: aic?.version || ipf?.version || rc?.version || '1.0',
     investmentContext,
     researchConclusion,

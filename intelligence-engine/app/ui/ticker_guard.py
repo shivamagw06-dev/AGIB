@@ -19,6 +19,7 @@ _ALIAS_BIND: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\binfosys\b|\binfy\b", re.I), "INFY"),
     (re.compile(r"\btcs\b|\btata consultancy\b", re.I), "TCS"),
     (re.compile(r"\bhdfc\s*bank\b", re.I), "HDFCBANK"),
+    (re.compile(r"\bicici\s*bank\b|\bicicibank\b", re.I), "ICICIBANK"),
 )
 
 

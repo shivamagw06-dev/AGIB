@@ -66,6 +66,11 @@ def test_comparison_requires_two_aliases():
     assert is_comparison_question("Compare Infosys vs TCS.")
     assert alias_tickers_from_question("Compare Infosys vs TCS.") == ["INFY", "TCS"]
     assert comparison_entity_count("Compare Infosys vs TCS.") >= 2
+    assert alias_tickers_from_question("Compare HDFC Bank vs ICICI Bank.") == [
+        "HDFCBANK",
+        "ICICIBANK",
+    ]
+    assert comparison_entity_count("Compare HDFC Bank vs ICICI Bank.") >= 2
     assert comparison_entity_count("Compare Infosys.") < 2
 
 

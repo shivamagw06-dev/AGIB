@@ -584,8 +584,8 @@ export default function createUiRouter() {
     }
 
     const askTimeoutMs = Math.max(
-      30_000,
-      Number.parseInt(process.env.ASK_ENGINE_TIMEOUT_MS || '120000', 10) || 120_000,
+      15_000,
+      Number.parseInt(process.env.ASK_ENGINE_TIMEOUT_MS || '20000', 10) || 20_000,
     );
     const httpStarted = Date.now();
     const gatewayTraceId = normalizeAskRequestId(
@@ -774,7 +774,7 @@ export default function createUiRouter() {
         duration_ms: forwardAt - httpStarted,
         path,
       });
-      // Default 120s (env ASK_ENGINE_TIMEOUT_MS). Client may retry a fresh request.
+      // Keep the public desk responsive. Long-running analysis should return an honest degraded response rather than hold the browser on a skeleton for two minutes. Deployments can still override this setting explicitly.
       const result = await engineFetch(path, {
         method: 'POST',
         body: {

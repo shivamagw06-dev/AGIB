@@ -95,12 +95,30 @@ _ASKS_AGI_FOR_A_CALL = re.compile(
     re.I,
 )
 
+# A request can explicitly *exclude* recommendations while still asking for
+# research.  For example, "Compare HDFC Bank vs ICICI Bank ... do not give a
+# buy or sell recommendation" must reach the comparison workflow.  Treating
+# that final safety instruction as recommendation bait discards the actual
+# research question and produces a policy template instead of an answer.
+_NEGATED_RECOMMENDATION_INSTRUCTION = re.compile(
+    r"\b(?:do\s+not|don't|without|no|not)\s+"
+    r"(?:give|provide|make|offer|include)?\s*"
+    r"(?:me\s+)?(?:a\s+)?"
+    r"(?:buy\s+or\s+sell|recommendation|rating|call|target\s+price)\b",
+    re.I,
+)
+
 
 def is_recommendation_query(query: str | None) -> bool:
     q = str(query or "")
     if _CONSENSUS_DATA_QUERY.search(q) and not _ASKS_AGI_FOR_A_CALL.search(q):
         return False
-    return bool(_RECO_QUERY.search(q))
+    # Remove a user's no-recommendation constraint before classifying the
+    # underlying question.  Do not suppress a genuine request elsewhere in
+    # the same question (e.g. "Do not give a recommendation, but should I
+    # buy?").
+    question_without_constraint = _NEGATED_RECOMMENDATION_INSTRUCTION.sub("", q)
+    return bool(_RECO_QUERY.search(question_without_constraint))
 
 
 def wants_detailed_analysis(query: str | None) -> bool:
