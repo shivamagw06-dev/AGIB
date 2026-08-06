@@ -47,6 +47,42 @@ def test_entity_extraction():
     assert "HDFCBANK" in ents
 
 
+def test_comparison_uses_verified_warehouse_facts(monkeypatch):
+    import institutional_orchestrator.object_registry as registry
+
+    records = {
+        "HDFCBANK": {
+            "ok": True, "symbol": "HDFCBANK",
+            "latest_quarter": {"fiscal_period": "FY26Q1", "pat": 19000, "eps": 25, "source": "upstox", "last_updated": "2026-08-06"},
+            "latest_annual": {}, "valuation": {"pe": 19, "pb": 2.8, "source": "warehouse_reconstruction"},
+            "provider_ratios": {},
+        },
+        "ICICIBANK": {
+            "ok": True, "symbol": "ICICIBANK",
+            "latest_quarter": {"fiscal_period": "FY26Q1", "pat": 18000, "eps": 24, "source": "upstox", "last_updated": "2026-08-06"},
+            "latest_annual": {}, "valuation": {"pe": 18, "pb": 3.1, "source": "warehouse_reconstruction"},
+            "provider_ratios": {},
+        },
+    }
+    monkeypatch.setattr(registry, "_retrieve_comparison_evidence", lambda ctx: {
+        "ok": True, "object_type": "ComparisonEvidence", "payload": {
+            "available": True,
+            "companies": [
+                {"symbol": key, "quarter": value["latest_quarter"], "annual": {}, "valuation": value["valuation"], "sources": ["upstox"], "as_of": "2026-08-06"}
+                for key, value in records.items()
+            ],
+        },
+    })
+    # Reset makes the registry bind the patched provider.
+    reset_for_tests()
+    result = ask({"question": "Compare HDFCBANK vs ICICIBANK valuation and earnings quality"})
+    response = result["response"]
+    assert response["intent"] == "Comparison"
+    assert response["execution_plan"][0]["object_type"] == "ComparisonEvidence"
+    assert "HDFCBANK" in response["direct_answer"]
+    assert "Source: upstox" in response["direct_answer"]
+
+
 def test_registry_route_discovery():
     hits = match_routes("Show committee deferred decisions and policy violations")
     types = {h.object_type for h in hits}

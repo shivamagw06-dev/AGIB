@@ -12,6 +12,37 @@ from institutional_orchestrator.models import (
 )
 
 
+def _value(value: Any, *, decimals: int = 2) -> str:
+    try:
+        return f"{float(value):,.{decimals}f}"
+    except (TypeError, ValueError):
+        return "not reported"
+
+
+def _comparison_answer(payloads: dict[str, Any]) -> str | None:
+    comparison = ((payloads.get("ComparisonEvidence") or {}).get("payload") or {})
+    if not comparison.get("available"):
+        return None
+    lines: list[str] = []
+    for company in (comparison.get("companies") or [])[:5]:
+        symbol = company.get("symbol") or "Company"
+        quarter = company.get("quarter") or {}
+        annual = company.get("annual") or {}
+        valuation = company.get("valuation") or {}
+        period = quarter.get("fiscal_period") or annual.get("fiscal_year") or "latest available period"
+        pat = quarter.get("pat") if quarter.get("pat") is not None else annual.get("pat")
+        eps = quarter.get("eps") if quarter.get("eps") is not None else annual.get("eps")
+        pe = valuation.get("pe") or valuation.get("pe_ratio")
+        pb = valuation.get("pb") or valuation.get("pb_ratio")
+        sources = ", ".join(company.get("sources") or []) or "institutional warehouse"
+        as_of = company.get("as_of") or "not supplied"
+        lines.append(
+            f"{symbol} ({period}): PAT {_value(pat)}; EPS {_value(eps)}; "
+            f"P/E {_value(pe)}; P/B {_value(pb)}. Source: {sources}; as of {as_of}."
+        )
+    return "Verified comparison — " + " ".join(lines) + " This is factual research, not an investment recommendation."
+
+
 def _why_from_objects(payloads: dict[str, Any], intent: str) -> tuple[str, ...]:
     why: list[str] = []
 
@@ -67,6 +98,12 @@ def _direct_answer(question: str, intent: str, payloads: dict[str, Any], why: tu
     risk = ((payloads.get("PortfolioRisk") or {}).get("payload") or {}).get("risk") or {}
 
     q = (question or "").lower()
+
+    if intent == "Comparison":
+        comparison = _comparison_answer(payloads)
+        if comparison:
+            return comparison
+        return "Verified comparison data is unavailable for every requested company; no conclusion was inferred."
 
     if intent == "Committee" or committee:
         status = committee.get("status") or "Unavailable"
