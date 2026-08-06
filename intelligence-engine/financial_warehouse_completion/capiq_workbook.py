@@ -1,8 +1,8 @@
 """Controlled import of the repository's annual Capital IQ workbook.
 
-The workbook is a source snapshot, not a live vendor call. It only imports
-completed annual sheets by default and records the workbook and unit on every
-write, protecting ratios from legacy unknown-unit statement rows.
+The workbook is a source snapshot, not a live vendor call. Every imported row
+keeps its fiscal year, source, and unit so the newest source snapshot remains
+traceable.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from typing import Any, Iterable
 from financial_warehouse_completion.models import ENGINE_CODE, PROGRAMME_VERSION
 
 SOURCE = "capital_iq_workbook"
-DEFAULT_YEARS = (2022, 2023, 2024, 2025)
+DEFAULT_YEARS = tuple(range(2016, 2027))
 WORKBOOK_PATH = Path(__file__).resolve().parents[2] / "2016-2026.xlsx"
 FIELD_MAP = {
     "Revenue": "revenue", "Gross Profit": "gross_profit", "EBITDA": "ebitda",
@@ -72,14 +72,13 @@ def preview(*, years: Iterable[int] = DEFAULT_YEARS, path: Path = WORKBOOK_PATH)
     summary = {str(year): sum(1 for _ in _sheet_rows(int(year), path=path)) for year in years}
     return {
         "ok": True, "source": SOURCE, "workbook": path.name, "unit": "INR million",
-        "years": summary, "excluded_by_default": [2026],
-        "engine": ENGINE_CODE, "version": PROGRAMME_VERSION,
+        "years": summary, "engine": ENGINE_CODE, "version": PROGRAMME_VERSION,
     }
 
 def import_completed_years(*, years: Iterable[int] = DEFAULT_YEARS, actor: str = "fwcp") -> dict[str, Any]:
     from institutional_warehouse import gateway
     from institutional_warehouse.formulas import recalculate
-    selected = tuple(sorted({int(year) for year in years if 2016 <= int(year) <= 2025}))
+    selected = tuple(sorted({int(year) for year in years if 2016 <= int(year) <= 2026}))
     check = preview(years=selected)
     if not check.get("ok"):
         return check
