@@ -115,7 +115,6 @@ export default function AdminRoutes() {
           <Route path="financial-warehouse" element={<FinancialWarehouse />} />
           {/* Phase 7.4F Step 0 — read-only financial coverage audit */}
           <Route path="financial-coverage" element={<FinancialCoverage />} />
-          <Route path="company-financials" element={<CompanyFinancials />} />
           <Route path="research-intelligence" element={<ResearchIntelligence />} />
           <Route path="forecast-runtime" element={<ForecastRuntime />} />
           <Route path="macro-runtime" element={<MacroRuntime />} />
@@ -128,6 +127,7 @@ export default function AdminRoutes() {
           <Route path="intelligence/*" element={<IntelligenceCmsRoutes />} />
           <Route element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
+            <Route path="company-financials" element={<CompanyFinancials />} />
             <Route path="articles" element={<AdminDashboard />} />
             <Route path="articles/new" element={<ArticleEditor />} />
             <Route path="articles/edit/:slug" element={<ArticleEditor />} />
