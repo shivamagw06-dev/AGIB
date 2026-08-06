@@ -1,12 +1,30 @@
+import { API_ORIGIN } from '@/config';
+
+const BASE = API_ORIGIN || '';
+
 async function request(path, { method = 'GET', body } = {}) {
-  const resp = await fetch(path, {
+  if (!BASE) {
+    throw new Error('API origin is not configured. Set VITE_API_URL to the Render backend.');
+  }
+  const resp = await fetch(`${BASE}${path}`, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
     credentials: 'include',
   });
-  const data = await resp.json().catch(() => ({}));
-  if (!resp.ok && data?.ok === false) {
+  const text = await resp.text().catch(() => '');
+  if (text.trim().startsWith('<')) {
+    throw new Error(
+      `Upstox API returned HTML for ${path}. Check VITE_API_URL points at Render, not the website.`
+    );
+  }
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(`Upstox API invalid JSON for ${path}`);
+  }
+  if (!resp.ok || data?.ok === false) {
     throw new Error(data.error || data.message || `HTTP ${resp.status}`);
   }
   return data;
