@@ -244,6 +244,29 @@ def _ratio_row(symbol: str, period: str, basis: str, current: dict[str, Any],
     }
 
 
+def _statement_type_rank(row: dict[str, Any]) -> tuple[int, str]:
+    """Keep consolidated and standalone financials from being silently mixed.
+
+    The ratio sheet has one row per company and period, so its input must have
+    one consistent statement basis.  Consolidated is preferred when both are
+    present; a standalone series is used only when it is the sole available
+    basis.
+    """
+    statement_type = str(row.get("statement_type") or "").upper()
+    rank = 0 if "CONSOLIDATED" in statement_type else 1 if "STANDALONE" in statement_type else 2
+    return rank, str(row.get("sys_updated_at") or "")
+
+
+def _preferred_statement_series(statements: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
+    by_period: dict[str, list[dict[str, Any]]] = {}
+    for row in statements:
+        period = str(row.get(key) or "").strip()
+        if period:
+            by_period.setdefault(period, []).append(row)
+    selected = [sorted(rows, key=_statement_type_rank)[0] for rows in by_period.values()]
+    return sorted(selected, key=lambda row: str(row.get(key) or ""))
+
+
 def recalc_ratios(*, actor: str = "system", entity: Optional[str] = None) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     for tab_id, key, basis in (
@@ -251,7 +274,7 @@ def recalc_ratios(*, actor: str = "system", entity: Optional[str] = None) -> dic
         ("financials_quarterly", "fiscal_period", "quarterly"),
     ):
         for symbol, statements in _by_entity(tab_id, entity=entity).items():
-            ordered = sorted(statements, key=lambda r: str(r.get(key) or ""))
+            ordered = _preferred_statement_series(statements, key)
             for idx, current in enumerate(ordered):
                 period = str(current.get(key) or "").strip()
                 if not period:
@@ -259,6 +282,124 @@ def recalc_ratios(*, actor: str = "system", entity: Optional[str] = None) -> dic
                 previous = ordered[idx - 1] if idx else None
                 rows.append(_ratio_row(symbol, period, basis, current, previous))
     return gateway.write("historical_ratios", rows, source=SOURCE, actor=actor, reason="recalc_ratios")
+
+
+# --------------------------------------------------------------------------
+# 2b. Fiscal-year sector ratio medians
+# --------------------------------------------------------------------------
+
+_SECTOR_RATIO_METRICS = (
+    "roe", "roce", "roa", "gross_margin", "ebitda_margin", "operating_margin",
+    "net_margin", "asset_turnover", "debt_equity", "interest_coverage",
+    "current_ratio", "quick_ratio", "fcf_margin",
+)
+_FINANCIAL_SECTOR_SUPPRESSED = frozenset({
+    "debt_equity", "interest_coverage", "current_ratio", "quick_ratio", "asset_turnover",
+})
+_MIN_SECTOR_RATIO_COMPANIES = 10
+
+
+def _is_equity(master: dict[str, Any]) -> bool:
+    try:
+        from valuation_policy.instruments import resolve_instrument
+
+        resolved = resolve_instrument(
+            symbol=str(master.get("symbol") or ""), company_name=master.get("company_name"),
+            sector=master.get("sector"), industry=master.get("industry"),
+            industry_dna=master.get("industry_dna"), master=master,
+        )
+        return resolved.get("instrument_type") == "EQUITY"
+    except Exception:
+        # Fail closed: if the instrument policy cannot load, retain only
+        # explicitly equity-like company-master rows, never blank products.
+        return bool(master.get("sector") or master.get("industry"))
+
+
+def _valid_sector_ratio(metric: str, value: Any) -> Optional[float]:
+    """Reject unusable mathematical outputs without hiding legitimate losses."""
+    number = _num(value)
+    if number is None:
+        return None
+    caps = {
+        "roe": 200.0, "roce": 200.0, "roa": 100.0,
+        "gross_margin": 100.0, "ebitda_margin": 100.0,
+        "operating_margin": 100.0, "net_margin": 100.0,
+        "asset_turnover": 50.0, "debt_equity": 50.0,
+        "interest_coverage": 100.0, "current_ratio": 50.0,
+        "quick_ratio": 50.0, "fcf_margin": 200.0,
+    }
+    cap = caps.get(metric)
+    return number if cap is None or abs(number) <= cap else None
+
+
+def recalc_annual_sector_ratios(*, actor: str = "system") -> dict[str, Any]:
+    """Publish fiscal-year sector medians from AGI-calculated company ratios.
+
+    This is intentionally accounting-ratio only.  Historical P/E, P/B and
+    EV/EBITDA belong to the dated valuation reconstruction because a fiscal
+    multiple needs a matching historical share price.
+    """
+    masters = {
+        str(row.get("symbol") or "").upper(): row
+        for row in _iter_rows("company_master")
+        if str(row.get("symbol") or "").strip()
+    }
+    eligible: dict[str, set[str]] = {}
+    for symbol, master in masters.items():
+        sector = str(master.get("sector") or "").strip()
+        if sector and _is_equity(master):
+            eligible.setdefault(sector, set()).add(symbol)
+
+    grouped: dict[tuple[str, str, str], list[float]] = {}
+    for row in _iter_rows("historical_ratios"):
+        if str(row.get("basis") or "").lower() != "annual":
+            continue
+        symbol = str(row.get("symbol") or "").upper()
+        master = masters.get(symbol) or {}
+        sector = str(master.get("sector") or "").strip()
+        period = str(row.get("period") or "").strip()
+        if not sector or not period or symbol not in eligible.get(sector, set()):
+            continue
+        for metric in _SECTOR_RATIO_METRICS:
+            if sector == "Financials" and metric in _FINANCIAL_SECTOR_SUPPRESSED:
+                continue
+            value = _valid_sector_ratio(metric, row.get(metric))
+            if value is not None:
+                grouped.setdefault((sector, period, metric), []).append(value)
+
+    rows: list[dict[str, Any]] = []
+    all_periods = sorted({key[1] for key in grouped})
+    for sector, symbols in eligible.items():
+        for period in all_periods:
+            for metric in _SECTOR_RATIO_METRICS:
+                suppressed = sector == "Financials" and metric in _FINANCIAL_SECTOR_SUPPRESSED
+                values = grouped.get((sector, period, metric), [])
+                count = len(values)
+                is_publishable = not suppressed and count >= _MIN_SECTOR_RATIO_COMPANIES
+                rows.append({
+                    "sector": sector,
+                    "fiscal_year": period,
+                    "metric": metric,
+                    "median_value": round(statistics.median(values), 6) if is_publishable else None,
+                    "company_count": count,
+                    "eligible_company_count": len(symbols),
+                    "coverage_pct": round(100.0 * count / len(symbols), 1) if symbols else 0.0,
+                    "minimum_required": _MIN_SECTOR_RATIO_COMPANIES,
+                    "quality_status": (
+                        "NOT_APPLICABLE" if suppressed else
+                        "PASSED" if is_publishable else "INSUFFICIENT_COVERAGE"
+                    ),
+                    "exclusion_reason": (
+                        "Not meaningful for financial-sector balance-sheet businesses."
+                        if suppressed else
+                        "Median withheld until at least 10 eligible companies have a valid ratio."
+                        if not is_publishable else "Equity companies only; extreme mathematical outputs excluded."
+                    ),
+                    "source": SOURCE,
+                })
+    result = gateway.write("annual_sector_ratios", rows, source=SOURCE, actor=actor,
+                           reason="recalc_annual_sector_ratios")
+    return {"ok": True, "sectors": len(eligible), "rows": len(rows), **result}
 
 
 # --------------------------------------------------------------------------
@@ -597,6 +738,7 @@ STAGES = (
     "market_derivations",
     "consensus_derivations",
     "ratios",
+    "annual_sector_ratios",
     "valuation",
     "factors",
     "quality",
@@ -620,6 +762,7 @@ def recalculate(
         "market_derivations": lambda: recalc_market_derivations(actor=actor, entity=entity),
         "consensus_derivations": lambda: recalc_consensus_derivations(actor=actor, entity=entity),
         "ratios": lambda: recalc_ratios(actor=actor, entity=entity),
+        "annual_sector_ratios": lambda: recalc_annual_sector_ratios(actor=actor),
         "valuation": lambda: recalc_valuation(actor=actor, as_of=as_of, entity=entity),
         "factors": lambda: recalc_factors(actor=actor, as_of=as_of, entity=entity),
         "quality": lambda: recalc_quality(actor=actor),

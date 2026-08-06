@@ -12,6 +12,7 @@ import pytest
 os.environ.setdefault("INSTITUTIONAL_WAREHOUSE_ROOT", tempfile.mkdtemp(prefix="wh_api_"))
 
 from institutional_warehouse import db, permissions, production, refresh, scheduler, store  # noqa: E402
+from institutional_warehouse.schema import TABS  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -44,11 +45,12 @@ def run(coro):
 def test_health_and_workbook_describe_the_whole_warehouse():
     health = production.health()
     assert health["ok"] is True
-    assert health["tabs"] == 14
+    assert health["tabs"] == len(TABS)
     assert health["dialect"] in ("sqlite", "postgres")
 
     workbook = production.workbook()
-    assert workbook["tab_count"] == 14
+    assert workbook["tab_count"] == len(TABS)
+    assert any(tab["id"] == "annual_sector_ratios" for tab in workbook["tabs"])
     master = next(t for t in workbook["tabs"] if t["id"] == "company_master")
     assert master["rows"] == 1
     assert any(column["key"] == "isin" for column in master["columns"])
@@ -125,7 +127,7 @@ def test_http_routes_serve_the_workbook_and_a_sheet():
     assert health["ok"] is True
 
     workbook = run(routes.warehouse_workbook())
-    assert workbook["tab_count"] == 14
+    assert workbook["tab_count"] == len(TABS)
 
     sheet = run(routes.warehouse_sheet("company_master", limit=5))
     assert sheet["ok"] is True

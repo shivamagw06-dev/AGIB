@@ -27,8 +27,7 @@ def fresh_warehouse(tmp_path, monkeypatch):
 # --------------------------------------------------------------------------
 
 
-def test_workbook_has_fourteen_tabs():
-    assert len(TABS) == 14
+def test_workbook_has_required_core_tabs():
     ids = [t.id for t in TABS]
     for expected in (
         "company_master",
@@ -36,6 +35,7 @@ def test_workbook_has_fourteen_tabs():
         "financials_annual",
         "financials_quarterly",
         "historical_ratios",
+        "annual_sector_ratios",
         "historical_valuation",
         "consensus",
         "research_intelligence",
