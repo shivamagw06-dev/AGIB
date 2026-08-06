@@ -50,7 +50,12 @@ export async function loadIsinUniverse({ limit = 500 } = {}) {
 function pickIsinCompanies(rows, { limit = 200 } = {}) {
   const out = [];
   const seen = new Set();
-  for (const row of rows || []) {
+  // Warehouse read order is not an update policy. Keep the eligible universe
+  // deterministic before applying the daily rotation below.
+  const ordered = [...(rows || [])].sort((a, b) => (
+    String(a?.symbol || '').localeCompare(String(b?.symbol || ''))
+  ));
+  for (const row of ordered) {
     const symbol = String(row.symbol || '').trim().toUpperCase();
     const isin = String(row.isin || '').trim().toUpperCase();
     if (!symbol || !isin || seen.has(isin)) continue;
@@ -69,6 +74,35 @@ function pickIsinCompanies(rows, { limit = 200 } = {}) {
 }
 
 /**
+ * Select a different contiguous batch on each calendar day.
+ *
+ * A fixed `slice(0, limit)` quietly leaves most of a large universe stale.
+ * This is deliberately deterministic: operators can reproduce which names
+ * were due on a given day, while all eligible names receive equal coverage
+ * over a complete rotation. Explicit symbol requests bypass this policy.
+ */
+export function selectDailyRotation(rows, { limit = 200, now = new Date() } = {}) {
+  const universe = pickIsinCompanies(rows, { limit: Math.max(1, rows?.length || 1) });
+  const batchSize = Math.max(1, Math.min(Number(limit) || 1, universe.length));
+  if (!universe.length) {
+    return { companies: [], universeSize: 0, offset: 0, batchSize };
+  }
+
+  const stamp = now instanceof Date ? now : new Date(now);
+  const day = Number.isFinite(stamp.getTime())
+    ? Math.floor(Date.UTC(stamp.getUTCFullYear(), stamp.getUTCMonth(), stamp.getUTCDate()) / 86_400_000)
+    : 0;
+  const offset = (day * batchSize) % universe.length;
+  const rotated = [...universe.slice(offset), ...universe.slice(0, offset)];
+  return {
+    companies: rotated.slice(0, batchSize),
+    universeSize: universe.length,
+    offset,
+    batchSize,
+  };
+}
+
+/**
  * Fetch Upstox key-ratios for a company list and ingest into warehouse.
  */
 export async function refreshUpstoxValuationRatios({
@@ -84,6 +118,7 @@ export async function refreshUpstoxValuationRatios({
 
   let isinBackfill = null;
   let companies = [];
+  let selection = null;
   if (Array.isArray(symbols) && symbols.length) {
     // Resolve ISINs for explicit symbols from warehouse master.
     let all = await loadIsinUniverse({ limit: 5000 });
@@ -103,7 +138,8 @@ export async function refreshUpstoxValuationRatios({
       isinBackfill = await backfillCompanyIsins({ dryRun: false });
       all = await loadIsinUniverse({ limit: Math.max(limit * 5, 5000) });
     }
-    companies = pickIsinCompanies(all, { limit });
+    selection = selectDailyRotation(all, { limit });
+    companies = selection.companies;
   }
 
   if (!companies.length) {
@@ -203,6 +239,7 @@ export async function refreshUpstoxValuationRatios({
       errors: errors.slice(0, 20),
       warehouse: ingest.data,
       isin_backfill: isinBackfill,
+      selection,
       path: 'valuation_ratios_ingest',
       error: null,
     };
@@ -221,6 +258,7 @@ export async function refreshUpstoxValuationRatios({
     errors: errors.slice(0, 20),
     warehouse: fallback || ingest.data,
     isin_backfill: isinBackfill,
+    selection,
     path: fallback?.ok ? 'warehouse_import_fallback' : 'valuation_ratios_ingest',
     error: fallback?.ok ? null : ingest.data?.error || `ingest_http_${ingest.status}`,
   };

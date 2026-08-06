@@ -79,6 +79,13 @@ export async function triggerValuationRatiosRefresh({ force = false } = {}) {
       date: parts.date,
       fetched: result.fetched ?? 0,
       failed: result.failed ?? 0,
+      selection: result.selection
+        ? {
+            universeSize: result.selection.universeSize,
+            offset: result.selection.offset,
+            batchSize: result.selection.batchSize,
+          }
+        : null,
       error: result.error || null,
     };
     if (result.ok) lastSuccessDate = parts.date;

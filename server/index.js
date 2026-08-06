@@ -25,6 +25,7 @@ import { startInstitutionalFlowScheduler } from "./services/institutionalFlowSch
 import { startValuationRatiosScheduler } from "./services/valuationRatiosScheduler.js";
 import { startHvieRuntimeScheduler } from "./services/hvieRuntimeScheduler.js";
 import { startUifiScheduler } from "./services/uifiScheduler.js";
+import { startHedgeFundLiveQuoteScheduler } from "./services/hedgeFundLiveQuoteScheduler.js";
 import { llmProviderStatus } from "./services/llmClient.js";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
@@ -326,6 +327,7 @@ startInstitutionalFlowScheduler();
 startValuationRatiosScheduler();
 startHvieRuntimeScheduler();
 startUifiScheduler();
+startHedgeFundLiveQuoteScheduler();
 
 /* ---------- /api/perplexity/deals ----------
    Ask Perplexity for a strict JSON array of deals with these fields:

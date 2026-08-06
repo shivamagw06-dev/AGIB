@@ -63,6 +63,13 @@ export default function createMarketRouter(env = {}) {
     }
   });
 
+  // Operational status only: confirms whether Hedge Fund candidates are being
+  // refreshed from Groww without exposing quotes or credentials.
+  router.get('/hedge-fund-live-quotes/status', async (_req, res) => {
+    const { getHedgeFundLiveQuoteStatus } = await import('../services/hedgeFundLiveQuoteScheduler.js');
+    return res.status(200).json({ ok: true, ...getHedgeFundLiveQuoteStatus() });
+  });
+
   // Upstox fundamentals probe — corporate-actions pull (no secrets in response)
   router.get('/upstox-status', async (req, res) => {
     try {
