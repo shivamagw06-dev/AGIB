@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from valuation_engine import health_score, terminal
 from valuation_engine.tests.test_valuation_engine import _record
 
@@ -143,3 +145,17 @@ def test_position_helpers():
     assert terminal._position("pe", 12, 15) == "Discount"
     assert terminal._position("roe", 15, 12) == "Above"
     assert terminal._position("roe", 10, 12) == "Below"
+
+
+def test_peer_rank_prefers_same_industry_over_alphabetical_order():
+    target = {"industry_dna": "private_banks", "market_cap": 1_000_000}
+    same_industry = {"symbol": "ZZZ", "industry_dna": "private_banks", "market_cap": 900_000}
+    sector_only = {"symbol": "AAA", "industry_dna": "public_banks", "market_cap": 1_000_000}
+    assert terminal._peer_rank(target, same_industry)[0] > terminal._peer_rank(target, sector_only)[0]
+
+
+def test_freshness_flags_old_intraday_price():
+    now = datetime(2026, 8, 5, 6, 0, tzinfo=timezone.utc)  # 11:30 IST weekday
+    out = terminal._freshness({"latest_price": {"last_updated": "2026-08-05T05:00:00+00:00"}}, now=now)
+    assert out["price_fresh_limit_hours"] == 0.25
+    assert any("price stale" in warning for warning in out["warnings"])

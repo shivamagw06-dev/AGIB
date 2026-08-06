@@ -297,6 +297,7 @@ def _provenance(record: dict[str, Any], values: dict[str, engine.Value]) -> dict
             "as_of": provider.get("as_of"),
             "ratios": list((provider.get("ratios") or {}).keys()),
         },
+        "freshness": {},
         "sources": sources,
         "formula": ENGINE_CODE,
         "formula_version": VERSION,
