@@ -101,6 +101,15 @@ def test_comparison_money_uses_crore_for_trusted_upstox_default():
     assert _money(162_097.4, {"_meta": {"unit_method": "source_default"}}) == "₹16,209.7 crore"
 
 
+def test_pat_yoy_requires_same_upstox_consolidated_quarter():
+    from institutional_orchestrator.object_registry import _pat_yoy
+
+    current = {"fiscal_period": "FY27Q1", "pat": 120, "source": "upstox", "statement_type": "CONSOLIDATED"}
+    prior = {"fiscal_period": "FY26Q1", "pat": 100, "source": "upstox", "statement_type": "CONSOLIDATED"}
+    different_source = {"fiscal_period": "FY26Q1", "pat": 1, "source": "yahoo", "statement_type": "CONSOLIDATED"}
+    assert _pat_yoy(current, [prior, different_source])["value"] == 20.0
+
+
 def test_registry_route_discovery():
     hits = match_routes("Show committee deferred decisions and policy violations")
     types = {h.object_type for h in hits}

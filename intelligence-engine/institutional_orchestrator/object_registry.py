@@ -30,6 +30,15 @@ class ObjectRegistration:
 _REGISTRY: dict[str, ObjectRegistration] = {}
 
 
+def _period_parts(row: dict[str, Any]) -> tuple[int, int]:
+    period = str(row.get("fiscal_period") or row.get("fiscal_year") or "")
+    numbers = [int(n) for n in re.findall(r"\d+", period)]
+    year = numbers[0] if numbers else 0
+    if year and year < 100:
+        year += 2000
+    return year, numbers[1] if len(numbers) > 1 else 0
+
+
 def _statement_rank(row: dict[str, Any]) -> tuple[int, int, int, str]:
     """Choose a like-for-like current statement without mixing providers.
 
@@ -40,18 +49,42 @@ def _statement_rank(row: dict[str, Any]) -> tuple[int, int, int, str]:
     source = str(row.get("source") or "").lower()
     source_rank = 0 if "upstox" in source else 1
     statement_rank = 0 if str(row.get("statement_type") or "").upper() == "CONSOLIDATED" else 1
-    period = str(row.get("fiscal_period") or row.get("fiscal_year") or "")
-    numbers = [int(n) for n in re.findall(r"\d+", period)]
-    year = numbers[0] if numbers else 0
-    if year and year < 100:
-        year += 2000
-    quarter = numbers[1] if len(numbers) > 1 else 0
+    year, quarter = _period_parts(row)
     return (source_rank, statement_rank, -(year * 10 + quarter), str(row.get("last_updated") or ""))
 
 
 def _preferred_statement(rows: list[dict[str, Any]], fallback: dict[str, Any]) -> dict[str, Any]:
     usable = [row for row in rows if any(row.get(key) is not None for key in ("pat", "eps", "revenue"))]
     return min(usable, key=_statement_rank) if usable else fallback
+
+
+def _pat_yoy(current: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Calculate PAT growth only against the same quarter/source/type."""
+    year, quarter = _period_parts(current)
+    if not year or not quarter or current.get("pat") is None:
+        return None
+    source = str(current.get("source") or "").lower()
+    statement_type = str(current.get("statement_type") or "").upper()
+    matches = [
+        row for row in rows
+        if _period_parts(row) == (year - 1, quarter)
+        and str(row.get("source") or "").lower() == source
+        and str(row.get("statement_type") or "").upper() == statement_type
+        and row.get("pat") not in (None, 0)
+    ]
+    if not matches:
+        return None
+    prior = min(matches, key=_statement_rank)
+    try:
+        growth = (float(current["pat"]) / float(prior["pat"]) - 1.0) * 100.0
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+    return {
+        "metric": "pat_yoy_pct",
+        "value": round(growth, 2),
+        "prior_period": prior.get("fiscal_period") or prior.get("fiscal_year"),
+        "source": current.get("source"),
+    }
 
 
 def reset_registry_for_tests() -> None:
@@ -264,12 +297,14 @@ def _retrieve_comparison_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
             record = read_company(symbol)
             if not record.get("ok"):
                 continue
+            annual_rows = read_table("financials_annual", entity=symbol, limit=30)
+            quarter_rows = read_table("financials_quarterly", entity=symbol, limit=40)
             annual = _preferred_statement(
-                read_table("financials_annual", entity=symbol, limit=30),
+                annual_rows,
                 record.get("latest_annual") or {},
             )
             quarter = _preferred_statement(
-                read_table("financials_quarterly", entity=symbol, limit=40),
+                quarter_rows,
                 record.get("latest_quarter") or {},
             )
             valuation = record.get("valuation") or {}
@@ -281,6 +316,7 @@ def _retrieve_comparison_evidence(ctx: dict[str, Any]) -> dict[str, Any]:
                     "quarter": quarter,
                     "valuation": valuation,
                     "provider_ratios": record.get("provider_ratios") or {},
+                    "earnings_trend": _pat_yoy(quarter, quarter_rows),
                     "sources": sorted({str(row.get("source")) for row in source_rows if row.get("source")}),
                     "as_of": next(
                         (

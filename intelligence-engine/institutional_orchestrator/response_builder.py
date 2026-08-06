@@ -48,11 +48,18 @@ def _comparison_answer(payloads: dict[str, Any]) -> str | None:
         eps = quarter.get("eps") if quarter.get("eps") is not None else annual.get("eps")
         pe = valuation.get("pe") or valuation.get("pe_ratio")
         pb = valuation.get("pb") or valuation.get("pb_ratio")
+        trend = company.get("earnings_trend") or {}
+        yoy = trend.get("value")
+        yoy_text = (
+            f"; PAT YoY {float(yoy):+.1f}% vs {trend.get('prior_period')}"
+            if yoy is not None else
+            "; PAT YoY unavailable on a like-for-like reported quarter"
+        )
         sources = ", ".join(company.get("sources") or []) or "institutional warehouse"
         as_of = company.get("as_of") or "not supplied"
         lines.append(
             f"{symbol} ({period}): reported PAT {_money(pat, quarter if quarter.get('pat') is not None else annual)}; EPS {_value(eps)}; "
-            f"P/E {_value(pe)}; P/B {_value(pb)}. Source: {sources}; as of {as_of}."
+            f"P/E {_value(pe)}; P/B {_value(pb)}{yoy_text}. Source: {sources}; as of {as_of}."
         )
     return "Verified comparison — " + " ".join(lines) + " This is factual research, not an investment recommendation."
 
