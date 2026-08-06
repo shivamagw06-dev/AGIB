@@ -7,6 +7,7 @@ import {
   getUifiCoverage,
   getUifiFailures,
   getUifiSchedulerStatus,
+  runUpstoxEmptyFill,
   startUifiBootstrap,
   stopUifiBootstrap,
 } from '@/lib/uifiApi';
@@ -99,6 +100,25 @@ export default function UpstoxFundamentals() {
     }
   };
 
+  const onAnnualBackfill = async () => {
+    setBusy(true);
+    setNote(null);
+    try {
+      const result = await runUpstoxEmptyFill({ batch: 10 });
+      const batch = result?.batch || {};
+      setNote(
+        result?.ok
+          ? `Annual backfill finished: ${batch.filled || 0} companies filled, ${batch.failed || 0} need review.`
+          : (result?.error || 'Annual backfill did not complete.'),
+      );
+      await load();
+    } catch (err) {
+      setError(err.message || 'annual_backfill_failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="ub-root">
       <header className="ub-header">
@@ -116,6 +136,9 @@ export default function UpstoxFundamentals() {
           <button type="button" disabled={busy || running} onClick={onStartAll}>
             <Play size={14} /> Bootstrap all
           </button>
+          <button type="button" disabled={busy || running} onClick={onAnnualBackfill}>
+            <Play size={14} /> Run 10-company annual backfill
+          </button>
           <button type="button" disabled={busy || !running} onClick={onStop}>
             <Square size={14} /> Stop
           </button>
@@ -127,6 +150,14 @@ export default function UpstoxFundamentals() {
 
       {error ? <div className="ub-banner err">{error}</div> : null}
       {note ? <div className="ub-banner">{note}</div> : null}
+
+      <section className="ub-panel">
+        <h2>Four-year company financial backfill</h2>
+        <p className="ub-muted">
+          Runs only eligible stocks that are missing annual statements. Each company uses three Upstox calls:
+          Income Statement, Balance Sheet, and Cash Flow. ETFs and funds are skipped.
+        </p>
+      </section>
 
       <section className="ub-grid">
         <Stat label="Companies" value={fmt(coverage?.companies)} />
