@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,34 @@ def _path(country: str) -> Path:
     return _root() / f"{_key(country)}.json"
 
 
+def _publish_to_web_engine(payload: dict[str, Any]) -> dict[str, Any]:
+    """Publish a worker result to the web engine's persistent storage.
+
+    Render services have independent local disks. The worker must therefore
+    hand its completed snapshot to the HTTP service that reads it for visitors.
+    """
+    if str(os.getenv("AGI_ROLE") or "").strip().lower() != "gather_worker":
+        return {"attempted": False, "reason": "not_gather_worker"}
+    url = (os.getenv("MIE_SNAPSHOT_PUBLISH_URL") or
+           "https://agib-intelligence-engine.onrender.com/v1/mie/snapshot").strip()
+    if not url:
+        return {"attempted": False, "reason": "publish_url_missing"}
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    token = (os.getenv("MIE_SNAPSHOT_PUBLISH_TOKEN") or "").strip()
+    if token:
+        request.add_header("X-AGI-Snapshot-Token", token)
+    try:
+        with urllib.request.urlopen(request, timeout=12) as response:
+            return {"attempted": True, "ok": 200 <= response.status < 300, "status_code": response.status}
+    except Exception as exc:
+        return {"attempted": True, "ok": False, "error": str(exc)[:180]}
+
+
 def save(pack: dict[str, Any], *, country: str) -> dict[str, Any]:
     """Persist a completed runtime pack.  A failed pack is never published."""
     if not isinstance(pack, dict) or not pack.get("ok"):
@@ -50,7 +79,12 @@ def save(pack: dict[str, Any], *, country: str) -> dict[str, Any]:
     temp = target.with_suffix(".tmp")
     temp.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     temp.replace(target)
-    return {"ok": True, "path": str(target), "published_at": now}
+    return {
+        "ok": True,
+        "path": str(target),
+        "published_at": now,
+        "web_engine_publish": _publish_to_web_engine(payload),
+    }
 
 
 def read(country: str = "Global") -> dict[str, Any]:
