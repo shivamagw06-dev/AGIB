@@ -221,7 +221,13 @@ def _map_warehouse_row(
     return {
         "ticker": sym,
         "company_name": mi.get("company_name") or sym,
-        "instrument_key": mi.get("instrument_key"),
+        # Most company_master records carry an explicit Upstox instrument key.
+        # Some older warehouse rows only have an ISIN, though; NSE equity keys
+        # are deterministic from it and let the candle scheduler safely use
+        # those records without guessing from a ticker.
+        "instrument_key": mi.get("instrument_key") or (
+            f"NSE_EQ|{mi.get('isin')}" if mi.get("isin") else None
+        ),
         "primary_sector": mi.get("sector"),
         "primary_industry": mi.get("industry"),
         "industry_dna": mi.get("industry_dna"),
