@@ -8,8 +8,10 @@ then derives quality-controlled annual medians for historical context.
 
 from __future__ import annotations
 
+import hashlib
 import re
 import statistics
+import threading
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
@@ -22,6 +24,8 @@ SOURCE = "capital_iq_sector_ratios"
 SOURCE_VERSION = "sector_ratios_workbook_2026-08-06"
 WORKBOOK_PATH = Path(__file__).resolve().parents[2] / "Sector ratios.xlsx"
 _HEADER = re.compile(r"^(20\d{2})\s+(.+)$")
+_SEED_LOCK = threading.Lock()
+_REGISTRY_SOURCE = "capital_iq_sector_ratio_workbook"
 
 # Workbook tabs are specialist peer groups.  Map them to the sectors used by
 # AGI's company master so a company's live ratio can be compared to its own
@@ -144,6 +148,52 @@ def preview(*, path: Path = WORKBOOK_PATH) -> dict[str, Any]:
         "eligible_for_medians": sum(row["median_eligibility"] == "ELIGIBLE" for row in rows),
         "engine": ENGINE_CODE, "version": PROGRAMME_VERSION,
     }
+
+
+def workbook_hash(*, path: Path = WORKBOOK_PATH) -> str | None:
+    """Fingerprint the checked-in source without parsing it on every request."""
+    if not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def seed_if_needed(*, actor: str = "historical_seed", path: Path = WORKBOOK_PATH) -> dict[str, Any]:
+    """Persist the CapIQ baseline once per workbook fingerprint.
+
+    The source file is only a seed artifact.  Runtime reads always come from
+    the warehouse, and repeated deploys become a cheap registry lookup.
+    """
+    from institutional_warehouse import gateway, store
+    from institutional_warehouse.values import now_iso
+
+    digest = workbook_hash(path=path)
+    if not digest:
+        return {"ok": False, "error": f"workbook_not_found:{path.name}"}
+    with _SEED_LOCK:
+        registry = store.all_rows("historical_import_registry", limit=5000)
+        completed = next((row for row in registry if row.get("source_name") == _REGISTRY_SOURCE
+                          and row.get("source_hash") == digest and row.get("status") == "COMPLETED"), None)
+        if completed:
+            return {"ok": True, "skipped": True, "source_hash": digest,
+                    "rows_imported": completed.get("rows_imported"),
+                    "period_start": completed.get("period_start"), "period_end": completed.get("period_end")}
+        result = import_history(actor=actor, path=path)
+        audit_row = {
+            "source_name": _REGISTRY_SOURCE, "source_hash": digest,
+            "source_version": SOURCE_VERSION, "rows_read": result.get("rows", 0),
+            "rows_imported": result.get("median_rows", 0),
+            "period_start": (result.get("years") or [None])[0],
+            "period_end": (result.get("years") or [None])[-1],
+            "status": "COMPLETED" if result.get("ok") else "FAILED",
+            "completed_at": now_iso(), "error": result.get("error"),
+        }
+        gateway.write("historical_import_registry", [audit_row], source=SOURCE,
+                      actor=actor, reason="historical_capital_iq_sector_baseline")
+        return {**result, "skipped": False, "source_hash": digest}
 
 
 def import_history(*, actor: str = "fwcp", path: Path = WORKBOOK_PATH) -> dict[str, Any]:
