@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowLeft, LineChart, Sparkles } from 'lucide-react';
+import { ArrowLeft, Sparkles } from 'lucide-react';
 import { InlineAsk, OpportunityTable } from '@/pages/hedgeFundTerminal';
 import './hedgeFundLab.css';
 
@@ -10,13 +10,6 @@ const PAGES = {
     description: 'A focused research queue where value, quality, growth, technical confirmation and consensus agree. Every score is evidence-led and requires risk review.',
     question: 'Which companies have the strongest multi-factor evidence, and what could invalidate the thesis?',
     icon: Sparkles,
-  },
-  technical: {
-    eyebrow: 'AGI Technical Intelligence',
-    title: 'Technical Analysis',
-    description: 'End-of-day trend and 12–1 momentum confirmation, with volume context. Use it to investigate timing and persistence—not as a standalone trading signal.',
-    question: 'Which companies show confirmed trend strength with sufficient liquidity, and what could reverse it?',
-    icon: LineChart,
   },
 };
 
@@ -33,9 +26,7 @@ export default function HedgeFundSignalPage({ kind }) {
             <h1>{page.title}</h1>
             <p>{page.description}</p>
           </div>
-          <Link to={kind === 'alpha' ? '/hedge-fund/technical-analysis' : '/hedge-fund/alpha-opportunities'} className="hfs-switch">
-            {kind === 'alpha' ? 'Open Technical Analysis' : 'Open Alpha Opportunities'}
-          </Link>
+          <span className="hfs-switch">Technical confirmation is included in the Alpha score</span>
         </div>
       </header>
       <main className="hfl-body hfs-body">
