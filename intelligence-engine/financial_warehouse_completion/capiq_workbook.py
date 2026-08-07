@@ -92,9 +92,31 @@ def preview(*, years: Iterable[int] = DEFAULT_YEARS, path: Path = WORKBOOK_PATH)
     }
 
 
+def audit_preview(*, years: Iterable[int] = DEFAULT_YEARS, path: Path = WORKBOOK_PATH,
+                  limit: int | None = None) -> dict[str, Any]:
+    """Run identity, period and completeness gates without writing financials."""
+    from financial_warehouse_completion.capiq_normalization import audit_and_prepare
+
+    selected = tuple(sorted({int(year) for year in years if 2016 <= int(year) <= 2026}))
+    rows = [row for year in selected for row in _sheet_rows(year, path=path)]
+    if limit is not None:
+        rows = rows[:max(0, int(limit))]
+    prepared = audit_and_prepare(rows, field_map=FIELD_MAP, source_file=path.name)
+    audits = prepared["audits"]
+    by_status: dict[str, int] = {}
+    for row in audits:
+        status = str(row.get("overall_status") or "UNKNOWN")
+        by_status[status] = by_status.get(status, 0) + 1
+    return {
+        "ok": True, "source": SOURCE, "workbook": path.name, "years": list(selected),
+        "seen": len(rows), "ready": len(prepared["accepted"]), "status_counts": by_status,
+        "sample": audits[:25], "mapping_version": "CAPIQ_V1", "unit": "INR million",
+    }
+
+
 def import_completed_years(*, years: Iterable[int] = DEFAULT_YEARS, actor: str = "fwcp") -> dict[str, Any]:
-    from institutional_warehouse import gateway
     from institutional_warehouse.formulas import recalculate
+    from financial_warehouse_completion.capiq_normalization import audit_and_prepare, persist
 
     selected = tuple(sorted({int(year) for year in years if 2016 <= int(year) <= 2026}))
     check = preview(years=selected)
@@ -103,17 +125,17 @@ def import_completed_years(*, years: Iterable[int] = DEFAULT_YEARS, actor: str =
     rows = [row for year in selected for row in _sheet_rows(year, path=WORKBOOK_PATH)]
     if not rows:
         return {"ok": False, "error": "no_financial_rows", **check}
-    written = gateway.write(
-        "financials_annual", rows, source=SOURCE, actor=actor,
-        reason="capital_iq_workbook:canonical_annual", reported_unit="inr_million",
-    )
+    prepared = audit_and_prepare(rows, field_map=FIELD_MAP, source_file=WORKBOOK_PATH.name)
+    written = persist(prepared, field_map=FIELD_MAP, actor=actor, source_file=WORKBOOK_PATH.name)
     rebuilt = recalculate(
         actor=actor,
         stages=("statement_derivations", "ratios", "annual_sector_ratios", "valuation", "factors", "quality"),
     )
     return {
         "ok": True, "source": SOURCE, "workbook": WORKBOOK_PATH.name,
-        "years": list(selected), "rows": len(rows), "financials_annual": written,
+        "years": list(selected), "rows": len(rows), "ready": len(prepared["accepted"]),
+        "financials_annual": written["financials"], "identity": written["identity"],
+        "audit": written["audit"], "metric_mapping": written["mapping"],
         "recalculated": rebuilt, "unit": "INR million", "engine": ENGINE_CODE,
         "version": PROGRAMME_VERSION,
     }
