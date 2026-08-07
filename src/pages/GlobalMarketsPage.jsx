@@ -12,23 +12,34 @@ function formatDate(value) {
 
 function ArticleCard({ article, featured = false }) {
   const href = article?.slug ? `/article/${article.slug}` : '/research';
+  const image = article.coverUrl || article.cover_url;
   return (
-    <article className={`border border-slate-800 bg-[#0d131c] ${featured ? 'lg:col-span-2' : ''}`}>
-      <div className={`p-5 ${featured ? 'md:p-7' : ''}`}>
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-sky-300">
-          {article.section || 'Global Markets'} · {formatDate(article.date)}
-        </p>
-        <h2 className={`mt-3 font-semibold leading-tight text-white ${featured ? 'text-2xl md:text-3xl' : 'text-xl'}`}>
-          <Link to={href} className="hover:text-sky-200">{article.title}</Link>
-        </h2>
-        {article.excerpt ? (
-          <p className={`mt-3 max-w-3xl leading-7 text-slate-400 ${featured ? 'text-base' : 'text-sm'}`}>
-            {article.excerpt}
-          </p>
-        ) : null}
-        <Link to={href} className="mt-5 inline-block text-sm font-semibold text-sky-300 hover:text-sky-200">
-          Read research →
+    <article className={`overflow-hidden border border-slate-800 bg-[#0d131c] ${featured ? 'lg:col-span-2' : ''}`}>
+      <div className={featured ? 'grid md:grid-cols-[1.1fr_1fr]' : ''}>
+        <Link to={href} className={`block overflow-hidden bg-slate-900 ${featured ? 'min-h-[250px] md:min-h-full' : 'aspect-[16/9]'}`}>
+          <img
+            src={image}
+            alt=""
+            loading={featured ? 'eager' : 'lazy'}
+            className="h-full w-full object-cover transition duration-500 hover:scale-[1.02]"
+          />
         </Link>
+        <div className={`p-5 ${featured ? 'md:p-7' : ''}`}>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-sky-300">
+            {article.section || 'Global Markets'} · {formatDate(article.date)}
+          </p>
+          <h2 className={`mt-3 font-semibold leading-tight ${featured ? 'text-2xl md:text-3xl' : 'text-xl'}`} style={{ color: '#f8fafc' }}>
+            <Link to={href} className="hover:text-sky-200" style={{ color: 'inherit' }}>{article.title}</Link>
+          </h2>
+          {article.excerpt ? (
+            <p className={`mt-3 max-w-3xl leading-7 text-slate-400 ${featured ? 'text-base' : 'text-sm'}`}>
+              {article.excerpt}
+            </p>
+          ) : null}
+          <Link to={href} className="mt-5 inline-block text-sm font-semibold text-sky-300 hover:text-sky-200">
+            Read research →
+          </Link>
+        </div>
       </div>
     </article>
   );
