@@ -187,7 +187,7 @@ function PublicRoutes() {
       <Route path="/macro-intelligence" element={<Navigate replace to="/global-markets" />} />
       <Route path="/hedge-fund" element={<HedgeFundPage />} />
       <Route path="/hedge-fund/alpha-opportunities" element={<HedgeFundSignalPage kind="alpha" />} />
-      <Route path="/hedge-fund/technical-analysis" element={<HedgeFundSignalPage kind="technical" />} />
+      <Route path="/hedge-fund/technical-analysis" element={<Navigate replace to="/hedge-fund/alpha-opportunities" />} />
       <Route path="/hedge-fund/strategy-lab" element={<Navigate replace to="/hedge-fund" />} />
       <Route path="/private-markets" element={<PrivateEquityPage />} />
       <Route path="/private-markets/firms/:slug" element={<PrivateEquityFirmPage />} />
