@@ -100,6 +100,27 @@ function proxyGet(pathBuilder) {
 
 let companyMasterCache = { expiresAt: 0, rows: [] };
 
+// The Hedge Fund terminal is derived from the warehouse and is safe to show
+// briefly stale.  Keeping its last successful response prevents a slow or
+// restarting engine from turning a normal page visit into a 45-second wait.
+const HFL_TERMINAL_FRESH_MS = 5 * 60_000;
+const HFL_TERMINAL_STALE_MS = 60 * 60_000;
+const hflTerminalCache = new Map();
+
+function readHflTerminalCache(key, { allowStale = false } = {}) {
+  const hit = hflTerminalCache.get(key);
+  if (!hit) return null;
+  const age = Date.now() - hit.at;
+  if (age <= HFL_TERMINAL_FRESH_MS || (allowStale && age <= HFL_TERMINAL_STALE_MS)) {
+    return { data: hit.data, age, stale: age > HFL_TERMINAL_FRESH_MS };
+  }
+  return null;
+}
+
+function writeHflTerminalCache(key, data) {
+  if (data && typeof data === 'object') hflTerminalCache.set(key, { data, at: Date.now() });
+}
+
 async function companyMatches(query, limit = 8) {
   const needle = String(query || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (!needle) return [];
@@ -2323,12 +2344,34 @@ export default function createIntelligenceRouter() {
       const query = { ...(req.query || {}) };
       if (query.limit == null || query.limit === '') query.limit = '12';
       const qs = new URLSearchParams(query).toString();
+      const cacheKey = qs;
+      const fresh = readHflTerminalCache(cacheKey);
+      if (fresh) {
+        res.set('X-AGI-Hedge-Fund-Cache', 'fresh');
+        return res.status(200).json(fresh.data);
+      }
       const r = await engineFetch(
         `/v1/hedge-fund-lab/terminal${qs ? `?${qs}` : ''}`,
-        { timeoutMs: 45_000 },
+        { timeoutMs: 8_000 },
       );
-      res.status(r.status).json(r.data);
+      if (r.ok) {
+        writeHflTerminalCache(cacheKey, r.data);
+        return res.status(r.status).json(r.data);
+      }
+      const stale = readHflTerminalCache(cacheKey, { allowStale: true });
+      if (stale) {
+        res.set('X-AGI-Hedge-Fund-Cache', 'stale');
+        return res.status(200).json({ ...stale.data, cache: { stale: true, age_ms: stale.age } });
+      }
+      return res.status(r.status).json(r.data);
     } catch (err) {
+      const query = { ...(req.query || {}) };
+      if (query.limit == null || query.limit === '') query.limit = '12';
+      const stale = readHflTerminalCache(new URLSearchParams(query).toString(), { allowStale: true });
+      if (stale) {
+        res.set('X-AGI-Hedge-Fund-Cache', 'stale');
+        return res.status(200).json({ ...stale.data, cache: { stale: true, age_ms: stale.age } });
+      }
       res.status(504).json({ error: err.message || 'hedge-fund-lab terminal failed', timeout: true });
     }
   });

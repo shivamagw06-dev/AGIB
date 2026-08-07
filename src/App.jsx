@@ -146,7 +146,7 @@ function AppShell() {
 
   return (
     <>
-      <MarketDataProvider>
+      <MarketDataProvider enabled={location.pathname !== '/'}>
         <PinGate>
           <Header />
           <main>

@@ -26,13 +26,17 @@ const MarketDataContext = createContext(null);
  * (same cadence as homepage Groww/Yahoo snapshot and /api/market/*).
  * Session cache prevents API calls on every page load / login within that window.
  */
-export function MarketDataProvider({ children, pollMs = MARKET_REFRESH_MS }) {
+export function MarketDataProvider({ children, pollMs = MARKET_REFRESH_MS, enabled = true }) {
   const cached = readMarketCache();
   const [intelligence, setIntelligence] = useState(cached ? { ...EMPTY, ...cached } : EMPTY);
   const [loading, setLoading] = useState(!cached);
   const busy = useRef(false);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return undefined;
+    }
     let cancelled = false;
     let timeoutId = null;
 
@@ -88,7 +92,7 @@ export function MarketDataProvider({ children, pollMs = MARKET_REFRESH_MS }) {
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [pollMs]);
+  }, [enabled, pollMs]);
 
   return (
     <MarketDataContext.Provider value={{ intelligence, loading }}>

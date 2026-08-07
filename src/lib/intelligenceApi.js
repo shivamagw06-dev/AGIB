@@ -3252,9 +3252,9 @@ export const getMiSector = (sector) =>
 
 /** Hedge Fund Strategy Lab */
 export const getHflHealth = () =>
-  intelligenceFetch('/hedge-fund-lab/health', { timeoutMs: 45_000 });
+  intelligenceFetch('/hedge-fund-lab/health', { timeoutMs: 8_000 });
 export const getHflStrategies = () =>
-  intelligenceFetch('/hedge-fund-lab/strategies', { timeoutMs: 20_000 });
+  intelligenceFetch('/hedge-fund-lab/strategies', { timeoutMs: 8_000 });
 export const getHflCompare = () =>
   intelligenceFetch('/hedge-fund-lab/compare', { timeoutMs: 20_000 });
 export const getHflStrategy = (id) =>
@@ -3280,7 +3280,7 @@ export const getHflTerminal = (params = {}) => {
         .map(([k, v]) => [k, String(v)]),
     ),
   }).toString();
-  return intelligenceFetch(`/hedge-fund-lab/terminal?${qs}`, { timeoutMs: 25_000 });
+  return intelligenceFetch(`/hedge-fund-lab/terminal?${qs}`, { timeoutMs: 10_000 });
 };
 export const getHflOpportunity = (ticker) =>
   intelligenceFetch(`/hedge-fund-lab/opportunity/${encodeURIComponent(ticker)}`, { timeoutMs: 20_000 });
