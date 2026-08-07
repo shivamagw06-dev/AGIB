@@ -221,6 +221,7 @@ def _map_warehouse_row(
     return {
         "ticker": sym,
         "company_name": mi.get("company_name") or sym,
+        "instrument_key": mi.get("instrument_key"),
         "primary_sector": mi.get("sector"),
         "primary_industry": mi.get("industry"),
         "industry_dna": mi.get("industry_dna"),
@@ -427,6 +428,7 @@ def _base(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "ticker": row["ticker"],
         "company_name": row.get("company_name"),
+        "instrument_key": row.get("instrument_key"),
         "sector": row.get("primary_sector"),
         "industry": row.get("primary_industry"),
         "market_cap": row.get("market_cap"),

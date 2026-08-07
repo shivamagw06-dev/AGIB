@@ -176,10 +176,35 @@ export async function getCompetitors(instrumentKey) {
 export async function getHistoricalCandles(instrumentKey, { unit = 'months', interval = 1, from, to } = {}) {
   const key = String(instrumentKey || '').trim();
   if (!key.includes('|')) throw new Error(`Invalid instrument_key: ${instrumentKey}`);
+  if (!to) throw new Error('Upstox historical candles require a to date');
   const base = process.env.UPSTOX_API_BASE_V3 || 'https://api.upstox.com/v3';
-  const path = `/historical-candle/${encodeURIComponent(key)}/${unit}/${interval}/${to}/${from}`;
+  const path = `/historical-candle/${encodeURIComponent(key)}/${unit}/${interval}/${to}${from ? `/${from}` : ''}`;
   const fetchFn = await ensureFetch();
-  const resp = await fetchFn(`${base}${path}`, { headers: { Accept: 'application/json' } });
+  const { token } = resolveUpstoxAccessToken();
+  const headers = { Accept: 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const resp = await fetchFn(`${base}${path}`, { headers });
+  const json = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(json?.errors?.[0]?.message || `Upstox HTTP ${resp.status}`);
+    err.status = resp.status;
+    throw err;
+  }
+  return json;
+}
+
+/** Current-session OHLCV; kept separate from end-of-day factor history. */
+export async function getIntradayCandles(instrumentKey, { unit = 'minutes', interval = 15 } = {}) {
+  const key = String(instrumentKey || '').trim();
+  if (!key.includes('|')) throw new Error(`Invalid instrument_key: ${instrumentKey}`);
+  const { token } = resolveUpstoxAccessToken();
+  if (!token) throw new Error('Upstox auth missing: set UPSTOX_ACCESS_TOKEN for intraday candles.');
+  const base = process.env.UPSTOX_API_BASE_V3 || 'https://api.upstox.com/v3';
+  const path = `/historical-candle/intraday/${encodeURIComponent(key)}/${unit}/${interval}`;
+  const fetchFn = await ensureFetch();
+  const resp = await fetchFn(`${base}${path}`, {
+    headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+  });
   const json = await resp.json().catch(() => ({}));
   if (!resp.ok) {
     const err = new Error(json?.errors?.[0]?.message || `Upstox HTTP ${resp.status}`);

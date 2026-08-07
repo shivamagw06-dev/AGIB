@@ -337,8 +337,9 @@ export function OpportunityTable({ scan, label, previewRows = null, researchQues
         </table>
       </div>
       <p className="hft-note">
-        Market data from Yahoo Finance, consensus from Capital IQ, classification from the Capital IQ
-        registry, interpretation by AGI. Research observations only — never a buy, sell or target price.
+        Market data from the AGI warehouse, including Upstox daily and intraday candles where available;
+        financial history and consensus from the AGI research warehouse; interpretation by AGI.
+        Research observations only — never a buy, sell or target price.
       </p>
     </div>
   );
