@@ -57,7 +57,9 @@ export async function triggerCioMorningRun({ force = false } = {}) {
 
 export function startCioMorningScheduler() {
   if (scheduler) return;
-  if ((process.env.CIO_MORNING_SCHEDULER || 'true').toLowerCase() === 'false') return;
+  // This invokes a full engine research run. Keep it opt-in until it lives on
+  // an isolated worker, not alongside website traffic.
+  if ((process.env.CIO_MORNING_SCHEDULER || 'false').toLowerCase() !== 'true') return;
 
   const intervalMs = Number(process.env.CIO_MORNING_INTERVAL_MS || 30 * 60 * 1000);
   const tick = () => {
