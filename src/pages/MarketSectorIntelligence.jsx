@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, ArrowLeft, RefreshCw, TrendingUp } from 'lucide-react';
+import { Activity, ArrowLeft, BarChart3, Database, RefreshCw, TrendingUp } from 'lucide-react';
 import { getMiDashboard, getMiSector } from '@/lib/intelligenceApi';
 import useMarketIntelligence from '@/hooks/useMarketIntelligence';
 import useMarketSnapshot from '@/hooks/useMarketSnapshot';
@@ -107,6 +107,34 @@ function Section({ title, subtitle, children }) {
   );
 }
 
+function Sparkline({ points = [], current }) {
+  const values = points.map((point) => Number(point?.value)).filter(Number.isFinite);
+  const all = Number.isFinite(Number(current)) ? [...values, Number(current)] : values;
+  if (all.length < 2) return <p className="msi-hint">Verified historical points will appear as coverage develops.</p>;
+  const lo = Math.min(...all);
+  const hi = Math.max(...all);
+  const span = Math.max(hi - lo, 0.0001);
+  const coordinates = values.map((value, index) => {
+    const x = 4 + (index * 232) / Math.max(values.length - 1, 1);
+    const y = 58 - ((value - lo) / span) * 48;
+    return `${x},${y}`;
+  }).join(' ');
+  return (
+    <div className="msi-chart" aria-label="Historical valuation series">
+      <svg viewBox="0 0 240 64" role="img">
+        <line x1="4" x2="236" y1="58" y2="58" />
+        <polyline points={coordinates} fill="none" />
+      </svg>
+      <div className="msi-chart-labels"><span>{points[0]?.period || 'History'}</span><span>{points.at(-1)?.period || 'Current'}</span></div>
+    </div>
+  );
+}
+
+function CoverageBadge({ snapshot = {} }) {
+  const confidence = snapshot.confidence || 'Insufficient';
+  return <span className={`msi-confidence msi-confidence-${confidence.toLowerCase()}`}>{confidence} confidence</span>;
+}
+
 export default function MarketSectorIntelligence() {
   const { indexSentiments = [], pulse } = useMarketIntelligence();
   const { items: snapshotItems = [] } = useMarketSnapshot();
@@ -154,6 +182,8 @@ export default function MarketSectorIntelligence() {
   const sectors = pack?.sectors || [];
   const opps = pack?.opportunities?.cards || [];
   const priorities = pack?.research_priorities || [];
+  const rotation = pack?.rotation || {};
+  const selectedResearch = sectorPack?.research || {};
   const indexCards = useMemo(
     () => buildIndexCards(snapshotItems, indexSentiments, pulse?.indices || []),
     [snapshotItems, indexSentiments, pulse],
@@ -217,6 +247,13 @@ export default function MarketSectorIntelligence() {
               title="Sector valuation map"
               subtitle={`Historical valuation percentile · data through ${overview.valuation_date || '—'} · colours describe valuation range, not expected return · click a sector`}
             >
+              <div className="msi-sector-nav" aria-label="Sector navigation">
+                {sectors.map((s) => (
+                  <button type="button" key={`nav-${s.sector}`} onClick={() => openSector(s.sector)} className={selectedSector === s.sector ? 'on' : ''}>
+                    {s.sector}<small>{s.historical_percentile != null ? `${fmt(s.historical_percentile, 0)}%ile` : 'coverage'}</small>
+                  </button>
+                ))}
+              </div>
               <div className="msi-heatmap">
                 {heatmap.map((s) => (
                   <button
@@ -229,11 +266,11 @@ export default function MarketSectorIntelligence() {
                     <span>
                       {s.historical_percentile != null
                         ? `${fmt(s.historical_percentile, 0)}%ile`
-                        : (s.historical_percentile_status === 'DATA_QUALITY_FAIL' ? 'n/a' : 'n/a')}
+                        : (s.historical_percentile_status === 'DATA_QUALITY_FAIL' ? 'unreliable' : 'coverage developing')}
                     </span>
                     <span className="tag">{s.historical_range_status || s.opportunity}</span>
                     {s.historical_observations != null ? (
-                      <span className="msi-obs">{s.historical_observations} sessions · through {s.historical_window?.last || '—'}</span>
+                      <span className="msi-obs">{s.historical_years || s.historical_observations} yrs/points · {s.historical_confidence || 'Developing'} confidence</span>
                     ) : null}
                   </button>
                 ))}
@@ -241,15 +278,51 @@ export default function MarketSectorIntelligence() {
             </Section>
 
             {selectedSector && sectorPack?.ok ? (
-              <Section title={`${selectedSector} intelligence`} subtitle={sectorPack.agi_sector_intelligence}>
-                <p className="msi-hint">{sectorPack.lens?.rationale || sectorPack.lens?.primary_metric_label}</p>
-                <div className="msi-grid sm">
-                  <Stat label="Companies" value={fmt(sectorPack.companies, 0)} />
-                  <Stat label="Primary metric" value={sectorPack.valuation?.primary_metric_label || '—'} />
-                  <Stat label="Median" value={fmt(sectorPack.valuation?.current)} />
-                  <Stat label="History through" value={sectorPack.valuation?.historical_window?.last || '—'} />
-                </div>
-              </Section>
+              <>
+                <Section title={`${selectedSector} — sector snapshot`} subtitle={sectorPack.agi_sector_intelligence}>
+                  <div className="msi-sector-hero">
+                    <div className="msi-sector-title"><span>AGI Sector View</span><h2>{selectedSector}</h2><CoverageBadge snapshot={selectedResearch.snapshot} /></div>
+                    <div className="msi-grid sm">
+                      <Stat label="Valuation regime" value={selectedResearch.view?.valuation || '—'} />
+                      <Stat label="Historical percentile" value={sectorPack.valuation?.historical_percentile != null ? `${fmt(sectorPack.valuation.historical_percentile, 0)}%ile` : 'Developing'} />
+                      <Stat label={sectorPack.valuation?.primary_metric_label || 'Primary metric'} value={fmt(sectorPack.valuation?.current)} />
+                      <Stat label="Historical median" value={fmt(sectorPack.valuation?.historical_median)} />
+                      <Stat label="Companies" value={fmt(selectedResearch.snapshot?.companies || sectorPack.companies, 0)} />
+                      <Stat label="Historical coverage" value={selectedResearch.snapshot?.coverage_pct != null ? `${fmt(selectedResearch.snapshot.coverage_pct, 0)}%` : '—'} hint={`${selectedResearch.snapshot?.historical_years || 0} verified years`} />
+                    </div>
+                  </div>
+                </Section>
+
+                <Section title="Valuation intelligence" subtitle={`${selectedResearch.valuation_history?.label || 'Primary valuation metric'} · ${selectedResearch.valuation_history?.source || 'verified warehouse history'}`}>
+                  <div className="msi-detail-grid">
+                    <div>
+                      <Sparkline points={selectedResearch.valuation_history?.points} current={selectedResearch.valuation_history?.current} />
+                      <p className="msi-hint">Current value is ranked against valid historical sector observations. Missing constituents reduce coverage; they do not erase the available history.</p>
+                    </div>
+                    <div className="msi-band-grid">
+                      {Object.entries(selectedResearch.valuation_history?.bands || {}).map(([label, value]) => <Stat key={label} label={label} value={fmt(value)} />)}
+                    </div>
+                  </div>
+                </Section>
+
+                <Section title="Fundamental intelligence" subtitle="Current sector medians from the verified company universe; coverage is shown per metric.">
+                  <div className="msi-fundamentals">
+                    {(selectedResearch.fundamentals || []).map((item) => <Stat key={item.key} label={item.label} value={fmt(item.current)} hint={`${item.interpretation} · ${fmt(item.coverage_pct, 0)}% coverage`} />)}
+                  </div>
+                </Section>
+
+                <Section title="Industry breakdown" subtitle="Constituent industries ranked by covered company count.">
+                  <div className="msi-table-wrap"><table className="msi-table"><thead><tr><th>Industry</th><th>Companies</th><th>Median P/E</th><th>Median P/B</th><th>Median ROE</th></tr></thead><tbody>
+                    {(selectedResearch.industries || []).map((row) => <tr key={row.industry}><td><strong>{row.industry}</strong></td><td>{row.companies}</td><td>{fmt(row.median_pe)}</td><td>{fmt(row.median_pb)}</td><td>{fmt(row.median_roe)}</td></tr>)}
+                  </tbody></table></div>
+                </Section>
+
+                <Section title="Company leaders and valuation context" subtitle="Largest constituents first. This is a research starting point, not a security recommendation.">
+                  <div className="msi-table-wrap"><table className="msi-table"><thead><tr><th>Company</th><th>Industry</th><th>P/E</th><th>P/B</th><th>ROE</th><th>Hist. %ile</th></tr></thead><tbody>
+                    {(selectedResearch.companies || []).slice(0, 15).map((row) => <tr key={row.symbol}><td><Link to={`/valuation-terminal?symbol=${encodeURIComponent(row.symbol || '')}`}>{row.company_name || row.symbol}</Link></td><td>{row.industry || '—'}</td><td>{fmt(row.pe)}</td><td>{fmt(row.pb)}</td><td>{fmt(row.roe)}</td><td>{row.historical_percentile != null ? `${fmt(row.historical_percentile, 0)}%ile` : '—'}</td></tr>)}
+                  </tbody></table></div>
+                </Section>
+              </>
             ) : null}
 
             <Section
@@ -366,7 +439,7 @@ export default function MarketSectorIntelligence() {
               )}
             </Section>
 
-            <Section title="Today's opportunities" subtitle="Research candidates — not recommendations">
+            <Section title="Today’s research candidates" subtitle="Evidence-backed starting points for research — not recommendations">
               <div className="msi-opp-grid">
                 {opps.slice(0, 12).map((c) => (
                   <article key={`${c.kind}-${c.symbol}`} className="msi-opp-card">
@@ -413,21 +486,21 @@ export default function MarketSectorIntelligence() {
             ) : null}
 
             {pack.rotation?.explanation ? (
-              <Section title="Market rotation" subtitle="Money leaving → entering">
+              <Section title="Market rotation" subtitle="Valuation rotation — compression → expansion; this is not a measured fund-flow claim.">
                 <p className="msi-note">{pack.rotation.explanation}</p>
                 <div className="msi-grid sm">
                   {(pack.rotation.leaving || []).length ? (
                     <Stat
                       label="Leaving"
-                      value={(pack.rotation.leaving || []).map((r) => r.sector).join(', ')}
-                      hint={(pack.rotation.leaving || []).map((r) => `${r.median_pe_change_pct ?? r.avg_pe_change_pct}%`).join(', ')}
+                      value={(rotation.leaving || []).map((r) => r.sector).join(', ')}
+                      hint={(rotation.leaving || []).map((r) => `${r.median_pe_change_pct ?? r.avg_pe_change_pct}%`).join(', ')}
                     />
                   ) : null}
                   {(pack.rotation.entering || []).length ? (
                     <Stat
                       label="Entering"
-                      value={(pack.rotation.entering || []).map((r) => r.sector).join(', ')}
-                      hint={(pack.rotation.entering || []).map((r) => `${r.median_pe_change_pct ?? r.avg_pe_change_pct}%`).join(', ')}
+                      value={(rotation.entering || []).map((r) => r.sector).join(', ')}
+                      hint={(rotation.entering || []).map((r) => `${r.median_pe_change_pct ?? r.avg_pe_change_pct}%`).join(', ')}
                     />
                   ) : null}
                 </div>
@@ -453,6 +526,7 @@ export default function MarketSectorIntelligence() {
                 <div><span>Coverage</span><strong>{fmt(pack.coverage?.companies, 0)} cos</strong></div>
                 <div><span>Validation</span><strong>{pack.validation?.publishable ? 'Passed' : `${pack.validation?.checks_passed || 0}/${pack.validation?.checks_total || 0} checks`}</strong></div>
                 <div><span>Confidence</span><strong className="msi-hint-inline">{pack.confidence?.methodology?.slice(0, 80)}…</strong></div>
+                <div><span>Historical hierarchy</span><strong><Database size={13} /> CapIQ → normalized warehouse → HVIE → verified provider ratios</strong></div>
               </div>
             </Section>
           </>
