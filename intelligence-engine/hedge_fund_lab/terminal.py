@@ -165,14 +165,13 @@ SCANS: dict[str, tuple[str, Callable]] = {
     "dividend": ("Dividend / income", _scan_dividend),
 }
 
-# Technical factors are built in the background from the warehouse.  They feed
-# the Alpha composite and are retained on each company record, but we do not
-# run or expose a standalone technical scan on every Hedge Fund page load.
-_ORDER = ["alpha", "value", "quality", "growth", "momentum", "conviction", "dividend", "stress", "pairs"]
+# The Hedge Fund desk is fundamentals-first while technical research is paused.
+# Raw price history remains in the warehouse for a future reintroduction.
+_ORDER = ["alpha", "value", "quality", "growth", "conviction", "dividend", "stress", "pairs"]
 
 _SCAN_PROFILE: dict[str, dict[str, str]] = {
     "alpha": {
-        "alpha": "Agreement across value, quality, growth, technical confirmation and consensus",
+        "alpha": "Agreement across value, financial quality, growth and earnings consensus",
         "risk": "Medium — a composite prioritises research; it cannot replace catalyst and downside work",
         "question": "Which component is genuinely differentiated, and what could invalidate the combined signal?",
     },
@@ -190,16 +189,6 @@ _SCAN_PROFILE: dict[str, dict[str, str]] = {
         "alpha": "Earnings delivery against an already-optimistic curve",
         "risk": "High — de-rating is violent when growth disappoints",
         "question": "Can the implied growth actually be delivered?",
-    },
-    "momentum": {
-        "alpha": "Persistence of relative strength inside an industry",
-        "risk": "High — crowded trends reverse without warning",
-        "question": "Is the trend fundamentally supported or purely flows?",
-    },
-    "technical": {
-        "alpha": "End-of-day 12–1 momentum plus trend confirmation",
-        "risk": "High — technical strength can reverse sharply around events or liquidity shocks",
-        "question": "Is the trend supported by fundamentals, liquidity and a near-term catalyst?",
     },
     "conviction": {
         "alpha": "Sell-side expectation gaps that resolve on results",
@@ -929,6 +918,13 @@ def opportunity(ticker: str, limit: int = 1000) -> dict[str, Any]:
 def scan(strategy: str, *, limit: int = 20, sector: Optional[str] = None) -> dict[str, Any]:
     """One scanner, with confidence attached and the full explanation per row."""
     key = str(strategy or "").strip().lower()
+    if key in {"technical", "momentum"}:
+        return {
+            "ok": False,
+            "error": "technical_research_paused",
+            "message": "Technical and momentum scans are paused. Alpha currently uses fundamentals and earnings consensus only.",
+            "available": _ORDER,
+        }
     if key not in SCANS:
         return {"ok": False, "error": "unknown_scan", "available": _ORDER}
 
