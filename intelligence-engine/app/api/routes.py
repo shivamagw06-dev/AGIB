@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
@@ -20349,6 +20350,26 @@ async def mie_snapshot(country: str = Query("Global")):
 
     return macro_snapshot(country=country)
 
+
+
+@router.post("/mie/snapshot")
+async def publish_mie_snapshot(
+    payload: dict,
+    x_agi_snapshot_token: str | None = Header(default=None),
+):
+    """Accept only an authenticated completed worker result; never calculate on web."""
+    expected = (os.getenv("MIE_SNAPSHOT_PUBLISH_TOKEN") or "").strip()
+    if not expected:
+        raise HTTPException(status_code=503, detail="snapshot_publish_token_not_configured")
+    if x_agi_snapshot_token != expected:
+        raise HTTPException(status_code=403, detail="snapshot_publish_unauthorized")
+    from macro_intelligence_engine.snapshot import save as save_snapshot
+
+    country = str(payload.get("country") or "India")
+    result = save_snapshot(payload.get("pack"), country=country)
+    if not result.get("ok"):
+        raise HTTPException(status_code=422, detail="snapshot_not_publishable")
+    return {"ok": True, "country": country, "published_at": result.get("published_at")}
 
 
 @router.get("/mie/regime")
