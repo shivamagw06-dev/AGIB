@@ -40,39 +40,79 @@ function engineConfig() {
   return { baseUrl, token };
 }
 
-async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 120_000, headers = null } = {}) {
-  const { baseUrl, token } = engineConfig();
-  const response = await fetch(`${baseUrl}${path}`, {
-    method,
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      'X-AGI-Intelligence-Token': token,
-      ...(headers || {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  const text = await response.text();
-  let data = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    // Render/proxy outages often return HTML 502 pages. Never forward raw HTML
-    // to the browser — Mission Control / Ask surface it as a confusing dump.
-    const looksHtml = /^\s*</.test(text || '');
-    data = looksHtml
-      ? {
-          error: 'intelligence_engine_html_error',
-          detail:
-            'Intelligence engine returned an HTML error page instead of JSON (often a Render 502 during redeploy). Retry shortly.',
-          status: response.status,
-          path,
-        }
-      : { raw: String(text || '').slice(0, 400) };
+// Protect the web/API process when Render's engine is restarting or unhealthy.
+// Without this guard, every page and scheduler can hold an upstream request for
+// tens of seconds (or minutes), creating a thundering herd that prevents the
+// engine from recovering. A successful engine response closes the circuit.
+const ENGINE_FAILURE_THRESHOLD = 2;
+const ENGINE_CIRCUIT_COOLDOWN_MS = 30_000;
+const engineCircuit = { failures: 0, openUntil: 0, lastError: null };
+
+function recordEngineSuccess() {
+  engineCircuit.failures = 0;
+  engineCircuit.openUntil = 0;
+  engineCircuit.lastError = null;
+}
+
+function recordEngineFailure(error) {
+  engineCircuit.failures += 1;
+  engineCircuit.lastError = String(error?.message || error || 'engine request failed').slice(0, 240);
+  if (engineCircuit.failures >= ENGINE_FAILURE_THRESHOLD) {
+    engineCircuit.openUntil = Date.now() + ENGINE_CIRCUIT_COOLDOWN_MS;
   }
-  return { ok: response.ok, status: response.status, data };
+}
+
+function circuitIsOpen(path) {
+  // Let explicit health probes through so the circuit can recover naturally.
+  return path !== '/v1/health' && Date.now() < engineCircuit.openUntil;
+}
+
+async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 120_000, headers = null } = {}) {
+  if (circuitIsOpen(path)) {
+    const waitSeconds = Math.max(1, Math.ceil((engineCircuit.openUntil - Date.now()) / 1000));
+    const error = new Error(`Intelligence engine is recovering; retry in about ${waitSeconds}s.`);
+    error.code = 'ENGINE_CIRCUIT_OPEN';
+    throw error;
+  }
+  const { baseUrl, token } = engineConfig();
+  try {
+    const response = await fetch(`${baseUrl}${path}`, {
+      method,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        'X-AGI-Intelligence-Token': token,
+        ...(headers || {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const text = await response.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      // Render/proxy outages often return HTML 502 pages. Never forward raw HTML
+      // to the browser — Mission Control / Ask surface it as a confusing dump.
+      const looksHtml = /^\s*</.test(text || '');
+      data = looksHtml
+        ? {
+            error: 'intelligence_engine_html_error',
+            detail:
+              'Intelligence engine returned an HTML error page instead of JSON (often a Render 502 during redeploy). Retry shortly.',
+            status: response.status,
+            path,
+          }
+        : { raw: String(text || '').slice(0, 400) };
+    }
+    if (response.ok) recordEngineSuccess();
+    else if (response.status >= 500) recordEngineFailure(new Error(`engine HTTP ${response.status}`));
+    return { ok: response.ok, status: response.status, data };
+  } catch (error) {
+    recordEngineFailure(error);
+    throw error;
+  }
 }
 
 function proxyPost(path) {
