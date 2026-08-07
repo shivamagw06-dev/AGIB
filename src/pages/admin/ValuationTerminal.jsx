@@ -251,37 +251,45 @@ function CompanySearch({ onSelect, recent, favorites, onToggleFavorite }) {
   );
 }
 
-function OverviewStrip({ overview, healthScore }) {
+function OverviewStrip({ overview, healthScore, table = [] }) {
   if (!overview) return null;
+  const metric = (id) => table.find((row) => row.metric === id) || {};
+  const pe = metric('pe');
+  const pb = metric('pb');
+  const evEbitda = metric('ev_ebitda');
+  const keyMetrics = [
+    { label: 'Market price', value: fmt(overview.cmp), note: 'Latest warehouse price' },
+    { label: 'P/E', value: fmt(pe.company), note: pe.position ? `${pe.position} vs reference` : 'Reference unavailable', tone: positionClass(pe.position) },
+    { label: 'P/B', value: fmt(pb.company), note: pb.position ? `${pb.position} vs reference` : 'Reference unavailable', tone: positionClass(pb.position) },
+    { label: 'EV / EBITDA', value: fmt(evEbitda.company), note: evEbitda.position ? `${evEbitda.position} vs reference` : 'Reference unavailable', tone: positionClass(evEbitda.position) },
+  ];
   return (
-    <section className="vt-overview-strip">
-      <div className="vt-company-title">
-        <h2>{overview.name || overview.symbol}</h2>
-        <span className="vt-ticker">{overview.symbol}</span>
+    <section className="vt-company-hero">
+      <div className="vt-company-hero-top">
+        <div>
+          <div className="vt-company-kicker">Company valuation snapshot</div>
+          <div className="vt-company-title">
+            <h2>{overview.name || overview.symbol}</h2>
+            <span className="vt-ticker">{overview.symbol}</span>
+          </div>
+          <p className="vt-company-context">
+            {[overview.sector, overview.industry].filter(Boolean).join(' · ') || 'Classification unavailable'}
+          </p>
+        </div>
+        <div className="vt-hero-quality">
+          <span>Evidence confidence</span>
+          <strong>{healthScore?.score != null ? `${healthScore.score}%` : '—'}</strong>
+          <small className={`vt-band-${overview.data_quality || 'low'}`}>{overview.data_quality || 'Data status unavailable'}</small>
+        </div>
       </div>
-      <div className="vt-ov-grid">
-        <div><span className="k">CMP</span><span className="v">{fmt(overview.cmp)}</span></div>
-        <div><span className="k">Market Cap</span><span className="v">{fmt(overview.market_cap)}</span></div>
-        <div><span className="k">Sector</span><span className="v">{overview.sector || '—'}</span></div>
-        <div><span className="k">Industry</span><span className="v">{overview.industry || '—'}</span></div>
-        <div><span className="k">Historical Coverage</span><span className="v">{fmt(overview.historical_coverage, 0)}</span></div>
-        <div><span className="k">Consensus</span><span className="v">{overview.consensus_coverage ? 'Available' : 'Missing'}</span></div>
-        <div>
-          <span className="k">Updated</span>
-          <span className="v">
-            {overview.updated ? new Date(overview.updated).toLocaleString() : '—'}
-          </span>
-        </div>
-        <div>
-          <span className="k">Data Quality</span>
-          <span className={`v vt-band-${overview.data_quality || 'low'}`}>
-            {overview.data_quality || '—'}
-          </span>
-        </div>
-        <div className="vt-health-cell">
-          <span className="k">{healthScore?.label || 'Valuation Confidence'}</span>
-          <span className="v vt-health">{healthScore?.score != null ? `${healthScore.score}%` : '—'}</span>
-        </div>
+      <div className="vt-hero-metrics">
+        {keyMetrics.map((item) => (
+          <div key={item.label} className="vt-hero-metric">
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+            <small className={item.tone}>{item.note}</small>
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -757,14 +765,14 @@ function WorkspaceBriefing({ onSelectCompany }) {
 }
 
 const COMPANY_TABS = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'valuation', label: 'Valuation' },
-  { id: 'historical', label: 'Historical' },
-  { id: 'research', label: 'Research' },
+  { id: 'overview', label: 'Snapshot' },
+  { id: 'valuation', label: 'Multiples' },
+  { id: 'historical', label: 'History' },
+  { id: 'research', label: 'Thesis' },
   { id: 'forecast', label: 'Forecast' },
   { id: 'macro', label: 'Macro' },
   { id: 'peers', label: 'Peers' },
-  { id: 'risks', label: 'Risks' },
+  { id: 'risks', label: 'Data & risks' },
 ];
 
 function CompanyDetailWorkspace({
@@ -779,14 +787,12 @@ function CompanyDetailWorkspace({
   const [tab, setTab] = useState('overview');
   const overview = pack.overview || {};
   const healthScore = pack.health_score || {};
-  const peRow = (pack.table || []).find((r) => r.metric === 'pe') || {};
-  const pbRow = (pack.table || []).find((r) => r.metric === 'pb') || {};
 
   return (
     <div className="vt-company-shell">
       <div className="vt-company-main">
         <div className="vt-title-actions">
-          <OverviewStrip overview={overview} healthScore={healthScore} />
+          <OverviewStrip overview={overview} healthScore={healthScore} table={pack.table} />
           <button
             type="button"
             className={`vt-fav-btn ${isFavorite ? 'on' : ''}`}
@@ -809,7 +815,9 @@ function CompanyDetailWorkspace({
           ))}
         </nav>
 
-        {tab === 'overview' || tab === 'valuation' ? (
+        {tab === 'overview' ? <ResearchGuide pack={pack} /> : null}
+
+        {tab === 'overview' ? (
           <div className="vt-main-grid">
             <InstitutionalTable rows={pack.table} onExplain={onExplain} />
             <ChartPanel
@@ -828,7 +836,15 @@ function CompanyDetailWorkspace({
           </div>
         ) : null}
 
-        {tab === 'overview' ? <ResearchGuide pack={pack} /> : null}
+        {tab === 'valuation' ? (
+          <>
+            <InstitutionalTable rows={pack.table} onExplain={onExplain} />
+            <div className="vt-main-grid">
+              <SectorContext ctx={pack.sector_context} />
+              <PeerTable peers={pack.peers} />
+            </div>
+          </>
+        ) : null}
 
         {tab === 'research' ? (
           <>
@@ -845,10 +861,6 @@ function CompanyDetailWorkspace({
 
         {tab === 'macro' ? (
           <MacroPanel symbol={symbol} />
-        ) : null}
-
-        {tab === 'overview' ? (
-          <CompanyAttributionPanel symbol={symbol} />
         ) : null}
 
         {tab === 'historical' ? (
@@ -883,35 +895,29 @@ function CompanyDetailWorkspace({
 
       <aside className="vt-side-rail" aria-label="Institutional summary">
         <div className="vt-side-card">
-          <div className="vt-side-label">Institutional summary</div>
-          <h3>{overview.symbol || symbol}</h3>
+          <div className="vt-side-label">Research checklist</div>
+          <h3>Before forming a view</h3>
           <div className="vt-side-metric">
-            <span>CMP</span>
-            <strong>{fmt(overview.cmp)}</strong>
+            <span>Historical evidence</span>
+            <strong>{pack.coverage?.pct != null ? `${pack.coverage.pct}%` : '—'}</strong>
           </div>
           <div className="vt-side-metric">
-            <span>P/E</span>
-            <strong>{fmt(peRow.company)}</strong>
-          </div>
-          <div className="vt-side-metric">
-            <span>P/B</span>
-            <strong>{fmt(pbRow.company)}</strong>
-          </div>
-          <div className="vt-side-metric">
-            <span>Position</span>
-            <strong>{peRow.position || '—'}</strong>
-          </div>
-          <div className="vt-side-metric">
-            <span>Confidence</span>
+            <span>Data confidence</span>
             <strong className="vt-health">{healthScore.score != null ? `${healthScore.score}%` : '—'}</strong>
           </div>
           <div className="vt-side-metric">
-            <span>Quality</span>
-            <strong className={`vt-band-${overview.data_quality || 'low'}`}>
-              {overview.data_quality || '—'}
-            </strong>
+            <span>Peer context</span>
+            <strong>{pack.peers?.rows?.length ? `${pack.peers.rows.length} companies` : '—'}</strong>
           </div>
-          <p className="hint">Research context only — not a recommendation.</p>
+          <div className="vt-side-metric">
+            <span>Consensus</span>
+            <strong>{overview.consensus_coverage ? 'Available' : 'Missing'}</strong>
+          </div>
+          <div className="vt-side-metric">
+            <span>Last update</span>
+            <strong>{overview.updated ? new Date(overview.updated).toLocaleDateString() : '—'}</strong>
+          </div>
+          <p className="hint">Test the multiple against earnings quality, balance-sheet resilience and the next catalyst. This is research context, not a recommendation.</p>
         </div>
       </aside>
     </div>
