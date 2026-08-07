@@ -8,10 +8,14 @@ from typing import Any, Optional
 from valuation_terminal.sector_lens import lens_for
 
 
-# A sector valuation percentile becomes investor-facing only after roughly one
-# full year of trading sessions.  The lower HVIE floor remains useful for
-# diagnostics, but is not enough to colour the production heatmap.
-MIN_PUBLISHABLE_SECTOR_HISTORY_OBS = 252
+# Sector history is heterogeneous: the imported CapIQ sector series is annual,
+# while HVIE may be daily/monthly.  A single 252-session gate incorrectly hid
+# an otherwise valid 8–10 year annual series.  Use source-aware evidence and
+# present the resulting coverage/confidence rather than demanding full daily
+# history from every source.
+MIN_ANNUAL_HISTORY_OBS = 2
+MIN_GENERIC_HISTORY_OBS = 24
+MIN_DAILY_HISTORY_OBS = 252
 
 
 def _median(values: list[Any]) -> Optional[float]:
@@ -211,6 +215,13 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
             "historical_percentile_reason": hist_pack.get("reason"),
             "historical_percentile_source": hist_pack.get("source"),
             "historical_observations": hist_pack.get("observation_count"),
+            "historical_years": hist_pack.get("history_years"),
+            "historical_coverage_pct": round(100.0 * len(primary_values) / len(members), 1) if members else 0,
+            "historical_confidence": _history_confidence(
+                history_years=hist_pack.get("history_years"),
+                coverage_pct=round(100.0 * len(primary_values) / len(members), 1) if members else 0,
+                status=hist_pack.get("status"),
+            ),
             "historical_window": {
                 "first": hist_pack.get("first_observation"),
                 "last": hist_pack.get("last_observation"),
@@ -269,31 +280,59 @@ def _sector_own_history_percentile(
 
 
 def _publishable_history(history: dict[str, Any]) -> dict[str, Any]:
-    """Fail closed for the heatmap when the sector series is too short.
-
-    A percentile from 24 or 184 daily observations is mathematically valid but
-    too fragile to present as a strong sector valuation signal.
-    """
+    """Apply a source-aware minimum without discarding annual CapIQ history."""
     pack = dict(history or {})
     obs = int(pack.get("observation_count") or 0)
-    if pack.get("status") == "OK" and obs < MIN_PUBLISHABLE_SECTOR_HISTORY_OBS:
+    source = str(pack.get("source") or "").lower()
+    annual_source = "capital_iq" in source or "capiq" in source or "annual" in source
+    daily_market_source = not source or "historical_valuation" in source or "reconstructed" in source
+    minimum = (
+        MIN_ANNUAL_HISTORY_OBS if annual_source
+        else MIN_DAILY_HISTORY_OBS if daily_market_source
+        else MIN_GENERIC_HISTORY_OBS
+    )
+    # A data source can provide explicit year depth.  Treat annual points as
+    # one observation per financial year; for market series retain the
+    # established 24-observation floor.
+    years = pack.get("history_years")
+    if years is None and annual_source:
+        years = obs
+    pack["history_years"] = years
+    if pack.get("status") == "OK" and obs < minimum:
         pack.update({
             "historical_percentile": None,
             "historical_median": None,
             "sufficient": False,
             "status": "INSUFFICIENT_HISTORY",
             "reason": (
-                f"Limited sector history — observed {obs} sessions; need ≥"
-                f"{MIN_PUBLISHABLE_SECTOR_HISTORY_OBS} before publishing a valuation percentile."
+                f"Limited verified sector history — observed {obs} points; need ≥{minimum} "
+                f"for this {'annual' if annual_source else 'market-series'} source."
             ),
         })
     return pack
 
 
+def _history_confidence(*, history_years: Any, coverage_pct: float, status: Any) -> str:
+    """Confidence convention from the AGI sector-intelligence methodology."""
+    if str(status or "") != "OK":
+        return "Insufficient"
+    try:
+        years = float(history_years or 0)
+    except (TypeError, ValueError):
+        years = 0
+    if coverage_pct >= 70 and years >= 7:
+        return "High"
+    if coverage_pct >= 40 and years >= 4:
+        return "Medium"
+    if coverage_pct >= 20 and years >= 2:
+        return "Low"
+    return "Insufficient"
+
+
 def _historical_range_status(hist_pct: Optional[float]) -> str:
     """Institutional range label — not buy/sell opportunity language."""
     if hist_pct is None:
-        return "Insufficient History"
+        return "Coverage Developing"
     if hist_pct <= 25:
         return "Below Historical Range"
     if hist_pct >= 75:
