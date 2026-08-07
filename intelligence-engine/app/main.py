@@ -176,12 +176,25 @@ async def lifespan(_app: FastAPI):
 
     stop_faa_collector = None
     stop_cgl = None
+    stop_mie_runtime = None
     if http_only:
         log.info(
             "gather_skipped_http_role",
             extra={"agi_role": agi_role, "reason": "sidecar_or_worker_owns_gather"},
         )
     else:
+        # Global Markets is snapshot-first. Build it only in the dedicated
+        # gather worker, never on the HTTP service that serves clients.
+        if agi_role == "gather_worker" and str(os.environ.get("MIE_RUNTIME_ENABLED", "")).lower() in {"1", "true", "yes", "on"}:
+            try:
+                from macro_intelligence_engine.runtime import start as mie_runtime_start
+
+                stop_mie_runtime = mie_runtime_start()
+                logger.info("mie_snapshot_runtime_started")
+            except Exception:
+                logger.exception("mie_snapshot_runtime_failed")
+
+
         # FAA background collector — fills snapshot/index off the Ask path.
         try:
             from app.api.routes import _faa
@@ -255,6 +268,13 @@ async def lifespan(_app: FastAPI):
             stop_faa_collector()
     except Exception:
         pass
+    try:
+        if stop_mie_runtime is not None:
+            stop_mie_runtime()
+    except Exception:
+        pass
+
+
     try:
         if stop_mc_snapshot is not None:
             stop_mc_snapshot()
