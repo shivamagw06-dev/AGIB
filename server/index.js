@@ -26,6 +26,7 @@ import { startValuationRatiosScheduler } from "./services/valuationRatiosSchedul
 import { startHvieRuntimeScheduler } from "./services/hvieRuntimeScheduler.js";
 import { startUifiScheduler } from "./services/uifiScheduler.js";
 import { startHedgeFundLiveQuoteScheduler } from "./services/hedgeFundLiveQuoteScheduler.js";
+import { startHedgeFundUpstoxCandleScheduler } from "./services/hedgeFundUpstoxCandleScheduler.js";
 import { startUpstoxStatementScheduler } from "./services/upstoxStatementScheduler.js";
 import { llmProviderStatus } from "./services/llmClient.js";
 import rateLimit from "express-rate-limit";
@@ -329,6 +330,7 @@ startValuationRatiosScheduler();
 startHvieRuntimeScheduler();
 startUifiScheduler();
 startHedgeFundLiveQuoteScheduler();
+startHedgeFundUpstoxCandleScheduler();
 startUpstoxStatementScheduler();
 
 /* ---------- /api/perplexity/deals ----------
