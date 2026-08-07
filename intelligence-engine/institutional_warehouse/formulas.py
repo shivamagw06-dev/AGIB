@@ -606,7 +606,6 @@ def recalc_factors(*, actor: str = "system", as_of: Optional[str] = None,
     valuation = {str(r.get("symbol")).upper(): r for r in _iter_rows("historical_valuation", entity=entity)}
     ratios = _by_entity("historical_ratios", entity=entity)
     consensus = _by_entity("consensus", entity=entity)
-    market = _by_entity("daily_market_history", entity=entity)
 
     rows = []
     for symbol, val in valuation.items():
@@ -639,8 +638,17 @@ def recalc_factors(*, actor: str = "system", as_of: Optional[str] = None,
             if delta is not None:
                 growth_score = _clamp(50.0 + delta * 5.0)
 
-        technical = _technical_features(market.get(symbol, []))
-        momentum_score = technical.get("momentum_score")
+        # Technical factors are intentionally paused while the Hedge Fund
+        # research queue is fundamentals-first. Raw price history remains in
+        # the warehouse so technical research can be re-enabled later.
+        technical = {
+            "momentum_score": None,
+            "technical_score": None,
+            "trend_score": None,
+            "momentum_12_1_pct": None,
+            "volume_ratio_20d": None,
+        }
+        momentum_score = None
         upside = _num(val.get("upside"))
         consensus_score = _clamp(50.0 + (upside or 0.0) / 2.0) if upside is not None else None
         dividend_yield = _num(val.get("dividend_yield"))
@@ -650,9 +658,8 @@ def recalc_factors(*, actor: str = "system", as_of: Optional[str] = None,
 
         components = [
             (value_score, 0.3),
-            (quality_score, 0.25),
-            (growth_score, 0.15),
-            (momentum_score, 0.15),
+            (quality_score, 0.30),
+            (growth_score, 0.25),
             (consensus_score, 0.15),
         ]
         available = [(v, w) for v, w in components if v is not None]
