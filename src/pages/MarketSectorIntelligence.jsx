@@ -1,18 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, ArrowLeft, BarChart3, Database, RefreshCw, TrendingUp } from 'lucide-react';
+import { Activity, ArrowLeft, Database, RefreshCw, TrendingUp } from 'lucide-react';
 import { getMiDashboard, getMiSector } from '@/lib/intelligenceApi';
 import useMarketIntelligence from '@/hooks/useMarketIntelligence';
 import useMarketSnapshot from '@/hooks/useMarketSnapshot';
 import './marketSectorIntelligence.css';
-
-const HEATMAP_CLASS = {
-  dark_green: 'msi-heat-dark-green',
-  light_green: 'msi-heat-light-green',
-  grey: 'msi-heat-grey',
-  orange: 'msi-heat-orange',
-  dark_red: 'msi-heat-dark-red',
-};
 
 function fmt(v, d = 2) {
   if (v == null || v === '') return '—';
@@ -37,12 +29,47 @@ function breadthHint(b) {
   return hint;
 }
 
-function Stat({ label, value, hint }) {
+function Stat({ label, value, hint, className = '' }) {
   return (
-    <div className="msi-stat">
+    <div className={`msi-stat ${className}`}>
       <span className="k">{label}</span>
       <span className="v">{value}</span>
       {hint ? <span className="h">{hint}</span> : null}
+    </div>
+  );
+}
+
+function valuationRegime(percentile) {
+  const value = Number(percentile);
+  if (!Number.isFinite(value)) return { label: 'Coverage pending', tone: 'coverage' };
+  if (value <= 10) return { label: 'Deep discount', tone: 'deep-discount' };
+  if (value <= 25) return { label: 'Discount', tone: 'discount' };
+  if (value <= 60) return { label: 'Fair', tone: 'fair' };
+  if (value <= 80) return { label: 'Premium', tone: 'premium' };
+  if (value <= 90) return { label: 'Expensive', tone: 'expensive' };
+  return { label: 'Extreme premium', tone: 'extreme-premium' };
+}
+
+function signedPercent(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  return `${n > 0 ? '+' : ''}${fmt(n, 1)}%`;
+}
+
+function IndexStrip({ items = [] }) {
+  return (
+    <div className="msi-index-strip" aria-label="Market index strip">
+      {items.map((item) => {
+        const change = Number(String(item.hint || '').replace('%', ''));
+        const tone = Number.isFinite(change) ? (change > 0 ? 'up' : change < 0 ? 'down' : 'flat') : 'flat';
+        return (
+          <div className="msi-index-tick" key={item.key}>
+            <span>{item.label}</span>
+            <strong>{fmt(item.value)}</strong>
+            <em className={tone}>{item.hint}</em>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -161,6 +188,11 @@ export default function MarketSectorIntelligence() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    document.body.classList.add('agi-terminal-route');
+    return () => document.body.classList.remove('agi-terminal-route');
+  }, []);
+
   const openSector = async (sector) => {
     setSelectedSector(sector);
     setSectorPack(null);
@@ -188,16 +220,30 @@ export default function MarketSectorIntelligence() {
     () => buildIndexCards(snapshotItems, indexSentiments, pulse?.indices || []),
     [snapshotItems, indexSentiments, pulse],
   );
+  const breadthTracked = breadth.tracked_universe || breadth.sample_size || 0;
+  const breadthUniverse = breadth.universe_total || overview.companies || 0;
+  const breadthCoverageLow = Number(breadth.coverage_pct) < 20;
+  const valuationRead = Number(marketHealth.market_historical_percentile) <= 25
+    ? 'Below historical median'
+    : Number(marketHealth.market_historical_percentile) >= 75
+      ? 'Above historical median'
+      : 'Near historical median';
+  const flowRead = flows.available
+    ? (flows.latest_values_available === false ? 'Awaiting EOD' : (flows.explanation || 'Mixed'))
+    : 'Not yet available';
+  const riskRead = Number(marketHealth.overall) >= 70 ? 'Contained' : Number(marketHealth.overall) >= 45 ? 'Moderate' : 'Elevated';
 
   return (
     <div className="msi-root">
       <header className="msi-header">
-        <Link to="/market-intelligence" className="msi-back"><ArrowLeft size={14} /> Market desk</Link>
         <div className="msi-head-row">
           <div>
-            <p className="msi-kicker"><Activity size={14} /> AGI Market & Sector Intelligence</p>
-            <h1>Institutional market overview</h1>
-            <p>Warehouse → Unified Valuation Engine → Market Intelligence Engine. No buy/sell — research priorities only.</p>
+            <Link to="/market-intelligence" className="msi-back"><ArrowLeft size={13} /> Market desk</Link>
+            <p className="msi-kicker"><Activity size={13} /> Market + Sector Intelligence</p>
+            <div className="msi-head-meta">
+              <span>India Equities</span><i>·</i><span>{fmt(overview.companies, 0)} Companies</span><i>·</i><span className="history-active">10Y History Active</span>
+              <i>·</i><span>As of {overview.valuation_date || '—'}</span><i>·</i><span>P/E Coverage {overview.coverage?.pct != null ? `${fmt(overview.coverage.pct, 1)}%` : '—'}</span>
+            </div>
           </div>
           <button type="button" className="msi-btn" onClick={load} disabled={loading}>
             <RefreshCw size={14} /> Refresh
@@ -211,36 +257,36 @@ export default function MarketSectorIntelligence() {
 
         {pack?.ok ? (
           <>
-            <Section
-              title="Market overview"
-              subtitle={`Constitution v${pack.constitution || '2.0'} · Valuation as of ${overview.valuation_date || '—'} · ${overview.companies || 0} companies · PE coverage ${overview.coverage?.pct != null ? overview.coverage.pct : '—'}%`}
-            >
+            <Section title="Market state" subtitle={`Constitution v${pack.constitution || '2.0'} · live index snapshot + verified warehouse valuation`}>
               <div className="msi-index-row">
                 {indexCards.length ? (
-                  indexCards.map((idx) => (
-                    <Stat
-                      key={idx.key}
-                      label={idx.label}
-                      value={fmt(idx.value)}
-                      hint={idx.hint}
-                    />
-                  ))
+                  <IndexStrip items={indexCards} />
                 ) : (
                   <p className="msi-hint">Index quotes unavailable from live gateway for this session.</p>
                 )}
               </div>
-              <div className="msi-grid">
+              <div className="msi-grid msi-intelligence-strip">
                 <Stat label="Market regime" value={regime.regime || '—'} hint={regime.drivers?.slice(0, 2).join(' · ')} />
                 <Stat label="Market health" value={marketHealth.overall != null ? `${marketHealth.overall}/100` : '—'} />
-                <Stat label="Hist %ile (market)" value={fmt(marketHealth.market_historical_percentile, 0)} hint="Sector median of historical percentiles" />
-                <Stat label="Median P/E" value={fmt(overview.averages?.pe)} />
-                <Stat label="Median P/B" value={fmt(overview.averages?.pb)} />
-                <Stat label="Median EV/EBITDA" value={fmt(overview.averages?.ev_ebitda)} />
+                <Stat label="Hist %ile" value={marketHealth.market_historical_percentile != null ? `${fmt(marketHealth.market_historical_percentile, 0)}rd` : '—'} hint="Sector median" />
+                <Stat label="Median P/E" value={overview.averages?.pe != null ? `${fmt(overview.averages.pe)}x` : '—'} />
+                <Stat label="Median P/B" value={overview.averages?.pb != null ? `${fmt(overview.averages.pb)}x` : '—'} />
+                <Stat label="EV/EBITDA" value={overview.averages?.ev_ebitda != null ? `${fmt(overview.averages.ev_ebitda)}x` : '—'} />
                 <Stat label="Breadth" value={breadth.heatmap || '—'} hint={breadthHint(breadth)} />
-                <Stat label="Breadth coverage" value={breadth.coverage_pct != null ? `${fmt(breadth.coverage_pct, 1)}%` : '—'} hint={`${breadth.tracked_universe || breadth.sample_size || 0} tracked`} />
+                <Stat className={breadthCoverageLow ? 'msi-stat-warning' : ''} label="Breadth coverage" value={breadth.coverage_pct != null ? `${fmt(breadth.coverage_pct, 1)}%` : '—'} hint={`${breadthTracked} / ${breadthUniverse || '—'} · ${breadthCoverageLow ? 'Low coverage' : 'Verified'}`} />
               </div>
               {breadth.universe_definition ? <p className="msi-hint">{breadth.universe_definition}</p> : null}
-              {pack.summary ? <blockquote className="msi-summary">{pack.summary}</blockquote> : null}
+              <div className="msi-market-view">
+                <div className="msi-market-view-title">AGI Market View</div>
+                <div className="msi-market-view-grid">
+                  <Stat label="Regime" value={regime.regime || '—'} />
+                  <Stat label="Valuation" value={valuationRead} />
+                  <Stat label="Breadth" value={breadth.heatmap || '—'} />
+                  <Stat label="Flows" value={flowRead} />
+                  <Stat label="Risk" value={riskRead} />
+                </div>
+                {pack.summary ? <p>{pack.summary}</p> : null}
+              </div>
             </Section>
 
             <Section
@@ -255,25 +301,29 @@ export default function MarketSectorIntelligence() {
                 ))}
               </div>
               <div className="msi-heatmap">
-                {heatmap.map((s) => (
-                  <button
+                {heatmap.map((s) => {
+                  const regimeInfo = valuationRegime(s.historical_percentile);
+                  const metric = s.primary_metric_label || 'Metric';
+                  return <button
                     type="button"
                     key={s.sector}
-                    className={`msi-heat-cell ${HEATMAP_CLASS[s.heatmap_band] || 'msi-heat-grey'} ${selectedSector === s.sector ? 'on' : ''}`}
+                    className={`msi-heat-cell msi-heat-${regimeInfo.tone} ${selectedSector === s.sector ? 'on' : ''}`}
                     onClick={() => openSector(s.sector)}
                   >
-                    <strong>{s.sector}</strong>
-                    <span>
+                    <div className="msi-heat-top"><strong>{s.sector}</strong><b>
                       {s.historical_percentile != null
                         ? `${fmt(s.historical_percentile, 0)}%ile`
                         : (s.historical_percentile_status === 'DATA_QUALITY_FAIL' ? 'unreliable' : 'coverage developing')}
-                    </span>
-                    <span className="tag">{s.historical_range_status || s.opportunity}</span>
-                    {s.historical_observations != null ? (
-                      <span className="msi-obs">{s.historical_observation_label || `${s.historical_observations} observations`} · {s.historical_years ? `${s.historical_years} yrs · ` : ''}{s.historical_confidence || 'Developing'} confidence</span>
-                    ) : null}
-                  </button>
-                ))}
+                    </b></div>
+                    <span className="tag">{regimeInfo.label}</span>
+                    <div className="msi-heat-values">
+                      <span>{metric}<b>{fmt(s.current)}</b></span>
+                      <span>10Y median<b>{fmt(s.historical_median)}</b></span>
+                      <span>Δ<b>{signedPercent(s.historical_premium_pct ?? s.premium_pct)}</b></span>
+                    </div>
+                    <span className="msi-obs">{s.historical_years ? `${s.historical_years}Y` : '—'} · <i className={`confidence-dot ${String(s.historical_confidence || 'low').toLowerCase()}`} />{s.historical_confidence || 'Developing'}</span>
+                  </button>;
+                })}
               </div>
             </Section>
 
