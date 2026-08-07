@@ -34,6 +34,7 @@ from macro_intelligence_engine.production import (
     runtime_status,
     runtime_stop,
     scenarios,
+    snapshot,
     sector_impact,
 )
 
@@ -59,6 +60,7 @@ __all__ = [
     "company_impact",
     "forecast",
     "scenarios",
+    "snapshot",
     "relationships",
     "risks",
     "ask_slice",
