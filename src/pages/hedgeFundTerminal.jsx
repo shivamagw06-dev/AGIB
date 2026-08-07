@@ -237,7 +237,7 @@ function Explanation({ ticker }) {
 /* ------------------------------------------------------------------ */
 /* Opportunity table for one scanner                                    */
 /* ------------------------------------------------------------------ */
-function OpportunityTable({ scan, label, previewRows = null, researchQuestion = '' }) {
+export function OpportunityTable({ scan, label, previewRows = null, researchQuestion = '' }) {
   const [rows, setRows] = useState(() => (Array.isArray(previewRows) ? previewRows : []));
   const [meta, setMeta] = useState(() => (
     Array.isArray(previewRows) && previewRows.length
