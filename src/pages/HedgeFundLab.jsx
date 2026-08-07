@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Activity, Gauge, Layers, Sigma } from 'lucide-react';
 import HedgeFundTerminal, { InlineAsk } from '@/pages/hedgeFundTerminal';
 import {
@@ -331,6 +331,18 @@ export function HedgeFundLabSections() {
       <header className="hfl-header">
         <h1>Hedge Fund</h1>
         <p>Live opportunities, strategy mechanics and institutional risk analytics</p>
+        <div className="hfl-focus-links">
+          <Link to="/hedge-fund/alpha-opportunities">
+            <span>AGI Alpha</span>
+            <strong>Alpha Opportunities</strong>
+            <small>Multi-factor research queue</small>
+          </Link>
+          <Link to="/hedge-fund/technical-analysis">
+            <span>AGI Technical</span>
+            <strong>Technical Analysis</strong>
+            <small>Trend, momentum &amp; volume confirmation</small>
+          </Link>
+        </div>
         <InlineAsk />
       </header>
 
