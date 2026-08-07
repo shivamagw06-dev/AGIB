@@ -556,6 +556,8 @@ body.agi-terminal-route #root > header a { color: #f2f4f7 !important; }
 .msi-sector-view { display: grid; align-content: start; gap: .35rem; }
 .msi-sector-view .msi-stat { border-color: #222a34; padding: .36rem .45rem; }
 .msi-sector-view .msi-stat .v { font-size: .82rem; }
+
+@media (max-width: 1050px) {
   .msi-command-bar { grid-template-columns: 1fr 1fr; }
   .msi-command-meta { grid-column: 1 / -1; justify-content: flex-start; }
   .msi-sector-workspace { grid-template-columns: 1fr 1.4fr; }
