@@ -270,7 +270,7 @@ export default function MarketSectorIntelligence() {
                     </span>
                     <span className="tag">{s.historical_range_status || s.opportunity}</span>
                     {s.historical_observations != null ? (
-                      <span className="msi-obs">{s.historical_years || s.historical_observations} yrs/points · {s.historical_confidence || 'Developing'} confidence</span>
+                      <span className="msi-obs">{s.historical_observation_label || `${s.historical_observations} observations`} · {s.historical_years ? `${s.historical_years} yrs · ` : ''}{s.historical_confidence || 'Developing'} confidence</span>
                     ) : null}
                   </button>
                 ))}

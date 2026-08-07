@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from statistics import median
 from typing import Any, Optional
 
@@ -156,6 +157,8 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
         # own median history (HVIE). Never fall back to inventing 50.
         hist_pack = _sector_own_history_percentile(sector, current=current, metric=primary)
         hist_pack = _publishable_history(hist_pack)
+        history_years = _history_year_span(hist_pack)
+        history_unit = "annual periods" if "capital_iq" in str(hist_pack.get("source") or "").lower() else "market observations"
         hist_pct = hist_pack.get("historical_percentile")
         # Upstox sector benchmark only — do not invent one from peer medians.
         sector_key = {
@@ -215,10 +218,11 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
             "historical_percentile_reason": hist_pack.get("reason"),
             "historical_percentile_source": hist_pack.get("source"),
             "historical_observations": hist_pack.get("observation_count"),
-            "historical_years": hist_pack.get("history_years"),
+            "historical_years": history_years,
+            "historical_observation_label": f"{hist_pack.get('observation_count') or 0} {history_unit}",
             "historical_coverage_pct": round(100.0 * len(primary_values) / len(members), 1) if members else 0,
             "historical_confidence": _history_confidence(
-                history_years=hist_pack.get("history_years"),
+                history_years=history_years,
                 coverage_pct=round(100.0 * len(primary_values) / len(members), 1) if members else 0,
                 status=hist_pack.get("status"),
             ),
@@ -327,6 +331,23 @@ def _history_confidence(*, history_years: Any, coverage_pct: float, status: Any)
     if coverage_pct >= 20 and years >= 2:
         return "Low"
     return "Insufficient"
+
+
+def _history_year_span(history: dict[str, Any]) -> float:
+    """Return actual calendar-year depth; never mistake observations for years."""
+    explicit = history.get("history_years")
+    try:
+        if explicit is not None:
+            return round(float(explicit), 1)
+    except (TypeError, ValueError):
+        pass
+    first, last = history.get("first_observation"), history.get("last_observation")
+    try:
+        start = date.fromisoformat(str(first)[:10])
+        end = date.fromisoformat(str(last)[:10])
+        return round(max(0.0, (end - start).days / 365.25), 1)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _historical_range_status(hist_pct: Optional[float]) -> str:
