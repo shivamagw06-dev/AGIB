@@ -147,7 +147,14 @@ export async function refreshHedgeFundUpstoxCandles({ force = false } = {}) {
 }
 
 export function startHedgeFundUpstoxCandleScheduler() {
-  if (timer || String(process.env.HEDGE_FUND_UPSTOX_CANDLES || 'false').toLowerCase() !== 'true') return;
+  // Technical research is paused while Hedge Fund runs fundamentals-first.
+  // Retain this scheduler and the raw candles for a future opt-in, but do not
+  // run it merely because the old candle setting is still present.
+  if (
+    timer ||
+    String(process.env.HEDGE_FUND_TECHNICAL_RESEARCH_ENABLED || 'false').toLowerCase() !== 'true' ||
+    String(process.env.HEDGE_FUND_UPSTOX_CANDLES || 'false').toLowerCase() !== 'true'
+  ) return;
   const intervalMs = Math.max(15 * 60_000, Number(process.env.HEDGE_FUND_UPSTOX_CANDLE_INTERVAL_MS || 15 * 60_000));
   const tick = () => refreshHedgeFundUpstoxCandles().then((result) => { lastRun = result; }).catch((error) => { lastRun = { ok: false, error: error.message, at: new Date().toISOString() }; });
   setTimeout(tick, Math.max(60_000, Number(process.env.HEDGE_FUND_UPSTOX_INITIAL_DELAY_MS || 180_000)));
