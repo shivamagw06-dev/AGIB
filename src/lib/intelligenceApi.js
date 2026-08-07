@@ -3253,12 +3253,13 @@ export const getMiSector = (sector) =>
 /** Hedge Fund Strategy Lab */
 export const getHflHealth = () =>
   intelligenceFetch('/hedge-fund-lab/health', { timeoutMs: 8_000 });
+// Strategies/compare are served from Node static fallback when the engine is down.
 export const getHflStrategies = () =>
-  intelligenceFetch('/hedge-fund-lab/strategies', { timeoutMs: 8_000 });
+  intelligenceFetch('/hedge-fund-lab/strategies', { timeoutMs: 10_000 });
 export const getHflCompare = () =>
-  intelligenceFetch('/hedge-fund-lab/compare', { timeoutMs: 20_000 });
+  intelligenceFetch('/hedge-fund-lab/compare', { timeoutMs: 10_000 });
 export const getHflStrategy = (id) =>
-  intelligenceFetch(`/hedge-fund-lab/strategy/${encodeURIComponent(id)}`, { timeoutMs: 20_000 });
+  intelligenceFetch(`/hedge-fund-lab/strategy/${encodeURIComponent(id)}`, { timeoutMs: 10_000 });
 export const hflCalculate = (kind, payload) =>
   intelligenceFetch(`/hedge-fund-lab/calculate/${encodeURIComponent(kind)}`, {
     method: 'POST',

@@ -30,6 +30,11 @@ import {
   buildKocDegradedHealth,
   buildKocDegradedOverview,
 } from '../services/kocDegraded.js';
+import {
+  hflStaticCompare,
+  hflStaticLibrary,
+  hflStaticStrategy,
+} from '../services/hflStaticLibrary.js';
 
 function engineConfig() {
   let baseUrl = (process.env.INTELLIGENCE_ENGINE_URL || 'http://127.0.0.1:8100').replace(/\/$/, '');
@@ -2353,20 +2358,36 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err.message || 'hedge-fund-lab health failed' });
     }
   });
+  // Strategy library is definitional — serve Node static fallback when the
+  // engine is 502 / circuit-open so HFL page chrome stays usable.
   router.get('/hedge-fund-lab/strategies', async (_req, res) => {
     try {
-      const r = await engineFetch('/v1/hedge-fund-lab/strategies', { timeoutMs: 25_000 });
-      res.status(r.status).json(r.data);
-    } catch (err) {
-      res.status(504).json({ error: err.message || 'hedge-fund-lab strategies failed', timeout: true });
+      if (circuitIsOpen('/v1/hedge-fund-lab/strategies')) {
+        res.set('X-AGI-Hedge-Fund-Source', 'static_fallback');
+        return res.status(200).json(hflStaticLibrary());
+      }
+      const r = await engineFetch('/v1/hedge-fund-lab/strategies', { timeoutMs: 4_000 });
+      if (r.ok && r.data?.strategies) return res.status(200).json(r.data);
+      res.set('X-AGI-Hedge-Fund-Source', 'static_fallback');
+      return res.status(200).json(hflStaticLibrary());
+    } catch {
+      res.set('X-AGI-Hedge-Fund-Source', 'static_fallback');
+      return res.status(200).json(hflStaticLibrary());
     }
   });
   router.get('/hedge-fund-lab/compare', async (_req, res) => {
     try {
-      const r = await engineFetch('/v1/hedge-fund-lab/compare', { timeoutMs: 25_000 });
-      res.status(r.status).json(r.data);
-    } catch (err) {
-      res.status(504).json({ error: err.message || 'hedge-fund-lab compare failed', timeout: true });
+      if (circuitIsOpen('/v1/hedge-fund-lab/compare')) {
+        res.set('X-AGI-Hedge-Fund-Source', 'static_fallback');
+        return res.status(200).json(hflStaticCompare());
+      }
+      const r = await engineFetch('/v1/hedge-fund-lab/compare', { timeoutMs: 4_000 });
+      if (r.ok && Array.isArray(r.data?.rows)) return res.status(200).json(r.data);
+      res.set('X-AGI-Hedge-Fund-Source', 'static_fallback');
+      return res.status(200).json(hflStaticCompare());
+    } catch {
+      res.set('X-AGI-Hedge-Fund-Source', 'static_fallback');
+      return res.status(200).json(hflStaticCompare());
     }
   });
   router.get('/hedge-fund-lab/regime', async (_req, res) => {
@@ -2440,13 +2461,21 @@ export default function createIntelligenceRouter() {
     }
   });
   router.get('/hedge-fund-lab/strategy/:id', async (req, res) => {
+    const id = req.params.id;
     try {
-      const r = await engineFetch(`/v1/hedge-fund-lab/strategy/${encodeURIComponent(req.params.id)}`, {
-        timeoutMs: 25_000,
+      if (circuitIsOpen(`/v1/hedge-fund-lab/strategy/${id}`)) {
+        res.set('X-AGI-Hedge-Fund-Source', 'static_fallback');
+        return res.status(200).json(hflStaticStrategy(id));
+      }
+      const r = await engineFetch(`/v1/hedge-fund-lab/strategy/${encodeURIComponent(id)}`, {
+        timeoutMs: 4_000,
       });
-      res.status(r.status).json(r.data);
-    } catch (err) {
-      res.status(504).json({ error: err.message || 'hedge-fund-lab strategy failed', timeout: true });
+      if (r.ok && r.data?.ok !== false) return res.status(r.status).json(r.data);
+      res.set('X-AGI-Hedge-Fund-Source', 'static_fallback');
+      return res.status(200).json(hflStaticStrategy(id));
+    } catch {
+      res.set('X-AGI-Hedge-Fund-Source', 'static_fallback');
+      return res.status(200).json(hflStaticStrategy(id));
     }
   });
   router.post('/hedge-fund-lab/calculate/:kind', async (req, res) => {
