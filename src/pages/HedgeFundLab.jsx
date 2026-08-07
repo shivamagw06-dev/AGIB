@@ -292,17 +292,23 @@ export function HedgeFundLabSections() {
     let live = true;
     // Stagger after first paint so terminal gets the first engine slot.
     const timer = window.setTimeout(() => {
-      Promise.all([getHflStrategies(), getHflCompare()])
-        .then(([s, c]) => {
+      Promise.allSettled([getHflStrategies(), getHflCompare()])
+        .then(([sRes, cRes]) => {
           if (!live) return;
+          const s = sRes.status === 'fulfilled' ? sRes.value : null;
+          const c = cRes.status === 'fulfilled' ? cRes.value : null;
           setStrategies(s?.strategies || []);
           setRows(c?.rows || []);
           if (s?.strategies?.length) setSelected(s.strategies[0].id);
-          setError('');
-        })
-        .catch((err) => {
-          if (!live) return;
-          setError(err?.message || 'Failed to load the strategy lab');
+          if (!s?.strategies?.length && !c?.rows?.length) {
+            setError(
+              sRes.reason?.message
+              || cRes.reason?.message
+              || 'Strategy library unavailable while the intelligence engine recovers.',
+            );
+          } else {
+            setError('');
+          }
         })
         .finally(() => {
           if (live) setLibraryLoading(false);
