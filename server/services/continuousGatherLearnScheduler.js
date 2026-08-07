@@ -17,7 +17,9 @@ function engineConfig() {
 }
 
 function enabled() {
-  return String(process.env.CONTINUOUS_GATHER_LEARN_SCHEDULER || 'true').toLowerCase() !== 'false';
+  // Heavy gather/learn work must be explicitly enabled on a dedicated worker;
+  // it must never start by default in the public API process.
+  return String(process.env.CONTINUOUS_GATHER_LEARN_SCHEDULER || 'false').toLowerCase() === 'true';
 }
 
 export function getContinuousGatherLearnSchedulerStatus() {
@@ -51,7 +53,7 @@ export async function triggerContinuousGatherLearn({ forceMorningDag = false } =
   const istMorning = hourUtc >= 0 && hourUtc < 4;
   const steps = [];
 
-  if (forceMorningDag || (istMorning && String(process.env.CONTINUOUS_MORNING_DAG || 'true').toLowerCase() !== 'false')) {
+  if (forceMorningDag || (istMorning && String(process.env.CONTINUOUS_MORNING_DAG || 'false').toLowerCase() === 'true')) {
     try {
       const dag = await enginePost('/v1/scheduler/run', { dry_run: false, parallel: true });
       steps.push({ step: 'morning_dag', ok: dag.ok, status: dag.status });
@@ -63,7 +65,7 @@ export async function triggerContinuousGatherLearn({ forceMorningDag = false } =
   try {
     const cgl = await enginePost('/v1/continuous-gather-learn/run', {
       force_morning_dag: false,
-      include_faa: String(process.env.CONTINUOUS_FAA_REFRESH || 'true').toLowerCase() !== 'false',
+      include_faa: String(process.env.CONTINUOUS_FAA_REFRESH || 'false').toLowerCase() === 'true',
     });
     steps.push({
       step: 'cgl_cycle',
