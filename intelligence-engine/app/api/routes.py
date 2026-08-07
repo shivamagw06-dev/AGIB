@@ -20342,6 +20342,15 @@ async def mie_pack(country: str = "India", symbol: str | None = None):
         return {"ok": False, "error": str(exc)[:320], "engine": "macro_intelligence_engine"}
 
 
+@router.get("/mie/snapshot")
+async def mie_snapshot(country: str = Query("Global")):
+    """Read the latest durable macro snapshot without running an intelligence build."""
+    from macro_intelligence_engine.production import snapshot as macro_snapshot
+
+    return macro_snapshot(country=country)
+
+
+
 @router.get("/mie/regime")
 async def mie_regime(country: str = "India"):
     from macro_intelligence_engine import regime
