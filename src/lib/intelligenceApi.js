@@ -2793,7 +2793,8 @@ export const seedValuationConsensus = (payload = {}) =>
   });
 
 /** Valuation Intelligence Terminal — Warehouse → Unified Valuation Engine */
-export const getVtHealth = () => intelligenceFetch('/valuation-engine/terminal/health');
+export const getVtHealth = () =>
+  intelligenceFetch('/valuation-engine/terminal/health', { timeoutMs: 12_000 });
 export const getVtOverview = () => intelligenceFetch('/valuation-terminal/overview');
 export const getVtSectors = () => intelligenceFetch('/valuation-terminal/sectors');
 export const getVtSectorIntelligence = (sector) =>
@@ -2826,7 +2827,7 @@ export const getVtExplain = (metric) =>
   intelligenceFetch(`/valuation-engine/terminal/explain/${encodeURIComponent(metric)}`);
 export const searchVtCompanies = (q, limit = 12) => {
   const qs = new URLSearchParams({ q: q || '', limit: String(limit) }).toString();
-  return intelligenceFetch(`/valuation-engine/terminal/search?${qs}`);
+  return intelligenceFetch(`/valuation-engine/terminal/search?${qs}`, { timeoutMs: 8_000 });
 };
 export const getVtSeries = (symbol, metric, window = '5Y') => {
   const qs = new URLSearchParams({ window: String(window) }).toString();

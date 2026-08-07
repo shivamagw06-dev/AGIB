@@ -150,17 +150,35 @@ function CompanySearch({ onSelect, recent, favorites, onToggleFavorite }) {
   const [q, setQ] = useState('');
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
   const boxRef = useRef(null);
 
   useEffect(() => {
     if (!q.trim()) {
       setItems([]);
+      setSearching(false);
+      setSearchError('');
       return undefined;
     }
+    setSearching(true);
+    setSearchError('');
     const t = setTimeout(() => {
       searchVtCompanies(q.trim(), 10)
-        .then((r) => setItems(r?.suggestions || []))
-        .catch(() => setItems([]));
+        .then((r) => {
+          setItems(r?.suggestions || []);
+          setSearchError('');
+        })
+        .catch((err) => {
+          setItems([]);
+          const msg = String(err?.message || '');
+          setSearchError(
+            /recovering|502|503|504|timed out|timeout|unavailable/i.test(msg)
+              ? 'Search is temporarily unavailable — the intelligence engine is busy. Retry in a moment.'
+              : (msg || 'Company search failed.'),
+          );
+        })
+        .finally(() => setSearching(false));
     }, 180);
     return () => clearTimeout(t);
   }, [q]);
@@ -242,7 +260,13 @@ function CompanySearch({ onSelect, recent, favorites, onToggleFavorite }) {
               </ul>
             </div>
           ) : null}
-          {q.trim() && !items.length ? (
+          {q.trim() && searching ? (
+            <p className="hint">Searching warehouse…</p>
+          ) : null}
+          {q.trim() && !searching && searchError ? (
+            <p className="hint">{searchError}</p>
+          ) : null}
+          {q.trim() && !searching && !searchError && !items.length ? (
             <p className="hint">No warehouse matches for “{q}”.</p>
           ) : null}
         </div>
