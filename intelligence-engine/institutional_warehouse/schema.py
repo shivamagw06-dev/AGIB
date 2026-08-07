@@ -947,6 +947,40 @@ HEDGE_FUND_FACTORS = Tab(
 )
 
 # --------------------------------------------------------------------------
+# Tab 12b — Daily Intelligence Changes (prepared post-close feed)
+# --------------------------------------------------------------------------
+
+DAILY_INTELLIGENCE_CHANGES = Tab(
+    id="daily_intelligence_changes",
+    label="Daily Intelligence Changes",
+    description=(
+        "Prepared post-close summary of material fundamental and Alpha-score "
+        "changes. This is a cached research feed, not a trading signal."
+    ),
+    mode="append",
+    key=("symbol", "date", "change_type"),
+    order_by=("date DESC", "symbol", "change_type"),
+    search_columns=("symbol", "change_type", "summary", "changed_fields"),
+    icon="timeline",
+    notes=(
+        "Written only by the bounded daily intelligence refresh after a source update.",
+        "No page request performs this calculation.",
+    ),
+    columns=(
+        _c("symbol", "Symbol", TEXT, editable=False, required=True, width=130, group="Key"),
+        _c("date", "Date", DATE, editable=False, required=True, width=120, group="Key"),
+        _c("change_type", "Change Type", TEXT, editable=False, required=True, width=150, group="Key",
+           options=("fundamentals", "alpha", "initial_refresh", "no_material_change")),
+        _c("summary", "What Changed", TEXT, editable=False, width=420, group="Change"),
+        _c("changed_fields", "Changed Fields", JSON, editable=False, width=360, group="Change"),
+        _c("previous_snapshot", "Previous Snapshot", JSON, editable=False, width=320, group="Audit"),
+        _c("current_snapshot", "Current Snapshot", JSON, editable=False, width=320, group="Audit"),
+        _c("refresh_run_id", "Refresh Run", TEXT, editable=False, width=180, group="Audit"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
 # Tab 13 — Company Intelligence
 # --------------------------------------------------------------------------
 
@@ -1208,6 +1242,35 @@ HISTORICAL_SECTOR_MEDIANS = Tab(
         _c("as_of", "As Of", DATE, required=True, width=120, group="Key"),
         _c("median_value", "Median", NUMBER, width=120, group="Stats"),
         _c("company_count", "Companies", INTEGER, width=120, group="Stats"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# ---------------------------------------------------------------------------
+# Tab — Historical Import Registry (immutable source fingerprints)
+# ---------------------------------------------------------------------------
+
+HISTORICAL_IMPORT_REGISTRY = Tab(
+    id="historical_import_registry",
+    label="Historical Import Registry",
+    description="Auditable fingerprints for seeded historical data sources.",
+    mode="append",
+    key=("source_name", "source_hash"),
+    order_by=("completed_at DESC",),
+    search_columns=("source_name", "source_version", "status"),
+    icon="audit",
+    columns=(
+        _c("source_name", "Source", TEXT, editable=False, required=True, width=180, group="Key"),
+        _c("source_hash", "SHA256", TEXT, editable=False, required=True, width=240, group="Key"),
+        _c("source_version", "Source Version", TEXT, editable=False, width=190, group="Source"),
+        _c("rows_read", "Rows Read", INTEGER, editable=False, width=110, group="Counts"),
+        _c("rows_imported", "Rows Imported", INTEGER, editable=False, width=130, group="Counts"),
+        _c("period_start", "First Period", TEXT, editable=False, width=120, group="Coverage"),
+        _c("period_end", "Last Period", TEXT, editable=False, width=120, group="Coverage"),
+        _c("status", "Status", TEXT, editable=False, width=120, group="Status",
+           options=("COMPLETED", "FAILED")),
+        _c("completed_at", "Completed At", DATETIME, editable=False, width=180, group="Timing"),
+        _c("error", "Error", TEXT, editable=False, width=300, group="Status"),
         *PROVENANCE_COLUMNS,
     ),
 )
@@ -1745,9 +1808,11 @@ TABS: tuple[Tab, ...] = (
     HVIE_COMPANY_STATE,
     HISTORICAL_STATISTICS,
     HISTORICAL_SECTOR_MEDIANS,
+    HISTORICAL_IMPORT_REGISTRY,
     HISTORICAL_INDUSTRY_MEDIANS,
     HISTORICAL_MARKET_MEDIANS,
     HVIE_UNIVERSE_QUEUE,
+    DAILY_INTELLIGENCE_CHANGES,
     RIE_COMPANY_DOSSIER,
     FORECAST_COMPANY,
     FORECAST_HISTORY,
