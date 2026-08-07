@@ -282,6 +282,7 @@ export async function refreshUpstoxFundamentals({
       requests_per_company: annualOnly ? 3 : 6,
     },
     fetched: batch.length,
+    companies: companies.map((company) => company.symbol),
     errors: errors.slice(0, 20),
     ingest: ingest?.data || ingest,
   };
