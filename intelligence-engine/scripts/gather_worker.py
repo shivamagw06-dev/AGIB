@@ -110,6 +110,20 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001
         log.warning("gather_worker_fse_bind_failed", extra={"error": str(exc)[:200]})
 
+    # Global Markets snapshots are computed here, never during a client page
+    # request. A dedicated worker does not share the web service disk, so the
+    # runtime publishes its completed result back to the authenticated web API.
+    if _truthy("MIE_RUNTIME_ENABLED", "false"):
+        try:
+            from macro_intelligence_engine.runtime import start as start_mie_runtime
+            from macro_intelligence_engine.runtime import stop as stop_mie_runtime
+
+            boot_mie = start_mie_runtime()
+            stop_fns.append(stop_mie_runtime)
+            log.info("gather_worker_mie_runtime", extra=boot_mie if isinstance(boot_mie, dict) else {"boot": boot_mie})
+        except Exception as exc:  # noqa: BLE001
+            log.warning("gather_worker_mie_runtime_failed", extra={"error": str(exc)[:200]})
+
     # Mission Control snapshot builder — HTTP only reads; this process computes.
     try:
         from mission_control.snapshot import start_scheduler as start_mc_snapshot
