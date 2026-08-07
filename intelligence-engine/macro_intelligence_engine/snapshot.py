@@ -75,6 +75,16 @@ def save(pack: dict[str, Any], *, country: str) -> dict[str, Any]:
         "source": "macro_intelligence_runtime",
         "pack": pack,
     }
+    # A dedicated Render worker has its own filesystem and must not attempt to
+    # create the web engine's mounted disk path. Publish directly to the
+    # authenticated web tier, which owns the visitor-facing snapshot storage.
+    if str(os.getenv("AGI_ROLE") or "").strip().lower() == "gather_worker":
+        remote = _publish_to_web_engine(payload)
+        return {
+            "ok": bool(remote.get("ok")),
+            "published_at": now,
+            "web_engine_publish": remote,
+        }
     target = _path(country)
     temp = target.with_suffix(".tmp")
     temp.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
