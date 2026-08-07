@@ -276,7 +276,17 @@ export default function MarketSectorIntelligence() {
         ) : null}
       </header>
 
-      <main className="msi-body">
+      <main className="msi-workbench">
+        {pack?.ok ? <aside className="msi-left-rail" aria-label="Sector navigator">
+          <span className="msi-rail-label">Sectors</span>
+          <div className="msi-rail-sectors">
+            {sectors.map((sector) => <button type="button" key={sector.sector} className={selectedSector === sector.sector ? 'on' : ''} onClick={() => openSector(sector.sector)}>
+              <span>{sector.sector}</span><b>{sector.historical_percentile != null ? fmt(sector.historical_percentile, 0) : '—'}</b>
+            </button>)}
+          </div>
+          <p>Percentile shown against each sector’s verified valuation history.</p>
+        </aside> : null}
+        <div className="msi-body">
         {error ? <div className="msi-error">{error}</div> : null}
         {loading ? <p className="msi-hint">Loading market intelligence…</p> : null}
 
@@ -301,17 +311,7 @@ export default function MarketSectorIntelligence() {
                 <Stat className={breadthCoverageLow ? 'msi-stat-warning' : ''} label="Breadth coverage" value={breadth.coverage_pct != null ? `${fmt(breadth.coverage_pct, 1)}%` : '—'} hint={`${breadthTracked} / ${breadthUniverse || '—'} · ${breadthCoverageLow ? 'Low coverage' : 'Verified'}`} />
               </div>
               {breadth.universe_definition ? <p className="msi-hint">{breadth.universe_definition}</p> : null}
-              <div className="msi-market-view">
-                <div className="msi-market-view-title">AGI Market View</div>
-                <div className="msi-market-view-grid">
-                  <Stat label="Regime" value={regime.regime || '—'} />
-                  <Stat label="Valuation" value={valuationRead} />
-                  <Stat label="Breadth" value={breadth.heatmap || '—'} />
-                  <Stat label="Flows" value={flowRead} />
-                  <Stat label="Risk" value={riskRead} />
-                </div>
-                {pack.summary ? <p>{pack.summary}</p> : null}
-              </div>
+              {pack.summary ? <p className="msi-market-sentence">{pack.summary}</p> : null}
             </Section>
 
             {editorialNote ? (
@@ -637,6 +637,17 @@ export default function MarketSectorIntelligence() {
         {!loading && !pack?.ok && !error ? (
           <p className="msi-hint"><TrendingUp size={14} /> Waiting for warehouse valuation coverage.</p>
         ) : null}
+        </div>
+        {pack?.ok ? <aside className="msi-right-rail" aria-label="AGI research intelligence">
+          <section className="msi-rail-panel">
+            <span className="msi-rail-label">AGI Market View</span>
+            <dl><div><dt>Regime</dt><dd>{regime.regime || '—'}</dd></div><div><dt>Valuation</dt><dd>{valuationRead}</dd></div><div><dt>Breadth</dt><dd>{breadth.heatmap || '—'}</dd></div><div><dt>Flows</dt><dd>{flowRead}</dd></div><div><dt>Risk</dt><dd>{riskRead}</dd></div></dl>
+          </section>
+          {editorialNote ? <section className="msi-rail-panel msi-rail-note"><span className="msi-rail-label">AGI Research Note</span><time>{new Date(editorialNote.published_at || editorialNote.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</time><h2>{editorialNote.title}</h2><p>{editorialNote.excerpt || editorialNote.meta_description}</p>{noteThemes(editorialNote.tags).length ? <ul>{noteThemes(editorialNote.tags).slice(0, 4).map((theme) => <li key={theme}>{theme}</li>)}</ul> : null}<Link to={`/article/${editorialNote.slug}`}>Read note →</Link></section> : null}
+          <section className="msi-rail-panel"><span className="msi-rail-label">Market risks</span><ul><li>{breadthCoverageLow ? 'Breadth coverage remains low' : 'Breadth conditions require monitoring'}</li><li>{riskRead} market-risk regime</li><li>{flows.latest_values_available === false ? 'Institutional flow update awaiting EOD' : 'Earnings and valuation dispersion'}</li></ul></section>
+          {drivers[0] ? <section className="msi-rail-panel"><span className="msi-rail-label">Latest intelligence</span><strong>{drivers[0].driver}</strong><p>{drivers[0].detail}</p></section> : null}
+          <Link className="msi-rail-ask" to="/ask-agi">Ask AGI about this market →</Link>
+        </aside> : null}
       </main>
     </div>
   );
