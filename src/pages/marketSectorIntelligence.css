@@ -82,6 +82,30 @@
   padding: 1rem 1.1rem;
 }
 
+.msi-sector-nav {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding: 0 0 0.7rem;
+  margin-bottom: 0.1rem;
+}
+
+.msi-sector-nav button {
+  flex: 0 0 auto;
+  border: 1px solid #d7dee8;
+  background: #fff;
+  color: #273c58;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 650;
+  padding: 0.38rem 0.55rem;
+  text-align: left;
+}
+
+.msi-sector-nav button small { display: block; margin-top: 0.12rem; color: #66758a; font-size: 0.62rem; font-weight: 500; }
+.msi-sector-nav button.on { border-color: #0f6e6a; background: #eaf7f5; color: #075954; }
+
 .msi-section header h2 {
   margin: 0;
   font-size: 0.78rem;
@@ -103,6 +127,23 @@
 }
 
 .msi-grid.sm { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+
+.msi-sector-hero { border-left: 3px solid #0f6e6a; background: #f6fafb; padding: 0.75rem; }
+.msi-sector-title { display: flex; align-items: baseline; gap: 0.55rem; flex-wrap: wrap; margin-bottom: 0.65rem; }
+.msi-sector-title > span { color: #0f6e6a; font-size: 0.66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.msi-sector-title h2 { margin: 0; color: #17345b; font-family: 'IBM Plex Serif', Georgia, serif; font-size: 1.35rem; }
+.msi-confidence { border: 1px solid currentColor; border-radius: 999px; padding: 0.18rem .45rem; font-size: .66rem; font-weight: 700; }
+.msi-confidence-high { color: #0b6b59; background: #e8f7ef; }
+.msi-confidence-medium { color: #9a6700; background: #fff7df; }
+.msi-confidence-low, .msi-confidence-insufficient { color: #9b3a16; background: #fff0e9; }
+.msi-detail-grid { display: grid; grid-template-columns: minmax(280px, 1.5fr) minmax(220px, 1fr); gap: 1rem; align-items: start; }
+.msi-band-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; }
+.msi-chart { border: 1px solid #dce5ee; background: #fff; padding: .5rem .65rem .35rem; }
+.msi-chart svg { display: block; width: 100%; height: 100px; }
+.msi-chart line { stroke: #dce5ee; stroke-width: 1; }
+.msi-chart polyline { stroke: #0f6e6a; stroke-width: 2.2; }
+.msi-chart-labels { display: flex; justify-content: space-between; color: #66758a; font-size: .67rem; }
+.msi-fundamentals { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: .4rem; }
 
 .msi-index-row {
   display: grid;
@@ -275,6 +316,8 @@
   color: #1a3358;
 }
 
+.msi-prov strong svg { vertical-align: -2px; margin-right: .18rem; }
+
 .msi-error {
   border: 1px solid #f7c5c0;
   background: #fff1f0;
@@ -310,4 +353,11 @@
   display: grid;
   gap: 0.35rem;
   font-size: 0.86rem;
+}
+
+@media (max-width: 760px) {
+  .msi-header { position: static; padding: 1rem; }
+  .msi-body { padding: .75rem; }
+  .msi-section { padding: .75rem; }
+  .msi-detail-grid { grid-template-columns: 1fr; }
 }
