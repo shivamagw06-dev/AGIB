@@ -64,7 +64,11 @@ def run_refresh(*, mode: str = "daily", country: str = DEFAULT_COUNTRY) -> dict[
         # Publishing is part of the asynchronous runtime.  The web route reads
         # this output and must never rebuild a pack for a visitor.
         if ok:
-            save_snapshot(pack, country=ctry)
+            published = save_snapshot(pack, country=ctry)
+            if not published.get("ok"):
+                raise RuntimeError(
+                    f"macro_snapshot_publish_failed:{(published.get('web_engine_publish') or {}).get('error') or 'unknown'}"
+                )
         _upsert_runtime(
             ctry,
             queue_status="COMPLETE" if ok else "FAILED",
