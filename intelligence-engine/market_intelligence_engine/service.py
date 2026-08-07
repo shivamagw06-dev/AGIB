@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from statistics import median
 from typing import Any
 
 from market_intelligence_engine import aggregation, breadth, flows, opportunities, rotation, summary, universe
@@ -226,6 +227,7 @@ def sector_detail(sector: str, *, universe_limit: int = 5000) -> dict[str, Any]:
     )[:8]
 
     sector_row = next((s for s in aggregation.sector_table(uni) if s["sector"] == name), {})
+    research = _sector_research_pack(name, members, sector_row)
 
     return {
         "ok": True,
@@ -238,8 +240,156 @@ def sector_detail(sector: str, *, universe_limit: int = 5000) -> dict[str, Any]:
         "distribution": {
             "pe": _distribution([m.get("pe") for m in members]),
             "pb": _distribution([m.get("pb") for m in members]),
+            "ev_ebitda": _distribution([m.get("ev_ebitda") for m in members]),
         },
+        # This is deliberately a deterministic, evidence-only layer.  The UI
+        # may add prose, but these fields remain the shared sector primitive
+        # for Ask AGI, valuation and research workflows.
+        "research": research,
         "agi_sector_intelligence": _sector_narrative(name, sector_row, lens),
+    }
+
+
+def _num(value: Any) -> float | None:
+    try:
+        number = float(value)
+        return number if number == number else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _med(values: list[Any]) -> float | None:
+    clean = [n for value in values if (n := _num(value)) is not None]
+    return round(float(median(clean)), 2) if clean else None
+
+
+def _sector_research_pack(name: str, members: list[dict[str, Any]], valuation: dict[str, Any]) -> dict[str, Any]:
+    """Evidence-backed sector intelligence with partial-coverage disclosure."""
+    from historical_valuation_intelligence.sector_percentile import load_sector_median_series
+
+    primary = str(valuation.get("primary_metric") or "pe")
+    metric = primary if primary in {"pe", "pb", "ev_ebitda", "ev_sales"} else "pe"
+    try:
+        history = load_sector_median_series(name, metric=metric)
+    except Exception as exc:  # a selected sector must still render without history
+        history = {"points": [], "source": None, "error": str(exc)[:160]}
+    points = list(history.get("points") or [])
+    current = valuation.get("current")
+    current_count = sum(1 for row in members if _num(row.get(primary)) is not None)
+    coverage_pct = round(100.0 * current_count / len(members), 1) if members else 0.0
+    years = len({str(point.get("period") or "")[:4] for point in points if point.get("period")})
+    confidence = valuation.get("historical_confidence") or _confidence(coverage_pct, years)
+
+    history_values = [_num(point.get("value")) for point in points]
+    history_values = [value for value in history_values if value is not None]
+    bands = _bands(history_values)
+    valuation_history = {
+        "metric": metric,
+        "label": valuation.get("primary_metric_label") or metric.upper(),
+        "current": current,
+        "points": points[-12:],  # chart reads a compact ten-year/quarterly tail
+        "periods": len(points),
+        "years": years,
+        "source": history.get("source"),
+        "bands": bands,
+        "percentile": valuation.get("historical_percentile"),
+        "range_status": valuation.get("historical_range_status"),
+    }
+
+    fundamental_fields = [
+        ("roe", "ROE"), ("roce", "ROCE"), ("roa", "ROA"),
+        ("debt_equity", "Debt / Equity"), ("dividend_yield", "Dividend Yield"),
+    ]
+    fundamentals = []
+    for field, label in fundamental_fields:
+        values = [row.get(field) for row in members]
+        present = sum(1 for value in values if _num(value) is not None)
+        value = _med(values)
+        if value is not None:
+            fundamentals.append({
+                "key": field, "label": label, "current": value,
+                "coverage": present, "coverage_pct": round(100.0 * present / len(members), 1),
+                "interpretation": _fundamental_state(field, value),
+            })
+
+    industries: dict[str, list[dict[str, Any]]] = {}
+    for row in members:
+        industry = str(row.get("industry") or "Unclassified")
+        industries.setdefault(industry, []).append(row)
+    industry_rows = []
+    for industry, rows in industries.items():
+        industry_rows.append({
+            "industry": industry,
+            "companies": len(rows),
+            "median_pe": _med([row.get("pe") for row in rows]),
+            "median_pb": _med([row.get("pb") for row in rows]),
+            "median_roe": _med([row.get("roe") for row in rows]),
+        })
+    industry_rows.sort(key=lambda row: (-row["companies"], row["industry"]))
+
+    company_rows = []
+    for row in members:
+        company_rows.append({
+            "symbol": row.get("symbol"), "company_name": row.get("company_name"),
+            "industry": row.get("industry"), "market_cap": row.get("market_cap"),
+            "pe": row.get("pe"), "pb": row.get("pb"), "roe": row.get("roe"),
+            "historical_percentile": row.get("percentile"),
+        })
+    company_rows.sort(key=lambda row: -(_num(row.get("market_cap")) or 0))
+
+    view = _sector_view(valuation, fundamentals, confidence)
+    return {
+        "snapshot": {
+            "companies": len(members), "metric_coverage": current_count,
+            "coverage_pct": coverage_pct, "historical_years": years,
+            "confidence": confidence, "valuation_date": valuation.get("historical_window", {}).get("last"),
+        },
+        "view": view,
+        "valuation_history": valuation_history,
+        "fundamentals": fundamentals,
+        "industries": industry_rows[:20],
+        "companies": company_rows[:80],
+        "methodology": "Valid constituent observations are aggregated; missing company history reduces coverage, not the sector result.",
+    }
+
+
+def _bands(values: list[float]) -> dict[str, float | None]:
+    if not values:
+        return {"p10": None, "p25": None, "median": None, "p75": None, "p90": None}
+    ordered = sorted(values)
+    def at(percentile: float) -> float:
+        return round(ordered[min(len(ordered) - 1, round((len(ordered) - 1) * percentile))], 2)
+    return {"p10": at(.10), "p25": at(.25), "median": at(.50), "p75": at(.75), "p90": at(.90)}
+
+
+def _confidence(coverage: float, years: int) -> str:
+    if coverage >= 70 and years >= 7:
+        return "High"
+    if coverage >= 40 and years >= 4:
+        return "Medium"
+    if coverage >= 20 and years >= 2:
+        return "Low"
+    return "Insufficient"
+
+
+def _fundamental_state(field: str, value: float) -> str:
+    if field in {"roe", "roce", "roa"}:
+        return "Supportive" if value > 12 else "Developing"
+    if field == "debt_equity":
+        return "Watch" if value > 1.5 else "Controlled"
+    return "Context"
+
+
+def _sector_view(valuation: dict[str, Any], fundamentals: list[dict[str, Any]], confidence: str) -> dict[str, Any]:
+    percentile = _num(valuation.get("historical_percentile"))
+    valuation_label = "Coverage developing" if percentile is None else "Premium" if percentile >= 75 else "Below historical range" if percentile <= 25 else "Within historical range"
+    roe = next((item.get("current") for item in fundamentals if item.get("key") == "roe"), None)
+    quality = "Supportive" if _num(roe) is not None and float(roe) >= 12 else "Needs review"
+    return {
+        "valuation": valuation_label,
+        "fundamentals": quality,
+        "risk": "Elevated valuation expectations" if percentile is not None and percentile >= 75 else "Evidence coverage" if confidence != "High" else "Monitor sector-specific catalysts",
+        "regime": "Premium valuation" if percentile is not None and percentile >= 75 else "Historical discount" if percentile is not None and percentile <= 25 else "Balanced valuation context",
     }
 
 
