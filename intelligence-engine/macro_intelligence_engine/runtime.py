@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from macro_intelligence_engine.composer import build_macro_pack
+from macro_intelligence_engine.snapshot import save as save_snapshot
 from macro_intelligence_engine.models import DEFAULT_COUNTRY, ENGINE_CODE, VERSION
 
 _LOCK = threading.Lock()
@@ -60,6 +61,10 @@ def run_refresh(*, mode: str = "daily", country: str = DEFAULT_COUNTRY) -> dict[
     try:
         pack = build_macro_pack(ctry)
         ok = bool(pack.get("ok"))
+        # Publishing is part of the asynchronous runtime.  The web route reads
+        # this output and must never rebuild a pack for a visitor.
+        if ok:
+            save_snapshot(pack, country=ctry)
         _upsert_runtime(
             ctry,
             queue_status="COMPLETE" if ok else "FAILED",
@@ -126,7 +131,9 @@ def _loop() -> None:
             _STATE["status"] = "running"
             _STATE["last_tick"] = _now()
         try:
-            process_batch(batch=1, mode=mode)
+            # When Global is explicitly enabled, publish both the India
+            # read-through and global snapshot in this worker cycle.
+            process_batch(batch=2 if _truthy("MIE_INCLUDE_GLOBAL", "false") else 1, mode=mode)
         except Exception as exc:
             with _LOCK:
                 _STATE["last_error"] = str(exc)[:280]

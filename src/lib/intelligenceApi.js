@@ -3198,6 +3198,13 @@ export const getMiePack = (params = {}) => {
   ).toString();
   return intelligenceFetch(`/mie/pack${qs ? `?${qs}` : ''}`, { timeoutMs: 180_000 });
 };
+// Read-only public snapshot. It never asks the engine to calculate a macro pack.
+export const getMieSnapshot = (country = 'Global') =>
+  intelligenceFetch(`/mie/snapshot?country=${encodeURIComponent(country)}`, {
+    timeoutMs: 6_000,
+  });
+
+
 export const getMieBoard = () =>
   intelligenceFetch('/mie/runtime/board', { timeoutMs: 90_000 });
 export const getMieModule = (module, params = {}) => {

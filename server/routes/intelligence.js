@@ -3361,6 +3361,26 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err.message || 'mie pack failed' });
     }
   });
+  router.get('/mie/snapshot', async (req, res) => {
+    const country = String(req.query.country || 'Global');
+    try {
+      const payload = await proxy.get('/v1/mie/snapshot', {
+        params: { country },
+        timeout: 5_000,
+      });
+      res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+      return res.json(payload.data);
+    } catch (error) {
+      return res.status(503).json({
+        ok: false,
+        status: 'SNAPSHOT_UNAVAILABLE',
+        country,
+        message: 'The global markets snapshot is being prepared. Please retry shortly.',
+      });
+    }
+  });
+
+
   router.get('/mie/runtime/status', kfGet('/v1/mie/runtime/status'));
   router.get('/mie/runtime/board', kfGet('/v1/mie/runtime/board'));
   const mieGet = (suffix, timeoutMs = 90_000) => async (req, res) => {
