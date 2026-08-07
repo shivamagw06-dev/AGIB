@@ -764,6 +764,59 @@ function WorkspaceBriefing({ onSelectCompany }) {
   );
 }
 
+function LandingWorkspace({ market, marketLoading, sectors, sectorsLoading, onSelectCompany, onSelectSector }) {
+  const [showHealth, setShowHealth] = useState(false);
+
+  return (
+    <>
+      <section className="vt-landing-hero">
+        <div>
+          <span className="vt-brief-eyebrow">AGI valuation intelligence</span>
+          <h2>Find valuation gaps worth explaining.</h2>
+          <p>
+            Start with the market, identify sectors at a historical discount or premium, then test the company-level evidence.
+          </p>
+        </div>
+        <div className="vt-landing-actions">
+          <button type="button" className="vi-btn primary" onClick={() => onSelectCompany('ICICIBANK', 'ICICI Bank')}>
+            Research a company
+          </button>
+          <button type="button" className="vi-btn" onClick={() => onSelectSector(sectors?.[0]?.sector || 'Financials')}>
+            Explore sectors
+          </button>
+        </div>
+        <div className="vt-landing-steps" aria-label="Research workflow">
+          <span><b>1</b> Market context</span>
+          <span><b>2</b> Sector valuation</span>
+          <span><b>3</b> Company evidence</span>
+          <span><b>4</b> Thesis &amp; risks</span>
+        </div>
+      </section>
+
+      <MarketSnapshot market={market} loading={marketLoading} />
+      <WorkspaceBriefing onSelectCompany={onSelectCompany} />
+      <SectorDirectory sectors={sectors} loading={sectorsLoading} onSelect={onSelectSector} />
+      <ResearchBoards onSelectCompany={onSelectCompany} />
+
+      <section className="vt-data-health-drawer">
+        <button
+          type="button"
+          className="vt-data-health-toggle"
+          onClick={() => setShowHealth((value) => !value)}
+          aria-expanded={showHealth}
+        >
+          <span>
+            <b>Data health &amp; coverage</b>
+            <small>Operational diagnostics for the valuation warehouse</small>
+          </span>
+          <span aria-hidden="true">{showHealth ? '−' : '+'}</span>
+        </button>
+        {showHealth ? <CoverageHealthPanel /> : null}
+      </section>
+    </>
+  );
+}
+
 const COMPANY_TABS = [
   { id: 'overview', label: 'Snapshot' },
   { id: 'valuation', label: 'Multiples' },
@@ -1105,17 +1158,14 @@ export default function ValuationTerminal() {
         {error ? <div className="vi-error">{error}</div> : null}
 
         {showSectorHome ? (
-          <>
-            <MarketSnapshot market={market} loading={marketLoading} />
-            <WorkspaceBriefing onSelectCompany={selectCompany} />
-            <CoverageHealthPanel />
-            <SectorDirectory
-              sectors={sectors}
-              loading={sectorsLoading}
-              onSelect={selectSector}
-            />
-            <ResearchBoards onSelectCompany={selectCompany} />
-          </>
+          <LandingWorkspace
+            market={market}
+            marketLoading={marketLoading}
+            sectors={sectors}
+            sectorsLoading={sectorsLoading}
+            onSelectCompany={selectCompany}
+            onSelectSector={selectSector}
+          />
         ) : null}
 
         {showSectorWorkspace ? (
