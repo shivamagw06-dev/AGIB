@@ -72,6 +72,7 @@ const navItems = [
   { to: '/admin/historical-valuation', label: 'Historical Valuation', icon: CalendarRange },
   { to: '/admin/hvie-runtime', label: 'HVIE Build', icon: Activity },
   { to: '/admin/research-intelligence', label: 'Research Intelligence', icon: BookOpen },
+  { to: '/admin/market-research-note', label: 'Market Research Note', icon: FileText },
   { to: '/admin/forecast-runtime', label: 'Forecast Runtime', icon: LineChart },
   { to: '/admin/macro-runtime', label: 'Macro Runtime', icon: Globe2 },
   { to: '/admin/ifac', label: 'Answer Composer', icon: Layers3 },

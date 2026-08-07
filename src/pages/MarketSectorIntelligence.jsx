@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, ArrowLeft, Database, RefreshCw, TrendingUp } from 'lucide-react';
 import { getMiDashboard, getMiSector } from '@/lib/intelligenceApi';
+import { getFeaturedMarketResearchNote, noteAuthor, noteThemes } from '@/lib/marketResearchNote';
 import useMarketIntelligence from '@/hooks/useMarketIntelligence';
 import useMarketSnapshot from '@/hooks/useMarketSnapshot';
 import './marketSectorIntelligence.css';
@@ -170,6 +171,7 @@ export default function MarketSectorIntelligence() {
   const [selectedSector, setSelectedSector] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [editorialNote, setEditorialNote] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -187,6 +189,18 @@ export default function MarketSectorIntelligence() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Open a useful research workspace immediately rather than leaving the
+  // client at a heatmap with no sector context.
+  useEffect(() => {
+    if (!selectedSector && pack?.ok && pack?.sectors?.[0]?.sector) openSector(pack.sectors[0].sector);
+  // openSector intentionally only changes when a sector is chosen.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pack, selectedSector]);
+
+  useEffect(() => {
+    getFeaturedMarketResearchNote().then(setEditorialNote).catch(() => setEditorialNote(null));
+  }, []);
 
   useEffect(() => {
     document.body.classList.add('agi-terminal-route');
@@ -249,6 +263,17 @@ export default function MarketSectorIntelligence() {
             <RefreshCw size={14} /> Refresh
           </button>
         </div>
+        {pack?.ok ? (
+          <div className="msi-command-bar" aria-label="Sector research controls">
+            <div><span>Sector intelligence</span><strong>India equities</strong></div>
+            <label>Sector
+              <select value={selectedSector || ''} onChange={(event) => openSector(event.target.value)}>
+                {sectors.map((sector) => <option key={sector.sector} value={sector.sector}>{sector.sector}</option>)}
+              </select>
+            </label>
+            <div className="msi-command-meta"><span>Metric: {sectorPack?.valuation?.primary_metric_label || 'Primary valuation'}</span><span>Period: 10Y</span><span>As of {overview.valuation_date || '—'}</span></div>
+          </div>
+        ) : null}
       </header>
 
       <main className="msi-body">
@@ -288,6 +313,17 @@ export default function MarketSectorIntelligence() {
                 {pack.summary ? <p>{pack.summary}</p> : null}
               </div>
             </Section>
+
+            {editorialNote ? (
+              <section className="msi-editorial-note">
+                <div className="msi-editorial-topline"><span>AGI Research Note</span><time>{new Date(editorialNote.published_at || editorialNote.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</time></div>
+                <h2>{editorialNote.title}</h2>
+                {editorialNote.meta_description ? <p className="msi-editorial-subtitle">{editorialNote.meta_description}</p> : null}
+                {editorialNote.excerpt ? <p className="msi-editorial-summary">{editorialNote.excerpt}</p> : null}
+                {noteThemes(editorialNote.tags).length ? <div className="msi-editorial-themes"><span>Key themes</span><ul>{noteThemes(editorialNote.tags).map((theme) => <li key={theme}>{theme}</li>)}</ul></div> : null}
+                <div className="msi-editorial-footer"><span>{noteAuthor(editorialNote.tags)}</span><Link to={`/article/${editorialNote.slug}`}>Read full note →</Link></div>
+              </section>
+            ) : null}
 
             <Section
               title="Sector valuation map"
@@ -329,8 +365,9 @@ export default function MarketSectorIntelligence() {
 
             {selectedSector && sectorPack?.ok ? (
               <>
-                <Section title={`${selectedSector} — sector snapshot`} subtitle={sectorPack.agi_sector_intelligence}>
-                  <div className="msi-sector-hero">
+                <Section title={`${selectedSector} — sector workspace`} subtitle={sectorPack.agi_sector_intelligence}>
+                  <div className="msi-sector-workspace">
+                  <div className="msi-sector-hero msi-sector-snapshot">
                     <div className="msi-sector-title"><span>AGI Sector View</span><h2>{selectedSector}</h2><CoverageBadge snapshot={selectedResearch.snapshot} /></div>
                     <div className="msi-grid sm">
                       <Stat label="Valuation regime" value={selectedResearch.view?.valuation || '—'} />
@@ -340,6 +377,21 @@ export default function MarketSectorIntelligence() {
                       <Stat label="Companies" value={fmt(selectedResearch.snapshot?.companies || sectorPack.companies, 0)} />
                       <Stat label="Historical coverage" value={selectedResearch.snapshot?.coverage_pct != null ? `${fmt(selectedResearch.snapshot.coverage_pct, 0)}%` : '—'} hint={`${selectedResearch.snapshot?.historical_years || 0} verified years`} />
                     </div>
+                  </div>
+                  <div className="msi-workspace-chart">
+                    <span className="msi-workspace-label">10Y valuation context</span>
+                    <h3>{sectorPack.valuation?.primary_metric_label || 'Primary valuation'} — current vs historical range</h3>
+                    <Sparkline points={selectedResearch.valuation_history?.points} current={selectedResearch.valuation_history?.current} />
+                    <div className="msi-band-grid">
+                      {Object.entries(selectedResearch.valuation_history?.bands || {}).slice(0, 5).map(([label, value]) => <Stat key={label} label={label} value={fmt(value)} />)}
+                    </div>
+                  </div>
+                  <aside className="msi-sector-view">
+                    <span className="msi-workspace-label">AGI sector view</span>
+                    <Stat label="Valuation" value={selectedResearch.view?.valuation || '—'} />
+                    {(selectedResearch.fundamentals || []).slice(0, 4).map((item) => <Stat key={item.key} label={item.label} value={item.interpretation || '—'} hint={item.current != null ? `Current ${fmt(item.current)}` : undefined} />)}
+                    <Stat label="Data quality" value={selectedResearch.snapshot?.confidence || '—'} hint={`${selectedResearch.snapshot?.historical_years || 0} verified years`} />
+                  </aside>
                   </div>
                 </Section>
 
