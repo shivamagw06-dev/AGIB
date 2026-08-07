@@ -180,7 +180,7 @@ def test_scan_sources_are_warehouse(warehouse_universe):
     assert out["universe_meta"]["source"] == "warehouse+market_intelligence"
 
 
-def test_alpha_and_technical_screens_expose_evidence(warehouse_universe):
+def test_alpha_uses_fundamentals_and_technical_screen_is_paused(warehouse_universe):
     from hedge_fund_lab.scanner import scan
 
     alpha = scan("alpha", limit=5)
@@ -190,10 +190,9 @@ def test_alpha_and_technical_screens_expose_evidence(warehouse_universe):
     assert alpha["count"] == 1
     assert alpha["results"][0]["ticker"] == "AAA"
     assert alpha["results"][0]["factor_agreement"] >= 3
-    assert "technical" in alpha["results"][0]["factor_scores"]
-    assert technical["ok"] is True
-    assert technical["count"] == 1
-    assert technical["results"][0]["momentum_12_1_pct"] == pytest.approx(18.5)
+    assert set(alpha["results"][0]["factor_scores"]) == {"value", "quality", "growth", "consensus"}
+    assert technical["ok"] is False
+    assert technical["error"] == "technical_research_paused"
 
 
 def test_health_reports_live_feed(warehouse_universe):

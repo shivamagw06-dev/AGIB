@@ -794,9 +794,8 @@ def _scan_alpha(universe, medians, limit) -> list[dict[str, Any]]:
     out = []
     weights = {
         "value": 0.30,
-        "quality": 0.25,
-        "growth": 0.15,
-        "technical": 0.15,
+        "quality": 0.30,
+        "growth": 0.25,
         "consensus": 0.15,
     }
     for row in universe:
@@ -805,7 +804,6 @@ def _scan_alpha(universe, medians, limit) -> list[dict[str, Any]]:
             "value": _num(factors.get("value_score")),
             "quality": _num(factors.get("quality_score")),
             "growth": _num(factors.get("growth_score")),
-            "technical": _num(factors.get("technical_score")) or _num(factors.get("momentum_score")),
             "consensus": _num(factors.get("consensus_score")),
         }
         available = {name: value for name, value in components.items() if value is not None}
@@ -837,7 +835,7 @@ def _scan_alpha(universe, medians, limit) -> list[dict[str, Any]]:
                     f"{agreement} of {len(available)} available factors are supportive: {evidence}. "
                     f"Composite research score {composite}."
                     + (f" Risk flags: {', '.join(risks)}." if risks else "")
-                    + " Validate the next catalyst, estimate changes and technical liquidity before acting."
+                    + " Validate the next catalyst, estimate changes and downside before acting."
                 ),
             }
         )
@@ -849,8 +847,6 @@ _SCANNERS = {
     "alpha": ("Alpha opportunity", _scan_alpha),
     "value": ("Value", _scan_value),
     "quality": ("Quality", _scan_quality),
-    "technical": ("Technical confirmation", _scan_technical),
-    "momentum": ("Momentum", _scan_momentum),
     "conviction": ("Consensus conviction", _scan_conviction),
     "stress": ("Distressed / stress", _scan_stress),
     "pairs": ("Market-neutral pairs", _scan_pairs),
@@ -859,6 +855,13 @@ _SCANNERS = {
 
 def scan(strategy: str, *, limit: int = 15, sector: Optional[str] = None) -> dict[str, Any]:
     key = str(strategy or "").strip().lower()
+    if key in {"technical", "momentum"}:
+        return {
+            "ok": False,
+            "error": "technical_research_paused",
+            "message": "Technical and momentum scans are paused. Alpha currently uses fundamentals and earnings consensus only.",
+            "available": sorted(_SCANNERS),
+        }
     if key not in _SCANNERS:
         return {"ok": False, "error": "unknown_scan", "available": sorted(_SCANNERS)}
 
