@@ -176,6 +176,8 @@ def load_universe(*, limit: int = 5000) -> dict[str, Any]:
         row = {
             "symbol": sym,
             "company_name": master.get("company_name") or sym,
+            "instrument_key": master.get("instrument_key"),
+            "isin": master.get("isin"),
             "sector": master.get("sector"),
             "industry": master.get("industry"),
             "industry_dna": industry_dna,
