@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, ArrowLeft, Database, RefreshCw, TrendingUp } from 'lucide-react';
 import { getMiDashboard, getMiSector } from '@/lib/intelligenceApi';
+import { getFeaturedMarketResearchNote, noteAuthor, noteThemes } from '@/lib/marketResearchNote';
 import useMarketIntelligence from '@/hooks/useMarketIntelligence';
 import useMarketSnapshot from '@/hooks/useMarketSnapshot';
 import './marketSectorIntelligence.css';
@@ -170,6 +171,7 @@ export default function MarketSectorIntelligence() {
   const [selectedSector, setSelectedSector] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [editorialNote, setEditorialNote] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -187,6 +189,10 @@ export default function MarketSectorIntelligence() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    getFeaturedMarketResearchNote().then(setEditorialNote).catch(() => setEditorialNote(null));
+  }, []);
 
   useEffect(() => {
     document.body.classList.add('agi-terminal-route');
@@ -288,6 +294,17 @@ export default function MarketSectorIntelligence() {
                 {pack.summary ? <p>{pack.summary}</p> : null}
               </div>
             </Section>
+
+            {editorialNote ? (
+              <section className="msi-editorial-note">
+                <div className="msi-editorial-topline"><span>AGI Research Note</span><time>{new Date(editorialNote.published_at || editorialNote.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</time></div>
+                <h2>{editorialNote.title}</h2>
+                {editorialNote.meta_description ? <p className="msi-editorial-subtitle">{editorialNote.meta_description}</p> : null}
+                {editorialNote.excerpt ? <p className="msi-editorial-summary">{editorialNote.excerpt}</p> : null}
+                {noteThemes(editorialNote.tags).length ? <div className="msi-editorial-themes"><span>Key themes</span><ul>{noteThemes(editorialNote.tags).map((theme) => <li key={theme}>{theme}</li>)}</ul></div> : null}
+                <div className="msi-editorial-footer"><span>{noteAuthor(editorialNote.tags)}</span><Link to={`/article/${editorialNote.slug}`}>Read full note →</Link></div>
+              </section>
+            ) : null}
 
             <Section
               title="Sector valuation map"
