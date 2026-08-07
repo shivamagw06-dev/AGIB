@@ -443,6 +443,90 @@ FINANCIALS_QUARTERLY = Tab(
 )
 
 # --------------------------------------------------------------------------
+# CapIQ import controls — evidence and mapping before financial writes
+# --------------------------------------------------------------------------
+
+COMPANY_IDENTITY_MAP = Tab(
+    id="company_identity_map",
+    label="Company Identity Map",
+    description="Verified source-to-AGI company identity matches used by controlled imports.",
+    mode="structured",
+    key=("source", "source_symbol"),
+    order_by=("source", "source_symbol"),
+    search_columns=("source", "source_symbol", "source_company_name", "symbol", "isin", "agi_company_id"),
+    icon="registry",
+    columns=(
+        *PROVENANCE_COLUMNS,
+        _c("source_symbol", "Source Symbol", TEXT, editable=False, required=True, width=140, group="Key"),
+        _c("source_company_id", "Source Company ID", TEXT, editable=False, width=150, group="Source"),
+        _c("source_company_name", "Source Company Name", TEXT, editable=False, width=240, group="Source"),
+        _c("agi_company_id", "AGI Company ID", TEXT, editable=False, width=140, group="AGI Identity"),
+        _c("symbol", "NSE Symbol", TEXT, editable=False, width=130, group="AGI Identity"),
+        _c("isin", "ISIN", TEXT, editable=False, width=140, group="AGI Identity"),
+        _c("company_type", "Company Type", TEXT, editable=False, width=130, group="Classification"),
+        _c("match_method", "Match Method", TEXT, editable=False, width=150, group="Verification"),
+        _c("match_confidence", "Match Confidence", NUMBER, editable=False, width=130, group="Verification"),
+        _c("verified", "Verified", BOOL, editable=False, width=100, group="Verification"),
+        _c("verified_at", "Verified At", DATETIME, editable=False, width=170, group="Verification"),
+    ),
+)
+
+CAPIQ_METRIC_MAPPING = Tab(
+    id="capiq_metric_mapping",
+    label="CapIQ Metric Mapping",
+    description="Versioned Capital IQ source-label to AGI metric dictionary.",
+    mode="structured",
+    key=("source", "source_label", "company_type", "statement_type", "mapping_version"),
+    order_by=("company_type", "source_label"),
+    search_columns=("source_label", "canonical_metric", "company_type", "statement_type"),
+    icon="mapping",
+    columns=(
+        *PROVENANCE_COLUMNS,
+        _c("source_label", "Source Label", TEXT, editable=False, required=True, width=230, group="Key"),
+        _c("company_type", "Company Type", TEXT, editable=False, required=True, width=130, group="Key"),
+        _c("statement_type", "Statement Type", TEXT, editable=False, required=True, width=150, group="Key"),
+        _c("canonical_metric", "AGI Metric", TEXT, editable=False, width=180, group="Mapping"),
+        _c("period_type", "Period Type", TEXT, editable=False, width=110, group="Mapping"),
+        _c("sign_multiplier", "Sign Multiplier", NUMBER, editable=False, width=130, group="Mapping"),
+        _c("mapping_version", "Mapping Version", TEXT, editable=False, required=True, width=150, group="Key"),
+        _c("active", "Active", BOOL, editable=False, width=90, group="Status"),
+    ),
+)
+
+FINANCIAL_IMPORT_AUDIT = Tab(
+    id="financial_import_audit",
+    label="Financial Import Audit",
+    description="Company-period validation evidence for controlled financial imports.",
+    mode="append",
+    key=("source", "source_file", "source_symbol", "fiscal_year", "mapping_version"),
+    order_by=("fiscal_year DESC", "source_symbol"),
+    search_columns=("source_symbol", "symbol", "fiscal_year", "write_status", "overall_status"),
+    icon="audit",
+    columns=(
+        *PROVENANCE_COLUMNS,
+        _c("source_file", "Source File", TEXT, editable=False, required=True, width=190, group="Key"),
+        _c("source_sheet", "Source Sheet", TEXT, editable=False, width=130, group="Source"),
+        _c("source_symbol", "Source Symbol", TEXT, editable=False, required=True, width=130, group="Key"),
+        _c("symbol", "NSE Symbol", TEXT, editable=False, width=130, group="Identity"),
+        _c("fiscal_year", "Fiscal Year", TEXT, editable=False, required=True, width=120, group="Key"),
+        _c("company_type", "Company Type", TEXT, editable=False, width=130, group="Identity"),
+        _c("identity_status", "Identity", TEXT, editable=False, width=120, group="Validation"),
+        _c("source_fields", "Source Fields", INTEGER, editable=False, width=120, group="Coverage"),
+        _c("mapped_fields", "Mapped Fields", INTEGER, editable=False, width=120, group="Coverage"),
+        _c("unmapped_fields", "Unmapped Fields", JSON, editable=False, width=250, group="Coverage"),
+        _c("required_fields", "Required Fields", JSON, editable=False, width=230, group="Validation"),
+        _c("required_fields_found", "Required Fields Found", INTEGER, editable=False, width=165, group="Validation"),
+        _c("unit_check", "Unit Check", TEXT, editable=False, width=110, group="Validation"),
+        _c("period_check", "Period Check", TEXT, editable=False, width=120, group="Validation"),
+        _c("reconciliation", "Reconciliation", TEXT, editable=False, width=130, group="Validation"),
+        _c("quality_score", "Quality Score", NUMBER, editable=False, width=120, group="Validation"),
+        _c("overall_status", "Overall Status", TEXT, editable=False, width=150, group="Status"),
+        _c("write_status", "Write Status", TEXT, editable=False, width=140, group="Status"),
+        _c("mapping_version", "Mapping Version", TEXT, editable=False, required=True, width=150, group="Key"),
+    ),
+)
+
+# --------------------------------------------------------------------------
 # Tab 5 — Historical Ratios (computed)
 # --------------------------------------------------------------------------
 
@@ -1639,6 +1723,9 @@ TABS: tuple[Tab, ...] = (
     DAILY_MARKET_HISTORY,
     FINANCIALS_ANNUAL,
     FINANCIALS_QUARTERLY,
+    COMPANY_IDENTITY_MAP,
+    CAPIQ_METRIC_MAPPING,
+    FINANCIAL_IMPORT_AUDIT,
     SHARE_COUNT_HISTORY,
     HISTORICAL_RATIOS,
     ANNUAL_SECTOR_RATIOS,
