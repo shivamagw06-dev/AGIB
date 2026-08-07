@@ -109,6 +109,32 @@ async def lifespan(_app: FastAPI):
         threading.Thread(target=_run_ikt_seed, name="ikt-capital-iq-seed", daemon=True).start()
     except Exception as exc:
         log.warning("ikt_capital_iq_seed_thread_failed", extra={"error": str(exc)[:160]})
+    # Seed the committed 10-year CapIQ sector-ratio workbook into the durable
+    # warehouse.  It is fingerprinted and idempotent: a matching deploy only
+    # performs a registry lookup, while a new workbook rebuilds the affected
+    # annual sector medians in the background without blocking HTTP startup.
+    try:
+        import threading
+
+        from financial_warehouse_completion.sector_ratio_workbook import seed_if_needed as seed_sector_history
+
+        def _run_sector_history_seed() -> None:
+            try:
+                result = seed_sector_history()
+                log.info(
+                    "historical_sector_baseline_seed",
+                    extra={
+                        "ok": result.get("ok"), "skipped": result.get("skipped"),
+                        "rows": result.get("rows"), "median_rows": result.get("median_rows"),
+                        "period_start": result.get("period_start"), "period_end": result.get("period_end"),
+                    },
+                )
+            except Exception as exc:  # pragma: no cover - defensive startup path
+                log.warning("historical_sector_baseline_seed_failed", extra={"error": str(exc)[:200]})
+
+        threading.Thread(target=_run_sector_history_seed, name="historical-sector-baseline", daemon=True).start()
+    except Exception as exc:
+        log.warning("historical_sector_baseline_seed_thread_failed", extra={"error": str(exc)[:160]})
     # Valuation Consensus — Broker Estimates seed (committed CapIQ export).
     try:
         import threading
