@@ -1,279 +1,183 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import PageShell from '@/components/Layout/PageShell';
 import AskAgiBar from '@/components/Home/AskAgiBar';
 import DeskResearchFeed from '@/components/Research/DeskResearchFeed';
-import { getMiePack } from '@/lib/intelligenceApi';
+import { getMieSnapshot } from '@/lib/intelligenceApi';
 
-const MODULE_SECTIONS = [
-  ['executive', 'Executive Summary'],
-  ['dashboard', 'Macro Dashboard'],
-  ['cycle', 'Economic Cycle'],
-  ['inflation', 'Inflation'],
-  ['rates', 'Interest Rates'],
-  ['liquidity', 'Liquidity'],
-  ['currency', 'Currency'],
-  ['commodities', 'Commodities'],
-  ['bonds', 'Bond Market'],
-  ['sector_impact', 'Sector Impact'],
-  ['industry_impact', 'Industry Impact'],
-  ['risks', 'Risks'],
-  ['forecast', 'Forecast'],
-  ['scenarios', 'Scenario Analysis'],
-  ['relationships', 'Relationships'],
+const NAV = [
+  ['overview', 'Overview'], ['rates', 'Rates'], ['fx', 'FX'], ['commodities', 'Commodities'],
+  ['macro', 'Macro'], ['risk', 'Liquidity & Risk'], ['india', 'India Impact'], ['research', 'Research'],
 ];
 
-function impactTone(impact) {
-  const v = String(impact || '').toLowerCase();
-  if (v === 'positive') return 'text-emerald-700 bg-emerald-50 border-emerald-200';
-  if (v === 'negative') return 'text-rose-700 bg-rose-50 border-rose-200';
-  return 'text-slate-600 bg-slate-50 border-slate-200';
+function label(value, fallback = 'Data unavailable') {
+  if (value === null || value === undefined || value === '') return fallback;
+  if (typeof value === 'object') return value.label || value.name || value.regime || fallback;
+  return String(value);
 }
 
-function ConfPill({ conf }) {
-  const level = conf?.confidence || conf || '—';
+function number(value, suffix = '') {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? `${parsed.toLocaleString('en-IN', { maximumFractionDigits: 2 })}${suffix}` : 'Data unavailable';
+}
+
+function statusTone(value) {
+  const raw = String(value || '').toLowerCase();
+  if (/(risk.off|tight|high|elevated|pressure|negative|down)/.test(raw)) return 'text-rose-300 border-rose-800 bg-rose-950/30';
+  if (/(risk.on|improving|loose|positive|up|pass)/.test(raw)) return 'text-emerald-300 border-emerald-800 bg-emerald-950/30';
+  return 'text-amber-200 border-amber-800 bg-amber-950/20';
+}
+
+function Section({ id, eyebrow, title, children, action }) {
   return (
-    <span className="inline-flex rounded-full border border-[#d5d8de] bg-[#f7f8fa] px-2.5 py-0.5 text-[11px] font-semibold text-[#333]">
-      {String(level)}
-    </span>
+    <section id={id} className="border border-slate-800 bg-[#0d131c] p-4 md:p-5">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-slate-800 pb-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-sky-300">{eyebrow}</p>
+          <h2 className="mt-1 text-base font-semibold text-slate-100 md:text-lg">{title}</h2>
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
   );
 }
 
-function asLabel(value, fallback = '—') {
-  if (value == null || value === '') return fallback;
-  if (typeof value === 'string' || typeof value === 'number') return String(value);
-  if (typeof value === 'object') {
-    return value.label || value.name || value.regime || value.cycle || fallback;
-  }
-  return fallback;
+function Empty({ children = 'Awaiting connected source' }) {
+  return <p className="py-3 text-sm text-slate-500">{children}</p>;
 }
 
-function MieSurface({ pack, loading, error }) {
-  const modules = pack?.modules || pack?.sections || {};
-  const quality = pack?.macro_quality || {};
-  const probs = pack?.probabilities || {};
-  const sectorImpact = modules.sector_impact?.impacts || [];
-  const cards = modules.dashboard?.cards || {};
-
-  const pulse = useMemo(() => ([
-    { label: 'Growth', value: cards.growth?.gdp ?? cards.growth?.pmi_mfg, hint: cards.growth?.direction },
-    { label: 'Inflation', value: cards.inflation?.cpi, hint: cards.inflation?.direction },
-    { label: 'Repo', value: cards.interest_rates?.repo, hint: null },
-    { label: 'USD/INR', value: cards.currency?.usdinr, hint: null },
-    { label: 'Brent', value: cards.commodities?.brent, hint: null },
-    { label: 'India 10Y', value: cards.interest_rates?.india_10y, hint: null },
-  ]), [cards]);
-
-  if (loading) {
-    return (
-      <section className="rounded-xl border border-[#e6e8ec] bg-white p-6 md:p-8">
-        <p className="text-sm text-[#666]">Loading Macro Intelligence Engine…</p>
-      </section>
-    );
-  }
-
-  if (error && !pack?.modules) {
-    return (
-      <section className="rounded-xl border border-[#e6e8ec] bg-white p-6 md:p-8">
-        <p className="text-sm text-[#666]">Macro pack unavailable — {error}</p>
-        <p className="mt-2 text-xs text-[#888]">
-          Runtime may still be bootstrapping. Open{' '}
-          <Link to="/admin/macro-runtime" className="font-semibold underline">Macro Runtime</Link>.
-        </p>
-      </section>
-    );
-  }
-
-  if (!pack) return null;
-
+function Findings({ section, limit = 5 }) {
+  const findings = section?.findings || [];
+  if (!findings.length) return <Empty />;
   return (
-    <div className="space-y-8">
-      <section className="rounded-xl border border-[#e6e8ec] bg-white p-6 md:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#3b6ea5]">
-              Macro Intelligence Engine · Phase 9.0
-            </p>
-            <h2 className="mt-2 font-serif text-3xl font-bold text-[#111]">
-              {pack.country || 'India'} macro environment
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#555]">
-              What is happening, why it matters, and how it should influence sector, industry,
-              and company research. No GDP point predictions. No BUY/SELL.
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-[11px] uppercase tracking-wide text-[#888]">Macro confidence</p>
-            <div className="mt-1 flex items-center justify-end gap-2">
-              <ConfPill conf={quality.macro_confidence} />
-              <span className="text-xs text-[#666]">coverage {quality.coverage_pct ?? '—'}%</span>
-            </div>
-            {probs.base != null ? (
-              <p className="mt-2 text-xs text-[#666]">
-                Bull / Base / Bear {probs.bull}/{probs.base}/{probs.bear}
-              </p>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div className="border border-[#eceef2] px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-[#888]">Regime</p>
-            <p className="mt-1 text-lg font-semibold text-[#111]">{asLabel(pack.regime)}</p>
-          </div>
-          <div className="border border-[#eceef2] px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-[#888]">Cycle</p>
-            <p className="mt-1 text-lg font-semibold text-[#111]">{asLabel(pack.cycle)}</p>
-          </div>
-          <div className="border border-[#eceef2] px-4 py-3 md:col-span-2">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-[#888]">Executive read</p>
-            <p className="mt-1 text-sm leading-relaxed text-[#333]">
-              {pack.executive_summary || modules.executive?.summary || '—'}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {pulse.map((item) => (
-            <div key={item.label} className="border border-[#eceef2] px-3 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-[#888]">{item.label}</p>
-              <p className="mt-1 text-base font-semibold text-[#111]">
-                {item.value == null || item.value === '' ? '—' : item.value}
-              </p>
-              {item.hint ? <p className="mt-0.5 text-[11px] text-[#777]">{item.hint}</p> : null}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {sectorImpact.length > 0 ? (
-        <section className="rounded-xl border border-[#e6e8ec] bg-white p-6 md:p-8">
-          <h3 className="font-serif text-xl font-bold text-[#111]">Sector impact</h3>
-          <p className="mt-1 text-sm text-[#666]">
-            Deterministic transmission from rates, inflation, oil, FX, growth and liquidity.
-          </p>
-          <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {sectorImpact.map((row) => (
-              <div key={row.sector} className="flex items-center justify-between border border-[#eceef2] px-3 py-2.5">
-                <div>
-                  <p className="text-sm font-semibold text-[#111]">{row.sector}</p>
-                  <p className="text-[11px] text-[#777]">
-                    {(row.evidence || []).slice(0, 2).join(' · ') || 'neutral drivers'}
-                  </p>
-                </div>
-                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${impactTone(row.impact)}`}>
-                  {row.impact}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="space-y-4">
-        {MODULE_SECTIONS.map(([key, label]) => {
-          const sec = modules[key];
-          if (!sec || key === 'executive' || key === 'dashboard') return null;
-          const findings = sec.findings || [];
-          if (!findings.length) return null;
-          return (
-            <article key={key} id={`mie-${key}`} className="rounded-xl border border-[#e6e8ec] bg-white p-5 md:p-6">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="font-serif text-lg font-bold text-[#111]">{label}</h3>
-                <ConfPill conf={sec.confidence} />
-              </div>
-              <ul className="mt-3 space-y-1.5">
-                {findings.slice(0, 6).map((f) => (
-                  <li key={f} className="text-sm leading-relaxed text-[#444]">• {f}</li>
-                ))}
-              </ul>
-              {sec.explainability ? (
-                <p className="mt-3 text-[11px] text-[#888]">
-                  Observed: {(sec.explainability.observed || []).slice(0, 3).join('; ') || '—'}
-                  {' · '}
-                  Inferred: {(sec.explainability.inferred || []).slice(0, 2).join('; ') || '—'}
-                </p>
-              ) : null}
-            </article>
-          );
-        })}
-      </section>
-    </div>
+    <ul className="space-y-2 text-sm leading-relaxed text-slate-300">
+      {findings.slice(0, limit).map((item, index) => <li key={`${index}-${item}`}>• {item}</li>)}
+    </ul>
   );
+}
+
+function ObservedGrid({ cards }) {
+  const rows = [
+    ['India GDP growth', cards.growth?.gdp, '%'], ['CPI', cards.inflation?.cpi, '%'],
+    ['RBI policy rate', cards.interest_rates?.repo, '%'], ['India 10Y', cards.interest_rates?.india_10y, '%'],
+    ['USD/INR', cards.currency?.usdinr, ''], ['Brent', cards.commodities?.brent, ''],
+  ];
+  return <div className="grid grid-cols-2 gap-px overflow-hidden border border-slate-800 bg-slate-800 md:grid-cols-3 lg:grid-cols-6">
+    {rows.map(([name, value, suffix]) => <div key={name} className="min-h-[76px] bg-[#101720] p-3">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{name}</p>
+      <p className="mt-2 text-sm font-semibold text-slate-100">{number(value, suffix)}</p>
+      <p className="mt-1 text-[10px] text-slate-500">Observed · warehouse snapshot</p>
+    </div>)}
+  </div>;
 }
 
 export default function GlobalMarketsPage() {
-  const [pack, setPack] = useState(null);
+  const [snapshot, setSnapshot] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    getMiePack({ country: 'India' })
-      .then((data) => {
-        if (cancelled) return;
-        setPack(data);
-        setError(data?.ok === false ? data.error || data.status || 'macro unavailable' : null);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.message || 'macro failed');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    getMieSnapshot('Global')
+      .then((payload) => { if (!cancelled) setSnapshot(payload); })
+      .catch(() => { if (!cancelled) setSnapshot({ ok: false, status: 'SNAPSHOT_UNAVAILABLE' }); })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
 
+  const pack = snapshot?.pack || null;
+  const modules = pack?.modules || {};
+  const cards = modules.dashboard?.cards || {};
+  const regime = useMemo(() => [
+    ['Risk appetite', modules.risks?.state || pack?.regime],
+    ['Growth', modules.cycle?.cycle || pack?.cycle],
+    ['Inflation', modules.inflation?.state || cards.inflation?.direction],
+    ['Monetary policy', modules.rates?.state || cards.interest_rates?.direction],
+    ['Liquidity', modules.liquidity?.state || cards.liquidity?.direction],
+    ['USD / INR', modules.currency?.state || cards.currency?.direction],
+  ], [pack, modules, cards]);
+  const servedIndiaFallback = snapshot?.fallback;
+
   return (
-    <PageShell
-      title="Global Markets"
-      eyebrow="AGI Research · Macro Intelligence"
-      description="Institutional macro environment — regime, transmission, sector impact and scenario context for global and India research."
-      metaTitle="Global Markets | Agarwal Global Investments"
-      wide
-    >
-      <div className="space-y-10">
-        <div className="rounded-xl border border-[#e6e8ec] bg-white p-6 md:p-8">
-          <h2 className="font-serif text-2xl font-bold text-[#111111]">Ask the global markets desk</h2>
-          <p className="mt-2 text-sm text-[#555555]">
-            Connect overnight global moves to Indian equities, FX and macro conditions.
-          </p>
-          <div className="mt-5">
-            <AskAgiBar
-              placeholder="What is AGIB's current macro regime? Which sectors benefit from falling inflation?"
-              size="large"
-              buttonLabel="Ask AGI"
-              ariaLabel="Ask AGI about global markets"
-            />
-          </div>
-        </div>
-
-        <MieSurface pack={pack} loading={loading} error={error} />
-
-        <DeskResearchFeed deskId="global-markets" title="Global Markets Research" />
-
-        <div className="flex flex-wrap gap-3">
-          <Link
-            to="/macro-intelligence"
-            className="rounded-md bg-[#0b1f33] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#163353]"
-          >
-            Full Macro Workstation
-          </Link>
-          <Link
-            to="/pre-market"
-            className="rounded-md border border-[#d5d8de] px-5 py-2.5 text-sm font-bold text-[#111111] hover:border-[#111111]"
-          >
-            Pre-Market Brief
-          </Link>
-          <Link
-            to="/admin/macro-runtime"
-            className="rounded-md border border-[#d5d8de] px-5 py-2.5 text-sm font-bold text-[#111111] hover:border-[#111111]"
-          >
-            Macro Runtime
-          </Link>
+    <main className="min-h-screen bg-[#070b10] pb-14 text-slate-100">
+      <div className="border-b border-slate-800 bg-[#0a1017]">
+        <div className="mx-auto flex max-w-[1600px] items-center gap-3 overflow-x-auto px-4 py-2 text-[11px] md:px-6">
+          <span className="shrink-0 font-bold tracking-[0.18em] text-sky-300">AGI GLOBAL MARKETS</span>
+          <span className="shrink-0 text-slate-500">Global Macro · Rates · FX · Commodities · Liquidity · Risk</span>
+          <span className={`ml-auto shrink-0 border px-2 py-1 text-[10px] font-bold ${snapshot?.ok ? 'border-emerald-900 text-emerald-300' : 'border-amber-900 text-amber-200'}`}>
+            {loading ? 'LOADING SNAPSHOT' : snapshot?.ok ? `CACHED${servedIndiaFallback ? ' · INDIA READ-THROUGH' : ''}` : label(snapshot?.status, 'AWAITING SNAPSHOT')}
+          </span>
         </div>
       </div>
-    </PageShell>
+
+      <div className="mx-auto max-w-[1600px] px-4 md:px-6">
+        <header className="border-b border-slate-800 py-7 md:py-8">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sky-300">Global macro & cross-asset intelligence terminal</p>
+          <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">Global Markets</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-400">Data → context → signal → interpretation → India impact. Major indices and macro only; no company recommendations.</p>
+            </div>
+            <p className="text-xs text-slate-500">Snapshot published: {snapshot?.published_at || pack?.generated_at || 'Awaiting background refresh'}</p>
+          </div>
+        </header>
+
+        <nav className="sticky top-0 z-10 -mx-4 overflow-x-auto border-b border-slate-800 bg-[#070b10]/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
+          <div className="flex min-w-max gap-2">{NAV.map(([id, title]) => <a key={id} href={`#${id}`} className="border border-slate-800 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-300 hover:border-sky-600 hover:text-sky-200">{title}</a>)}</div>
+        </nav>
+
+        {!snapshot?.ok && !loading ? <div className="mt-5 border border-amber-900 bg-amber-950/20 p-4 text-sm text-amber-100"><b>Snapshot unavailable.</b> The page did not start a calculation. It will show the next background-published macro snapshot automatically.</div> : null}
+
+        <div className="space-y-5 py-5">
+          <Section id="overview" eyebrow="Observed data" title="Market state">
+            <ObservedGrid cards={cards} />
+            <p className="mt-3 text-xs text-slate-500">Observed values are sourced from the existing AGI warehouse snapshot. Global instruments display only after their authorised source is connected and stored.</p>
+          </Section>
+
+          <div className="grid gap-5 xl:grid-cols-[1.65fr_1fr]">
+            <Section eyebrow="AGI interpretation" title="AGI Global Market View">
+              <p className="max-w-4xl text-sm leading-7 text-slate-300">{pack?.executive_summary || modules.executive?.summary || 'Awaiting a published macro interpretation from the background runtime.'}</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="border-l-2 border-sky-400 bg-slate-950/40 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-sky-300">What is driving markets</p><Findings section={modules.attribution || modules.executive} limit={3} /></div>
+                <div className="border-l-2 border-amber-400 bg-slate-950/40 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-amber-200">What AGI is watching</p><Findings section={modules.risks} limit={3} /></div>
+              </div>
+            </Section>
+            <Section eyebrow="AGI derived" title="Global regime engine">
+              <div className="space-y-2">{regime.map(([name, value]) => <div key={name} className="flex items-center justify-between gap-3 border-b border-slate-800 pb-2 text-sm"><span className="text-slate-400">{name}</span><span className={`border px-2 py-0.5 text-xs font-semibold ${statusTone(label(value, 'Neutral'))}`}>{label(value, 'Awaiting source')}</span></div>)}</div>
+              <p className="mt-3 text-[11px] leading-relaxed text-slate-500">Deterministic classifications are published by the macro runtime; AGI narrative explains rather than invents the state.</p>
+            </Section>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            <Section id="rates" eyebrow="Observed + derived" title="Rates & central banks"><Findings section={modules.rates} /><p className="mt-3 text-[11px] text-slate-500">Market-implied policy pricing is intentionally hidden until an authorised futures/OIS source is stored.</p></Section>
+            <Section id="fx" eyebrow="Observed + derived" title="FX & USD/INR"><Findings section={modules.currency} /><p className="mt-3 text-[11px] text-slate-500">USD/INR is shown as an India read-through, not a currency trading signal.</p></Section>
+            <Section id="commodities" eyebrow="Observed + India read-through" title="Commodities"><Findings section={modules.commodities} /><p className="mt-3 text-[11px] text-slate-500">Oil, gold and industrial commodities are interpreted only where the snapshot carries evidence.</p></Section>
+            <Section id="macro" eyebrow="Observed + derived" title="Global macro momentum"><div className="grid grid-cols-1 gap-3 sm:grid-cols-3"><MiniState name="Growth" section={modules.economy} /><MiniState name="Inflation" section={modules.inflation} /><MiniState name="Cycle" section={modules.cycle} /></div></Section>
+          </div>
+
+          <div className="grid gap-5 xl:grid-cols-2">
+            <Section id="risk" eyebrow="AGI derived" title="Liquidity, financial conditions & risk"><Findings section={modules.liquidity} /><div className="mt-4 border-t border-slate-800 pt-4"><Findings section={modules.risks} limit={3} /></div></Section>
+            <Section eyebrow="AGI derived" title="Cross-asset signals"><Findings section={modules.relationships} /><p className="mt-3 text-[11px] text-slate-500">A relationship is shown only when calculations have been published from a sufficient, comparable history.</p></Section>
+          </div>
+
+          <Section id="india" eyebrow="AGI flagship · probabilistic transmission" title="Global → India">
+            <p className="mb-4 text-sm text-slate-400">Global factors are translated into potential effects on inflation, INR, flows and sector conditions. These are conditional relationships, not recommendations.</p>
+            {modules.sector_impact?.impacts?.length ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{modules.sector_impact.impacts.map((row) => <div key={row.sector} className="border border-slate-800 bg-slate-950/30 p-3"><div className="flex items-center justify-between gap-3"><b className="text-sm text-slate-200">{row.sector}</b><span className={`border px-2 py-0.5 text-[10px] font-bold ${statusTone(row.impact)}`}>{label(row.impact)}</span></div><p className="mt-2 text-xs leading-relaxed text-slate-500">{(row.evidence || []).slice(0, 2).join(' · ') || 'Transmission evidence awaiting publication.'}</p></div>)}</div> : <Empty>India transmission snapshot is awaiting publication.</Empty>}
+          </Section>
+
+          <div className="grid gap-5 xl:grid-cols-[1.3fr_1fr]">
+            <Section id="research" eyebrow="AGI editorial research" title="Global research"><DeskResearchFeed deskId="global-markets" title="Latest global research" /></Section>
+            <Section id="calendar" eyebrow="Upcoming macro events" title="Economic calendar"><Empty>Event calendar will appear when an authorised calendar source is connected to the global warehouse.</Empty><p className="text-xs text-slate-500">No calendar dates or consensus values are inferred by AGI.</p></Section>
+          </div>
+
+          <Section eyebrow="Ask AGI" title="Ask AGI about global markets" action={<Link to="/ask-agi" className="text-xs font-semibold text-sky-300 hover:text-sky-200">Open full research desk →</Link>}>
+            <AskAgiBar placeholder="Why are yields moving, what does Brent mean for India, and what should I watch next?" size="large" buttonLabel="Ask AGI" ariaLabel="Ask AGI about global markets" />
+          </Section>
+        </div>
+      </div>
+    </main>
   );
+}
+
+function MiniState({ name, section }) {
+  return <div className="border border-slate-800 bg-slate-950/30 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{name}</p><p className="mt-2 text-sm font-semibold text-slate-200">{label(section?.state || section?.summary || section?.cycle, 'Awaiting source')}</p><p className="mt-2 text-[11px] text-slate-500">AGI derived · {label(section?.confidence?.level || section?.confidence, 'confidence pending')}</p></div>;
 }
