@@ -165,7 +165,10 @@ SCANS: dict[str, tuple[str, Callable]] = {
     "dividend": ("Dividend / income", _scan_dividend),
 }
 
-_ORDER = ["alpha", "value", "quality", "growth", "technical", "momentum", "conviction", "dividend", "stress", "pairs"]
+# Technical factors are built in the background from the warehouse.  They feed
+# the Alpha composite and are retained on each company record, but we do not
+# run or expose a standalone technical scan on every Hedge Fund page load.
+_ORDER = ["alpha", "value", "quality", "growth", "momentum", "conviction", "dividend", "stress", "pairs"]
 
 _SCAN_PROFILE: dict[str, dict[str, str]] = {
     "alpha": {

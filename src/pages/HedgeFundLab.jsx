@@ -337,11 +337,6 @@ export function HedgeFundLabSections() {
             <strong>Alpha Opportunities</strong>
             <small>Multi-factor research queue</small>
           </Link>
-          <Link to="/hedge-fund/technical-analysis">
-            <span>AGI Technical</span>
-            <strong>Technical Analysis</strong>
-            <small>Trend, momentum &amp; volume confirmation</small>
-          </Link>
         </div>
         <InlineAsk />
       </header>

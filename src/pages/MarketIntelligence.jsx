@@ -145,14 +145,6 @@ export default function MarketIntelligence() {
                   Alpha Opportunities
                   <ArrowRight className="h-4 w-4" />
                 </Link>
-                <Link
-                  to="/hedge-fund/technical-analysis"
-                  className="inline-flex items-center justify-center gap-2 border border-[#7ea2cf] bg-[#edf3fb] px-4 py-2.5 text-sm font-bold text-[#163f70] transition hover:bg-[#ddebf9]"
-                >
-                  <LineChart className="h-4 w-4" />
-                  Technical Analysis
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
                 <div className="flex items-start gap-2 text-xs leading-relaxed text-[#c6d4e7]">
                   <Clock3 className="h-4 w-4 shrink-0" />
                   {updatedAt ? `Updated ${new Date(updatedAt).toLocaleString('en-IN')}` : 'Awaiting model refresh'}
