@@ -7,6 +7,7 @@ from typing import Any, Optional
 from macro_intelligence_engine.composer import build_macro_pack, build_module
 from macro_intelligence_engine.models import DEFAULT_COUNTRY, ENGINE_CODE, ENGINE_LABEL, MODULES, VERSION
 from macro_intelligence_engine import runtime as mie_runtime
+from macro_intelligence_engine.snapshot import read as read_snapshot
 
 
 def health() -> dict[str, Any]:
@@ -103,6 +104,11 @@ def dashboard(country: str = DEFAULT_COUNTRY) -> dict[str, Any]:
 
 def pack(country: str = DEFAULT_COUNTRY, *, symbol: Optional[str] = None) -> dict[str, Any]:
     return _safe_call(build_macro_pack, country, symbol=symbol)
+
+
+def snapshot(country: str = "Global") -> dict[str, Any]:
+    """Fast, persisted Global Markets payload. Never composes on a web request."""
+    return read_snapshot(country)
 
 
 def module(name: str, *, country: str = DEFAULT_COUNTRY, symbol: Optional[str] = None) -> dict[str, Any]:
