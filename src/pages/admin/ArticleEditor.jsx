@@ -16,6 +16,7 @@ import TableHeader from '@tiptap/extension-table-header';
 import { Eye, Save, Send, ImageIcon, Loader2, Brain } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
+import useCategories from '@/hooks/useCategories';
 import EditorToolbar from '@/components/editor/EditorToolbar';
 import ArticlePreview from '@/components/editor/ArticlePreview';
 import { CustomImage } from '@/extensions/CustomImage';
